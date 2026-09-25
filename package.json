@@ -1,0 +1,46 @@
+{
+  "name": "yks_tracker",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "test:db": "tsx --test supabase/tests/*.test.ts",
+    "test:all": "tsx --test tests/*.test.ts supabase/tests/*.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server": "2.1.0",
+    "@napi-rs/canvas": "1.0.9",
+    "@supabase/server": "1.8.0",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.117.0",
+    "lucide-react": "1.47.0",
+    "next": "16.3.6",
+    "pdfjs-dist": "6.3.289",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@playwright/test": "1.63.0",
+    "@tailwindcss/postcss": "4.3.3",
+    "@types/node": "20.19.43",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.3.6",
+    "tailwindcss": "4.3.3",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3"
+  },
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24 <25"
+  }
+}

@@ -1,0 +1,21 @@
+.page{min-height:100vh;display:grid;place-items:center;padding:32px 16px;background:radial-gradient(circle at 50% -15%,color-mix(in srgb,var(--primary) 15%,transparent),transparent 58%),var(--background)}
+.card{width:min(100%,510px);padding:clamp(25px,5vw,43px);background:var(--surface);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow)}
+.brand{display:flex;align-items:center;gap:9px;font-size:20px;font-weight:700;letter-spacing:-.7px;margin-bottom:36px}
+.brandMark{display:grid;place-items:center;width:28px;height:30px;border-radius:8px 8px 8px 2px;background:var(--primary);color:var(--on-primary);font:italic 700 25px Georgia;padding-bottom:5px}
+.icon{display:grid;place-items:center;width:48px;height:48px;border-radius:15px;background:color-mix(in srgb,var(--primary) 12%,var(--surface));color:var(--primary);margin-bottom:20px}
+.eyebrow{font-size:10px;font-weight:700;letter-spacing:1.5px;color:var(--primary);margin-bottom:8px}
+.card h1{font-size:clamp(23px,4vw,30px);line-height:1.2;letter-spacing:-.7px;margin:0 0 10px}
+.description{color:var(--muted);font-size:13px;line-height:1.65;margin:0 0 25px}
+.client{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);background:var(--surface-raised);border-radius:12px;margin-bottom:25px;min-width:0}
+.clientAvatar{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:10px;background:var(--primary);color:var(--on-primary);font-size:17px;font-weight:700}
+.client>div{min-width:0}.client strong,.client span:last-child{display:block}.client strong{font-size:13px}.client div span{font-size:11px;color:var(--muted);overflow-wrap:anywhere;margin-top:2px}
+.section{padding:0 0 18px;border-bottom:1px solid var(--border)}
+.label{font-size:10px;font-weight:700;letter-spacing:1px;color:var(--muted)}
+.scopes{display:flex;flex-wrap:wrap;gap:7px;list-style:none;padding:0;margin:12px 0}.scopes li{display:flex;align-items:center;gap:5px;padding:7px 9px;background:var(--surface-raised);border:1px solid var(--border);border-radius:7px;font-size:11px}.scopes svg{color:var(--primary)}
+.note{color:var(--muted);font-size:11px;line-height:1.55;margin:0}
+.owner{display:flex;align-items:flex-start;gap:9px;padding:16px 0;color:var(--muted);font-size:11px}.owner svg{color:var(--primary);flex:none}.owner strong{color:var(--foreground);overflow-wrap:anywhere}
+.actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.primary,.secondary{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:43px;border-radius:9px;font-size:12px;font-weight:700;padding:10px 14px;text-decoration:none}.primary{background:var(--primary);color:var(--on-primary);border:1px solid var(--primary)}.primary:hover{background:var(--primary-strong)}.secondary{background:var(--surface);color:var(--foreground);border:1px solid var(--border)}.secondary:hover{background:var(--surface-raised)}
+.footer{color:var(--muted);font-size:10px;margin:16px 0 0;line-height:1.5;overflow-wrap:anywhere}.footer strong{font-weight:500;color:var(--foreground)}
+.loginForm{display:grid;gap:14px}.loginForm label{display:grid;gap:5px;color:var(--muted);font-size:11px}.loginForm input{width:100%;min-height:43px}.loginForm button{width:100%;margin-top:5px}.error{color:var(--danger,var(--primary));font-size:12px}
+@media(max-width:420px){.actions{grid-template-columns:1fr}.card{padding:24px}.brand{margin-bottom:28px}}

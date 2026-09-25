@@ -1,0 +1,65 @@
+.pdf-import { display: grid; gap: 15px; max-height: min(78vh,820px); overflow-y: auto; padding-right: 3px; }
+.pdf-import-drop { display: flex; align-items: center; gap: 12px; padding: 15px; border: 1px dashed var(--border); border-radius: 11px; background: var(--surface); }
+.pdf-import-drop > svg { flex-shrink: 0; color: var(--primary); }
+.pdf-import-drop > div { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.pdf-import-drop strong { color: var(--foreground); font-size: 11px; }
+.pdf-import-drop span { color: var(--muted); font-size: 9px; }
+.pdf-import-drop .button { flex-shrink: 0; font-size: 10px; }
+.pdf-import-alert { display: flex; gap: 8px; align-items: center; padding: 10px; border: 1px solid var(--border); border-radius: 8px; color: var(--foreground); background: var(--surface); font-size: 10px; }
+.pdf-import-drafts { display: grid; gap: 7px; }
+.pdf-import-drafts > strong,.pdf-import-candidates > strong { color: var(--foreground); font-size: 11px; }
+.pdf-import-drafts > div { display: flex; gap: 7px; overflow-x: auto; }
+.pdf-import-drafts button { display: flex; gap: 7px; align-items: center; min-width: 150px; max-width: 220px; padding: 9px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--foreground); text-align: left; }
+.pdf-import-drafts button.selected { border-color: var(--primary); }
+.pdf-import-drafts button svg { flex-shrink: 0; color: var(--primary); }
+.pdf-import-drafts button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+.pdf-import-drafts button small { display: block; color: var(--muted); font-size: 8px; }
+.pdf-import-review { display: grid; gap: 16px; }
+.pdf-import-source { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 11px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
+.pdf-import-source > div { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.pdf-import-source > div > svg { flex-shrink: 0; color: var(--primary); }
+.pdf-import-source span { display: grid; gap: 2px; min-width: 0; }
+.pdf-import-source strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--foreground); font-size: 10px; }
+.pdf-import-source small { color: var(--muted); font-size: 8px; }
+.pdf-import-source a { display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--primary); font-size: 9px; }
+.pdf-import-candidates { display: grid; gap: 8px; }
+.pdf-import-candidates > div { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 8px; max-height: 280px; overflow-y: auto; padding: 2px; }
+.pdf-import-candidates > p { color: var(--muted); font-size: 10px; }
+.pdf-candidate-search { width: 100%; min-height: 36px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--foreground); padding: 8px 10px; }
+.pdf-import-candidates button { display: flex; justify-content: space-between; align-items: start; gap: 7px; min-height: 58px; padding: 10px; text-align: left; border: 1px solid var(--border); border-radius: 9px; color: var(--foreground); background: var(--surface); }
+.pdf-import-candidates button[aria-pressed=true] { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.pdf-import-candidates button span:first-child { display: grid; gap: 3px; font-size: 10px; }
+.pdf-import-candidates small { color: var(--muted); font-size: 8px; line-height: 1.4; }
+.pdf-committed { display: inline-flex; align-items: center; gap: 3px; color: var(--primary); font-size: 8px; white-space: nowrap; }
+.pdf-candidate-form { display: grid; gap: 15px; padding: 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.pdf-review-heading { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+.pdf-review-heading > div { display: grid; gap: 3px; }
+.pdf-review-heading strong { color: var(--foreground); font-size: 12px; }
+.pdf-review-heading span { color: var(--muted); font-size: 9px; }
+.pdf-review-heading > span { display: inline-flex; align-items: center; gap: 3px; color: var(--warning); white-space: nowrap; }
+.pdf-warnings { margin: 0; padding: 10px 10px 10px 26px; border: 1px solid var(--border); border-radius: 8px; color: var(--foreground); background: var(--surface-raised); font-size: 10px; line-height: 1.5; }
+.pdf-review-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
+.pdf-candidate-form label { display: grid; gap: 4px; min-width: 0; color: var(--foreground); font-size: 9px; }
+.pdf-candidate-form input,.pdf-candidate-form select,.pdf-candidate-form textarea { width: 100%; min-width: 0; }
+.pdf-result-list { display: grid; gap: 8px; }
+.pdf-result-list > div { display: grid; gap: 8px; padding: 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-raised); }
+.pdf-result-list > div.uncertain { border-color: var(--warning); }
+.pdf-result-head { display: flex; align-items: center; gap: 8px; }
+.pdf-result-head strong { color: var(--foreground); font-size: 10px; }
+.pdf-result-head span { color: var(--muted); font-size: 8px; }
+.pdf-result-head select { margin-left: auto; width: auto; max-width: 160px; font-size: 9px; }
+.pdf-result-inputs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 6px; }
+.pdf-net-field { max-width: 150px; }
+.pdf-result-list p { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.pdf-candidate-form .footnote { margin: 0; line-height: 1.5; }
+.pdf-duplicate-confirm { display: flex!important; flex-direction: row; align-items: start; gap: 7px; line-height: 1.4; }
+.pdf-duplicate-confirm input { width: auto; flex-shrink: 0; margin-top: 2px; }
+@media(max-width:560px) { .pdf-import-drop { flex-wrap: wrap; } .pdf-import-drop .button { width: 100%; justify-content: center; } .pdf-import-source { flex-wrap: wrap; } .pdf-review-fields { grid-template-columns: 1fr; } .pdf-result-head { flex-wrap: wrap; } .pdf-result-head select { margin-left: 0; width: 100%; max-width: none; } }
+
+.pdf-total-source { margin: 0; padding: 9px; border: 1px solid var(--border); border-radius: 8px; color: var(--foreground); background: var(--surface-raised); font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+
+.pdf-visual-consent { display: flex; align-items: flex-start; gap: 10px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); cursor: pointer; }
+.pdf-visual-consent input { flex-shrink: 0; margin-top: 2px; accent-color: var(--primary); }
+.pdf-visual-consent span { display: grid; gap: 3px; }
+.pdf-visual-consent strong { color: var(--foreground); font-size: 10px; }
+.pdf-visual-consent small { color: var(--muted); font-size: 9px; line-height: 1.45; }

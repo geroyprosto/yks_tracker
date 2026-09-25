@@ -1,0 +1,320 @@
+/* Related neutral shades define canvas, cards and navigation surfaces.
+   Original palette colors and complementary pairs are reserved for accents.
+   Surface roles follow Radix Colors and Linear UI design guidance. */
+:root { font-family: Arial, Helvetica, sans-serif; --nav-neon:var(--ring-2); --nav-ink:#1b2028; }
+
+:root, :root[data-theme=ocean] {
+  color-scheme: dark;
+  --background: #20252d;
+  --surface: #292f38;
+  --surface-raised: #323a45;
+  --foreground: #f6f6f8;
+  --muted: #c7c8d0;
+  --border: #414a57;
+  --primary: #6fe0f5;
+  --primary-strong: color-mix(in srgb, var(--primary) 85%, white);
+  --on-primary: #22252b;
+  --accent: #ffab94;
+  --on-accent: #22252b;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #ffab94;
+  --success: #94e0b5;
+  --warning: #f2cd91;
+  --danger: #ffa8bd;
+  --sidebar-background: #1b2028;
+  --ring-track: #46515f;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #00000010, 0 1px 0 #ffffff04 inset;
+  --ring-1: #40d7f6;
+  --ring-2: #ff967d;
+  --ring-3: #9adaff;
+  --ring-4: #ffd09b;
+  --ring-5: #b7b0fb;
+}
+
+:root[data-theme=rose] {
+  color-scheme: dark;
+  --background: #28242b;
+  --surface: #312c34;
+  --surface-raised: #3c3540;
+  --foreground: #f6f6f8;
+  --muted: #c7c8d0;
+  --border: #4c4653;
+  --primary: #ff91b1;
+  --primary-strong: color-mix(in srgb, var(--primary) 85%, white);
+  --on-primary: #22252b;
+  --accent: #81e5b7;
+  --on-accent: #22252b;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #81e5b7;
+  --success: #94e0b5;
+  --warning: #f2cd91;
+  --danger: #ffa8bd;
+  --sidebar-background: #231f25;
+  --ring-track: #554d5e;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #00000010, 0 1px 0 #ffffff04 inset;
+  --ring-1: #ff6c99;
+  --ring-2: #63dfaa;
+  --ring-3: #ffc2d4;
+  --ring-4: #b3edcc;
+  --ring-5: #ffd393;
+}
+
+
+
+:root[data-theme=plum] {
+  color-scheme: dark;
+  --background: #28242b;
+  --surface: #312c34;
+  --surface-raised: #3c3540;
+  --foreground: #f6f6f8;
+  --muted: #c7c8d0;
+  --border: #4c4653;
+  --primary: #ddaff3;
+  --primary-strong: color-mix(in srgb, var(--primary) 85%, white);
+  --on-primary: #22252b;
+  --accent: #e7d79d;
+  --on-accent: #22252b;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #e7d79d;
+  --success: #94e0b5;
+  --warning: #f2cd91;
+  --danger: #ffa8bd;
+  --sidebar-background: #231f25;
+  --ring-track: #554d5e;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #00000010, 0 1px 0 #ffffff04 inset;
+  --ring-1: #d6a0f0;
+  --ring-2: #e6cf8e;
+  --ring-3: #eebddc;
+  --ring-4: #faf0b7;
+  --ring-5: #9dd6c5;
+}
+
+:root[data-theme=pastel] {
+  color-scheme: dark;
+  --background: #28242b;
+  --surface: #312c34;
+  --surface-raised: #3c3540;
+  --foreground: #f6f6f8;
+  --muted: #c7c8d0;
+  --border: #4c4653;
+  --primary: #d0b1f3;
+  --primary-strong: color-mix(in srgb, var(--primary) 85%, white);
+  --on-primary: #22252b;
+  --accent: #a4dfc4;
+  --on-accent: #22252b;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #a4dfc4;
+  --success: #94e0b5;
+  --warning: #f2cd91;
+  --danger: #ffa8bd;
+  --sidebar-background: #231f25;
+  --ring-track: #554d5e;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #00000010, 0 1px 0 #ffffff04 inset;
+  --ring-1: #bd86f2;
+  --ring-2: #82d5b3;
+  --ring-3: #f3accb;
+  --ring-4: #e3d194;
+  --ring-5: #a3bbf6;
+}
+
+:root[data-appearance=light][data-theme=rose] {
+  color-scheme: light;
+  --background: #f6f4f7;
+  --surface: #ffffff;
+  --surface-raised: #eeeaf0;
+  --foreground: #252630;
+  --muted: #5b5c68;
+  --border: #e0dae4;
+  --primary: #b02e59;
+  --primary-strong: color-mix(in srgb, var(--primary) 82%, black);
+  --on-primary: #ffffff;
+  --accent: #176b4b;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #176b4b;
+  --success: #23714e;
+  --warning: #8b5c17;
+  --danger: #aa3150;
+  --sidebar-background: #f0edf2;
+  --ring-track: #e4dee8;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #22243307, 0 1px 3px #22243305;
+  --ring-1: #ff6c99;
+  --ring-2: #63dfaa;
+  --ring-3: #ffc2d4;
+  --ring-4: #b3edcc;
+  --ring-5: #ffd393;
+}
+
+:root[data-appearance=light][data-theme=ocean] {
+  color-scheme: light;
+  --background: #f4f5f7;
+  --surface: #ffffff;
+  --surface-raised: #e9ecf0;
+  --foreground: #252630;
+  --muted: #5b5c68;
+  --border: #d8dce3;
+  --primary: #076883;
+  --primary-strong: color-mix(in srgb, var(--primary) 82%, black);
+  --on-primary: #ffffff;
+  --accent: #a2442d;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #a2442d;
+  --success: #23714e;
+  --warning: #8b5c17;
+  --danger: #aa3150;
+  --sidebar-background: #eef0f3;
+  --ring-track: #dee3eb;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #22243307, 0 1px 3px #22243305;
+  --ring-1: #40d7f6;
+  --ring-2: #ff967d;
+  --ring-3: #9adaff;
+  --ring-4: #ffd09b;
+  --ring-5: #b7b0fb;
+}
+
+:root[data-appearance=light][data-theme=plum] {
+  color-scheme: light;
+  --background: #f6f4f7;
+  --surface: #ffffff;
+  --surface-raised: #eeeaf0;
+  --foreground: #252630;
+  --muted: #5b5c68;
+  --border: #e0dae4;
+  --primary: #79448b;
+  --primary-strong: color-mix(in srgb, var(--primary) 82%, black);
+  --on-primary: #ffffff;
+  --accent: #796119;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #796119;
+  --success: #23714e;
+  --warning: #8b5c17;
+  --danger: #aa3150;
+  --sidebar-background: #f0edf2;
+  --ring-track: #e4dee8;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #22243307, 0 1px 3px #22243305;
+  --ring-1: #d6a0f0;
+  --ring-2: #e6cf8e;
+  --ring-3: #eebddc;
+  --ring-4: #faf0b7;
+  --ring-5: #9dd6c5;
+}
+
+:root[data-appearance=light][data-theme=pastel] {
+  color-scheme: light;
+  --background: #f6f4f7;
+  --surface: #ffffff;
+  --surface-raised: #eeeaf0;
+  --foreground: #252630;
+  --muted: #5b5c68;
+  --border: #e0dae4;
+  --primary: #7845a0;
+  --primary-strong: color-mix(in srgb, var(--primary) 82%, black);
+  --on-primary: #ffffff;
+  --accent: #247052;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #247052;
+  --success: #23714e;
+  --warning: #8b5c17;
+  --danger: #aa3150;
+  --sidebar-background: #f0edf2;
+  --ring-track: #e4dee8;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #22243307, 0 1px 3px #22243305;
+  --ring-1: #bd86f2;
+  --ring-2: #82d5b3;
+  --ring-3: #f3accb;
+  --ring-4: #e3d194;
+  --ring-5: #a3bbf6;
+}
+
+:root[data-theme=white] {
+  color-scheme: light;
+  --background: #f5f5f5;
+  --surface: #ffffff;
+  --surface-raised: #ececed;
+  --foreground: #252630;
+  --muted: #5b5c68;
+  --border: #dcdde0;
+  --primary: #2562a3;
+  --primary-strong: color-mix(in srgb, var(--primary) 82%, black);
+  --on-primary: #ffffff;
+  --accent: #ad492d;
+  --on-accent: #ffffff;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #ad492d;
+  --success: #23714e;
+  --warning: #8b5c17;
+  --danger: #aa3150;
+  --sidebar-background: #ffffff;
+  --ring-track: #e2e3e5;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #22243307, 0 1px 3px #22243305;
+  --ring-1: #66b9ef;
+  --ring-2: #f5b58c;
+  --ring-3: #a69bdd;
+  --ring-4: #85ccbd;
+  --ring-5: #e7cb86;
+}
+
+:root[data-theme=black] {
+  color-scheme: dark;
+  --background: #121315;
+  --surface: #1c1d20;
+  --surface-raised: #27282c;
+  --foreground: #f6f6f8;
+  --muted: #c7c8d0;
+  --border: #35373d;
+  --primary: #a7d8f2;
+  --primary-strong: color-mix(in srgb, var(--primary) 85%, white);
+  --on-primary: #22252b;
+  --accent: #ecb991;
+  --on-accent: #22252b;
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  --chart: #ecb991;
+  --success: #94e0b5;
+  --warning: #f2cd91;
+  --danger: #ffa8bd;
+  --sidebar-background: #101113;
+  --ring-track: #44464e;
+  --ring-ink: #1d2830;
+  --shadow: 0 8px 25px #00000010, 0 1px 0 #ffffff04 inset;
+  --ring-1: #87cdeb;
+  --ring-2: #ecb991;
+  --ring-3: #bba9e6;
+  --ring-4: #92d3b9;
+  --ring-5: #edc7dd;
+}
+
+/* Paired colors are visible in the picker before the theme is selected. */
+.theme-preview.palette-preview.contrast-preview {position:relative;height:114px;padding:17px;display:flex;align-items:center;justify-content:space-between;gap:16px;border-radius:9px;overflow:hidden;box-shadow:inset 0 0 0 1px #7c83951a}
+.contrast-preview .palette-mini-copy{display:flex;flex-direction:column;gap:7px;flex:1;min-width:0}
+.contrast-preview .palette-mini-copy>span{display:block;width:85%;height:5px;border-radius:4px;background:#8b8e9b;opacity:.5}
+.contrast-preview .palette-mini-copy>span:nth-child(2){width:55%}
+.contrast-preview .palette-mini-copy .palette-mini-accent{width:42px;height:15px;border-radius:4px;margin-top:4px;background:var(--preview-accent);opacity:1}
+.theme-preview.palette-preview .palette-mini-ring{width:53px;height:53px;flex:0 0 53px;border-radius:50%;display:grid;place-items:center;margin:0;opacity:1}
+.theme-preview.palette-preview .palette-mini-ring i{width:30px;height:30px;border-radius:50%;display:block}
+.theme-preview.palette-preview .theme-palette{position:absolute;inset:auto 0 0;display:flex;flex-wrap:nowrap;gap:0;height:8px;width:100%;border-radius:0;overflow:hidden}
+.theme-preview.palette-preview .theme-palette span{flex:1;height:100%;width:auto;border-radius:0;opacity:1}
+.theme-card .theme-pair{display:block;color:var(--muted);font-size:10px;line-height:1.5;margin-top:5px;text-align:left}
+.theme-card.selected{box-shadow:0 0 0 1px var(--primary)}
+.theme-card.selected>strong{color:var(--primary)}
+.fixed-base-label{display:inline-flex;gap:7px;align-items:center;padding:8px 12px;background:var(--surface-raised);border:1px solid var(--border);border-radius:8px;color:var(--foreground);font-size:11px}
+@media(max-width:760px){.theme-preview.palette-preview.contrast-preview{height:100px;padding:12px;gap:10px}.theme-preview.palette-preview .palette-mini-ring{width:44px;height:44px;flex-basis:44px}.theme-preview.palette-preview .palette-mini-ring i{width:25px;height:25px}.contrast-preview .palette-mini-copy .palette-mini-accent{width:28px;height:12px}.theme-card .theme-pair{font-size:9px}}
+
+/* Feature cards use each theme's own color family above the neutral workspace. */
+:root, :root[data-theme=ocean]{--feature-glow:#64dff5;--feature-mid:#16628c;--feature-base:#114969;--feature-end:#102e45}
+:root[data-theme=rose]{--feature-glow:#ff81aa;--feature-mid:#a12d56;--feature-base:#802645;--feature-end:#3f122d}
+:root[data-theme=plum]{--feature-glow:#d6a0f0;--feature-mid:#713989;--feature-base:#552c71;--feature-end:#30213f}
+:root[data-theme=pastel]{--feature-glow:#d5b1f5;--feature-mid:#70508f;--feature-base:#62417f;--feature-end:#3e2a56}
+:root[data-theme=white]{--feature-glow:#87caec;--feature-mid:#276b8e;--feature-base:#1c4a64;--feature-end:#153445}
+:root[data-theme=black]{--feature-glow:#eac68e;--feature-mid:#77582f;--feature-base:#574327;--feature-end:#282723}

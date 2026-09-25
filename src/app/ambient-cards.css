@@ -1,0 +1,124 @@
+/* Compact, theme-aware treatment for cards that otherwise have large empty edges. */
+.ambient-card {
+  --foreground: #fff;
+  --muted: #e4dfe9;
+  --primary: color-mix(in srgb, var(--feature-glow) 72%, white);
+  --accent: var(--primary);
+  --border: #ffffff32;
+  --surface: #ffffff0d;
+  --surface-raised: #ffffff18;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--feature-glow) 43%, #ffffff37);
+  border-radius: 16px;
+  background:
+    radial-gradient(ellipse 78% 68% at -10% -15%, color-mix(in srgb, var(--feature-glow) 16%, transparent), transparent 85%),
+    radial-gradient(ellipse 75% 85% at 110% 110%, color-mix(in srgb, var(--feature-mid) 31%, transparent), transparent 82%),
+    linear-gradient(145deg, color-mix(in srgb, var(--feature-base) 38%, #1b1720), color-mix(in srgb, var(--feature-end) 79%, #18151d) 62%, color-mix(in srgb, var(--feature-mid) 28%, #18151d));
+  box-shadow:
+    inset 0 1px 0 #ffffff26,
+    0 12px 30px color-mix(in srgb, var(--feature-end) 18%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--feature-glow) 8%, transparent);
+}
+.ambient-card::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(125deg, #ffffff0d, transparent 34%, transparent 72%, #ffffff09);
+  z-index: -1;
+}
+.ambient-card .card-head { margin-bottom: 16px; }
+.ambient-card .card-head h2,
+.ambient-card h3,
+.ambient-card strong { color: #fff; }
+.ambient-card .muted-icon,
+.ambient-card .card-head > svg { color: var(--primary); }
+.ambient-card .soft-copy,
+.ambient-card .footnote,
+.ambient-card .connection-empty p,
+.ambient-card .compact-empty p,
+.ambient-card .empty p { color: #e4dfea; }
+.ambient-card .text-button { color: var(--primary); }
+.ambient-card .text-button:focus-visible,
+.ambient-card .button:focus-visible { outline-color: var(--primary); }
+.ambient-card .button.secondary {
+  color: #fff;
+  background: #ffffff12;
+  border-color: #ffffff3d;
+}
+.ambient-card .button.secondary:hover { background: #ffffff23; border-color: var(--primary); }
+.ambient-card .pill {
+  background: #ffffff18;
+  border: 1px solid #ffffff25;
+  color: #eee8f1;
+}
+.ambient-card .empty,
+.ambient-card .compact-empty,
+.ambient-card .journal-preview-body,
+.ambient-card .connection-empty,
+.ambient-card .topic-summary {
+  border: 1px solid #ffffff25;
+  border-radius: 11px;
+  background: #ffffff0b;
+  box-shadow: inset 0 1px 0 #ffffff0f;
+}
+.ambient-card .empty {
+  width: 100%;
+  max-width: none;
+  padding: 24px 16px;
+}
+.ambient-card .empty-icon {
+  color: var(--primary);
+  border-color: #ffffff30;
+  background: #ffffff14;
+}
+.ambient-card .compact-empty {
+  padding: 19px 17px;
+  text-align: left;
+}
+.ambient-card .compact-empty > span { color: #fff; font-weight: 600; }
+.ambient-card .connection-empty {
+  align-items: center;
+  gap: 14px;
+  padding: 14px;
+  margin-bottom: 13px;
+}
+.ambient-card .calendar-logo {
+  color: var(--primary);
+  background: #ffffff10;
+  border-color: #ffffff39;
+  border-top-color: var(--primary);
+}
+.ambient-card .topic-summary { padding: 15px; }
+.ambient-card .topic-total { color: #e4dfea; }
+.ambient-card .topic-total strong,
+.ambient-card .mastery-legend b { color: #fff; }
+.ambient-card .topic-total svg { color: var(--primary); }
+.ambient-card .mastery-legend > div { color: #e4dfea; }
+.ambient-card .status-dot { background: var(--primary); }
+.ambient-card .status-1 { background: #f0c17f; }
+.ambient-card .status-3 { background: color-mix(in srgb, var(--primary) 65%, white); }
+.ambient-card .status-4 { background: #9de4c3; }
+.ambient-card .journal-preview-body { padding: 15px 17px; }
+.ambient-card .journal-preview-body .soft-copy { margin-bottom: 9px; }
+.ambient-card .card-bottom { border-top-color: #ffffff30; }
+.ambient-card .card-bottom > span { color: #e4dfea; }
+.ambient-card .mini-tabs { border-bottom-color: #ffffff30; color: #e4dfea; }
+.ambient-card .mini-tabs .selected { color: var(--primary); }
+.ambient-card .mini-tabs b { color: #fff; background: #ffffff18; }
+.ambient-card .footnote { margin-top: 13px; }
+.integration-grid .ambient-card { display: flex; flex-direction: column; }
+.integration-grid .ambient-card .soft-copy { margin-bottom: 14px; }
+.integration-grid .ambient-card .pill { align-self: flex-start; margin-top: auto; }
+:root[data-simple=true] .ambient-card { box-shadow: none; background: var(--feature-end); }
+:root[data-simple=true] .ambient-card::before { display: none; }
+@media (max-width: 380px) {
+  .ambient-card .connection-empty,
+  .ambient-card .topic-summary { padding: 12px; }
+  .ambient-card .topic-summary { gap: 10px; }
+  .ambient-card .mastery-legend > div { font-size: 9px; }
+}

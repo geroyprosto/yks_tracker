@@ -1,0 +1,185 @@
+.monthly-exam-chart-card {
+  flex: 1 1 auto;
+  min-height: 385px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.monthly-exam-chart-card::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--feature-glow) 32%, var(--ring-2) 72%, transparent);
+  opacity: .65;
+  pointer-events: none;
+}
+.monthly-exam-chart-card .card-head { margin-bottom: 14px; }
+.monthly-exam-open {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 3px 0 3px 8px;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.monthly-exam-open:hover { text-decoration: underline; }
+.monthly-exam-controls {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.monthly-exam-month {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 36px;
+  padding: 2px 4px;
+  border: 1px solid #ffffff30;
+  border-radius: 10px;
+  background: #ffffff0d;
+}
+.monthly-exam-month strong {
+  min-width: 96px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 650;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.monthly-exam-month button {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  color: #f7f2fa;
+  background: transparent;
+}
+.monthly-exam-month button:not(:disabled):hover { background: #ffffff22; }
+.monthly-exam-month button:disabled { opacity: .32; }
+.monthly-exam-format {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #e3deeb;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.monthly-exam-format select {
+  min-height: 36px;
+  width: auto;
+  max-width: 142px;
+  padding: 6px 25px 6px 10px;
+  border: 1px solid #ffffff34;
+  border-radius: 9px;
+  color: #fff;
+  background: color-mix(in srgb, var(--feature-end) 80%, #15131c);
+  font-size: 11px;
+}
+.monthly-exam-format select option { color: #fff; background: #302737; }
+.monthly-exam-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.monthly-exam-summary > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #ffffff22;
+  border-radius: 10px;
+  background: linear-gradient(145deg, #ffffff15, #ffffff06);
+  box-shadow: inset 0 1px 0 #ffffff0a;
+}
+.monthly-exam-summary span { color: #e6e0e9; font-size: 9px; white-space: nowrap; }
+.monthly-exam-summary strong {
+  font-size: clamp(18px, 2vw, 24px);
+  font-weight: 630;
+  letter-spacing: -.5px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.monthly-exam-summary strong.is-positive { color: color-mix(in srgb, var(--ring-4) 75%, white); }
+.monthly-exam-summary strong.is-negative { color: color-mix(in srgb, var(--ring-2) 72%, white); }
+.monthly-exam-summary small { color: #e6e0e9; font-size: 10px; font-weight: 500; letter-spacing: 0; }
+.monthly-exam-plot-frame {
+  position: relative;
+  display: grid;
+  flex: 1 1 auto;
+  align-items: center;
+  min-height: 232px;
+  overflow: hidden;
+  border: 1px solid #ffffff24;
+  border-radius: 11px;
+  background:
+    radial-gradient(ellipse 70% 95% at 55% 100%, color-mix(in srgb, var(--feature-glow) 12%, transparent), transparent 82%),
+    linear-gradient(145deg, #ffffff0a, #ffffff04);
+}
+.monthly-exam-plot-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
+.monthly-exam-plot { display: block; width: 100%; height: auto; max-height: 345px; }
+.monthly-exam-plot-desktop { min-width: 500px; }
+.monthly-exam-plot-mobile { display: none; }
+.monthly-exam-gridline { stroke: #ffffff1f; stroke-width: 1; }
+.monthly-exam-zero { stroke: #ffffff58; stroke-width: 1; stroke-dasharray: 4 4; }
+.monthly-exam-axis-mark { stroke: #ffffff65; stroke-width: 1; }
+.monthly-exam-axis-tick { fill: #eee9f1; font-size: 11px; font-variant-numeric: tabular-nums; }
+.monthly-exam-axis-label { fill: color-mix(in srgb, var(--feature-glow) 46%, white); font-size: 9px; font-weight: 700; letter-spacing: 1px; }
+.monthly-exam-line { filter: drop-shadow(0 0 5px color-mix(in srgb, var(--feature-glow) 54%, transparent)); }
+.monthly-exam-point-halo { fill: color-mix(in srgb, var(--feature-glow) 36%, transparent); }
+.monthly-exam-point { fill: #fff; stroke: var(--feature-glow); stroke-width: 2; }
+.monthly-exam-empty {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: min(270px, 80%);
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  align-items: center;
+  padding: 13px 14px;
+  transform: translate(-50%, -50%);
+  border: 1px solid #ffffff35;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--feature-end) 88%, #17131c);
+  box-shadow: 0 10px 30px #0004;
+  text-align: center;
+}
+.monthly-exam-empty strong { font-size: 11px; }
+.monthly-exam-empty span { color: #e7e1e9; font-size: 10px; line-height: 1.5; }
+.monthly-exam-note { margin-top: 11px; color: #e6dfeb; font-size: 10px; line-height: 1.5; }
+:root[data-simple=true] .monthly-exam-chart-card::after { display: none; }
+:root[data-simple=true] .monthly-exam-line { filter: none; }
+@media (max-width: 1000px) {
+  .monthly-exam-chart-card { flex: 0 1 auto; min-height: 360px; }
+}
+@media (max-width: 520px) {
+  .monthly-exam-chart-card { min-height: 350px; }
+  .monthly-exam-plot-scroll { overflow-x: hidden; }
+  .monthly-exam-plot-desktop { display: none; }
+  .monthly-exam-plot-mobile { display: block; min-width: 0; }
+  .monthly-exam-controls { flex-wrap: wrap; align-items: center; }
+  .monthly-exam-format { flex: 1; justify-content: flex-end; }
+  .monthly-exam-summary > div { padding: 9px 8px; }
+  .monthly-exam-summary span { font-size: 8px; }
+  .monthly-exam-summary strong { font-size: 18px; }
+}
+@media (max-width: 380px) {
+  .monthly-exam-format { justify-content: space-between; width: 100%; }
+}

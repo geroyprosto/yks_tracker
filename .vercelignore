@@ -1,0 +1,16 @@
+# Only application source and build configuration should leave this machine.
+.env*
+/tmp/
+/artifacts/
+/test-results/
+/playwright-report/
+/coverage/
+/.next/
+/.next-e2e/
+/node_modules/
+/tests/
+/docs/
+/supabase/
+/scripts/
+*.log
+*.pem

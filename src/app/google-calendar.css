@@ -1,0 +1,43 @@
+/* The existing ambient-card palette supplies all six themes. */
+.calendar-program-card .card-head { margin-bottom: 12px; }
+.calendar-program-card .calendar-refresh { color: var(--primary); }
+.calendar-program-card .connection-empty { margin-bottom: 0; }
+.calendar-program-card .calendar-logo { display: grid; place-items: center; }
+.calendar-message { margin: 8px 0 14px; color: var(--muted); font-size: .85rem; line-height: 1.55; }
+.calendar-error { color: #ffd1dc; }
+.calendar-empty { display: flex; gap: 12px; align-items: center; min-height: 88px; padding: 14px;
+  background: #ffffff0b; border: 1px solid #ffffff25; border-radius: 11px; }
+.calendar-empty svg { flex: none; color: var(--primary); }
+.calendar-empty div { display: grid; gap: 3px; }
+.calendar-empty span { font-size: .8rem; color: var(--muted); }
+.calendar-event-list { list-style: none; display: grid; gap: 7px; max-height: 360px; overflow: auto; margin: 0; padding: 2px 3px 2px 0; }
+.calendar-event { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 11px;
+  --calendar-event-source: var(--feature-glow);
+  background: linear-gradient(105deg,
+    color-mix(in srgb, var(--calendar-event-source) 24%, var(--feature-end)),
+    color-mix(in srgb, var(--calendar-event-source) 10%, var(--feature-end)));
+  border: 1px solid color-mix(in srgb, var(--calendar-event-source) 35%, #ffffff30);
+  border-left: 3px solid color-mix(in srgb, var(--calendar-event-source) 82%, white);
+  border-radius: 9px; box-shadow: inset 0 1px 0 #ffffff0b; }
+.calendar-event:hover { border-color: color-mix(in srgb, var(--calendar-event-source) 60%, #ffffff42); }
+.calendar-event-time { color: color-mix(in srgb, var(--calendar-event-source) 35%, white); font-weight: 700; font-variant-numeric: tabular-nums; font-size: .74rem; padding-top: 2px; white-space: nowrap; }
+.calendar-event-detail { min-width: 0; display: grid; gap: 4px; }
+.calendar-event-detail strong { font-size: .82rem; line-height: 1.35; overflow-wrap: anywhere; }
+.calendar-event-detail a { color: inherit; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+.calendar-event-detail a:hover { color: var(--primary); text-decoration: underline; }
+.calendar-event-detail small { color: var(--muted); font-size: .72rem; line-height: 1.3; }
+.calendar-program-card .card-bottom { margin-top: 15px; }
+.google-calendar-settings .calendar-connection-state { display: flex; align-items: center; gap: 8px; color: var(--primary); margin: 14px 0; }
+.google-calendar-settings .calendar-connection-state .icon-button { margin-left: auto; color: var(--primary); }
+.google-calendar-settings .calendar-selection-label { margin: 12px 0 8px; font-size: .82rem; font-weight: 700; }
+.calendar-choice-list { display: grid; gap: 6px; max-height: 240px; overflow: auto; }
+.calendar-choice { display: flex; align-items: center; gap: 10px; min-height: 41px; padding: 8px 10px;
+  border: 1px solid #ffffff25; border-radius: 9px; background: #ffffff0b; font-size: .83rem; cursor: pointer; }
+.calendar-choice input { accent-color: var(--primary); }
+.calendar-choice-color { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.calendar-connection-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+.google-calendar-settings .footnote { margin-top: 14px; }
+@media (max-width: 390px) {
+  .calendar-event { grid-template-columns: 68px minmax(0, 1fr); gap: 7px; padding: 9px 7px; }
+  .calendar-event-time { font-size: .69rem; }
+}

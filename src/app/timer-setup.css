@@ -1,0 +1,257 @@
+/* Shared setup surface for the compact timer and expanded focus screen. */
+.modal:has(.timer-setup--modal){
+  width:min(680px,calc(100vw - 32px));
+  padding:24px 28px 27px;
+  border-radius:20px;
+  border-color:color-mix(in srgb,var(--primary) 17%,var(--border));
+  background:radial-gradient(circle at 96% -12%,color-mix(in srgb,var(--primary) 10%,transparent),transparent 43%),var(--surface);
+}
+.modal:has(.timer-setup--modal) .modal-head{margin-bottom:13px}
+.modal:has(.timer-setup--modal) .modal-head h2{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--muted)}
+
+.timer-setup{
+  --setup-accent:var(--primary);
+  --setup-on-accent:var(--on-primary);
+  --setup-ink:var(--foreground);
+  --setup-muted:var(--muted);
+  --setup-surface:var(--surface);
+  --setup-raised:var(--surface-raised);
+  --setup-border:var(--border);
+  display:flex;
+  flex-direction:column;
+  gap:18px;
+  min-width:0;
+  color:var(--setup-ink);
+  text-align:left;
+}
+.timer-setup-head{display:flex;flex-direction:column;gap:4px}
+.timer-setup-head .eyebrow{color:var(--setup-accent);margin-bottom:3px}
+.timer-setup-head :is(h2,h3){font-size:22px;line-height:1.25;font-weight:650;letter-spacing:-.5px;color:var(--setup-ink)}
+.timer-setup-intro,.timer-setup-head>p:not(.eyebrow){font-size:12px;line-height:1.55;color:var(--setup-muted)}
+.timer-setup-section{display:flex;flex-direction:column;gap:10px;min-width:0}
+.timer-setup-label{display:block;font-size:11px;line-height:1.35;font-weight:650;letter-spacing:.015em;color:var(--setup-muted)}
+
+.timer-exam-tabs{
+  display:inline-flex;
+  align-self:flex-start;
+  gap:3px;
+  max-width:100%;
+  padding:4px;
+  border-radius:12px;
+  background:color-mix(in srgb,var(--setup-raised) 76%,var(--setup-surface));
+  border:1px solid var(--setup-border);
+}
+.timer-exam-tab{
+  min-width:74px;
+  min-height:34px;
+  padding:6px 14px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:var(--setup-muted);
+  font-size:12px;
+  font-weight:650;
+  transition:background .16s ease,color .16s ease,box-shadow .16s ease;
+}
+.timer-exam-tab:hover{color:var(--setup-ink)}
+.timer-exam-tab[data-active=true]{
+  background:var(--setup-surface);
+  color:var(--setup-accent);
+  box-shadow:0 1px 5px #00000019;
+}
+
+.timer-subjects,.timer-study-types,.timer-duration-presets{display:flex;flex-wrap:wrap;gap:7px;min-width:0}
+.timer-subject-option,.timer-study-option,.timer-preset{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  min-height:37px;
+  max-width:100%;
+  padding:7px 12px;
+  border:1px solid var(--setup-border);
+  border-radius:10px;
+  background:color-mix(in srgb,var(--setup-raised) 55%,var(--setup-surface));
+  color:var(--setup-ink);
+  font-size:11px;
+  font-weight:550;
+  line-height:1.3;
+  text-align:center;
+  white-space:normal;
+  transition:border-color .16s ease,background .16s ease,color .16s ease;
+}
+.timer-subject-option:hover,.timer-study-option:hover,.timer-preset:hover{
+  border-color:color-mix(in srgb,var(--setup-accent) 58%,var(--setup-border));
+  background:color-mix(in srgb,var(--setup-accent) 9%,var(--setup-surface));
+}
+.timer-subject-option[data-active=true],.timer-study-option[data-active=true],.timer-preset[data-active=true]{
+  border-color:var(--setup-accent);
+  background:var(--setup-accent);
+  color:var(--setup-on-accent);
+  font-weight:700;
+}
+.timer-subject-option[data-active=true]:hover,.timer-study-option[data-active=true]:hover,.timer-preset[data-active=true]:hover{
+  background:var(--setup-accent);
+  color:var(--setup-on-accent);
+}
+.timer-study-option{border-radius:999px;padding-inline:13px}
+.timer-preset{min-width:54px;border-radius:9px}
+
+.timer-mode-toggle{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:3px;
+  width:min(330px,100%);
+  padding:4px;
+  border:1px solid var(--setup-border);
+  border-radius:12px;
+  background:color-mix(in srgb,var(--setup-raised) 75%,var(--setup-surface));
+}
+.timer-mode-option{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  min-height:35px;
+  padding:6px 11px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:var(--setup-muted);
+  font-size:11px;
+  font-weight:650;
+  white-space:nowrap;
+}
+.timer-mode-option:hover{color:var(--setup-ink)}
+.timer-mode-option[data-active=true]{background:var(--setup-surface);color:var(--setup-accent);box-shadow:0 1px 5px #00000019}
+
+.timer-duration{display:flex;flex-direction:column;gap:10px}
+.timer-duration-control{
+  display:inline-flex;
+  align-items:center;
+  align-self:flex-start;
+  gap:2px;
+  min-height:42px;
+  padding:3px;
+  border:1px solid var(--setup-border);
+  border-radius:11px;
+  background:color-mix(in srgb,var(--setup-raised) 65%,var(--setup-surface));
+}
+.timer-stepper-button{
+  display:grid;
+  place-items:center;
+  width:34px;
+  height:34px;
+  border:0;
+  border-radius:8px;
+  background:transparent;
+  color:var(--setup-ink);
+  font-size:17px;
+  line-height:1;
+}
+.timer-stepper-button:hover{background:color-mix(in srgb,var(--setup-accent) 12%,var(--setup-surface));color:var(--setup-accent)}
+.timer-minutes-input{
+  width:48px;
+  height:34px;
+  padding:0;
+  border:0;
+  outline:0;
+  background:transparent;
+  color:var(--setup-ink);
+  font-size:15px;
+  font-weight:700;
+  font-variant-numeric:tabular-nums;
+  text-align:center;
+  appearance:textfield;
+}
+.timer-minutes-input::-webkit-inner-spin-button,.timer-minutes-input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.timer-duration-control:focus-within{outline:2px solid var(--setup-accent);outline-offset:3px}
+.timer-duration-control .timer-minutes-input:focus-visible{outline:0}
+
+
+
+.timer-setup-actions{
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:9px;
+  padding-top:15px;
+  border-top:1px solid var(--setup-border);
+}
+.timer-setup-actions .button{min-height:43px;padding:10px 18px;border-radius:11px;font-size:12px}
+.timer-setup-actions .button.primary{background:var(--setup-accent);color:var(--setup-on-accent)}
+.timer-setup-actions .button.primary:hover{background:color-mix(in srgb,var(--setup-accent) 85%,var(--setup-ink))}
+.timer-setup-actions .button.secondary{background:transparent;border-color:var(--setup-border);color:var(--setup-muted)}
+.timer-setup-actions .button.secondary:hover{background:var(--setup-raised);color:var(--setup-ink)}
+.timer-setup :is(button,input):focus-visible{outline:2px solid var(--setup-accent);outline-offset:3px}
+
+.timer-setup--focus{
+  --setup-accent:var(--focus-soft);
+  --setup-on-accent:var(--focus-dark);
+  --setup-ink:#f9f7ff;
+  --setup-muted:#ffffffb8;
+  --setup-surface:var(--focus-panel);
+  --setup-raised:color-mix(in srgb,var(--focus-panel) 70%,#ffffff);
+  --setup-border:#ffffff36;
+  width:min(670px,100%);
+  margin:0 auto;
+  padding:20px 24px;
+  border:1px solid color-mix(in srgb,var(--focus-neon) 32%,transparent);
+  border-radius:18px;
+  background:linear-gradient(150deg,color-mix(in srgb,var(--focus-neon) 7%,var(--focus-panel)),color-mix(in srgb,var(--focus-panel) 91%,#080a12));
+  box-shadow:0 22px 60px #0000002e,inset 0 1px #ffffff16;
+}
+.timer-setup--focus .timer-setup-head :is(h2,h3){font-size:19px}
+.timer-setup--focus .timer-exam-tab[data-active=true],.timer-setup--focus .timer-mode-option[data-active=true]{background:color-mix(in srgb,var(--focus-neon) 14%,var(--focus-panel))}
+.timer-setup--focus .timer-subject-option[data-active=true],.timer-setup--focus .timer-study-option[data-active=true],.timer-setup--focus .timer-preset[data-active=true]{color:var(--focus-dark)}
+
+
+@media(max-width:700px){
+  .modal:has(.timer-setup--modal){width:calc(100vw - 24px);padding:19px 19px 21px;border-radius:17px}
+  .timer-setup{gap:16px}
+  .timer-setup--focus{padding:17px 18px}
+}
+@media(max-width:480px){
+  .timer-setup-head :is(h2,h3){font-size:20px}
+  .timer-setup-section{gap:8px}
+  .timer-subjects,.timer-study-types,.timer-duration-presets{gap:6px}
+  .timer-subject-option,.timer-study-option,.timer-preset{min-height:35px;padding:6px 10px;font-size:10px}
+  .timer-setup-actions{gap:8px}
+  .timer-setup-actions .button{flex:1;padding-inline:9px}
+  .timer-setup--focus{padding:14px 15px;gap:13px}
+  .timer-setup--focus .timer-setup-head :is(h2,h3){font-size:18px}
+}
+@media(prefers-reduced-motion:reduce){
+  .timer-setup button{transition:none}
+}
+.timer-subject-hint,.timer-duration-hint{
+  color:var(--setup-muted);
+  font-size:10px;
+  line-height:1.45;
+}
+.timer-duration-field{
+  display:inline-flex;
+  flex-direction:row;
+  align-items:center;
+  gap:3px;
+  color:var(--setup-muted);
+  font-size:11px;
+  font-weight:600;
+}
+.timer-setup-summary{
+  flex:1 1 150px;
+  max-width:240px;
+  margin-right:auto;
+  color:var(--setup-muted);
+  font-size:11px;
+  line-height:1.4;
+  overflow-wrap:anywhere;
+}
+
+@media(max-width:480px){
+  .timer-setup-actions{flex-wrap:wrap}
+  .timer-setup-summary{flex:1 0 100%;max-width:none}
+  .timer-setup--focus .timer-start{width:100%}
+}
+
+

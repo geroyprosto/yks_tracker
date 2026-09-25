@@ -1,0 +1,2 @@
+-- Intentionally empty. The starter catalogue is initialized only after owner login.
+-- There is no fictitious study history or automatically authorized Auth account.

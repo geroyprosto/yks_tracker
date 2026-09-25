@@ -1,0 +1,71 @@
+.analysis {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.tabs {
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: var(--surface);
+}
+
+.tabs button {
+  min-height: 36px;
+  padding: 7px 15px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.tabs button[aria-selected=true] {
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+.tabs button:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+.panel { min-width: 0; }
+.panel[hidden] { display: none; }
+
+.panel :global(.monthly-exam-chart-card) {
+  flex: none;
+  min-height: 0;
+  padding: 22px;
+  container-type: inline-size;
+}
+
+.panel :global(.monthly-exam-plot-frame) {
+  flex: none;
+  min-height: 190px;
+}
+
+.panel :global(.monthly-exam-plot) { max-height: 245px; }
+.panel :global(.monthly-exam-plot-desktop) { min-width: 0; }
+.panel :global(.monthly-exam-plot-scroll) { overflow: hidden; }
+.panel :global(.monthly-exam-summary) { margin-bottom: 10px; }
+.panel :global(.monthly-exam-note) { margin-top: 10px; }
+
+@container (max-width: 470px) {
+  .panel :global(.monthly-exam-plot-desktop) { display: none; }
+  .panel :global(.monthly-exam-plot-mobile) { display: block; }
+  .panel :global(.monthly-exam-controls) { flex-wrap: wrap; }
+}
+
+@media (max-width: 520px) {
+  .tabs { width: 100%; }
+  .tabs button { flex: 1; padding-inline: 8px; }
+  .panel :global(.monthly-exam-chart-card) { padding: 17px; }
+}

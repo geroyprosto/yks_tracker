@@ -1,3 +1,4 @@
+import type { EducationState } from '../education';
 export type Difficulty = "easy" | "medium" | "hard";
 export type Theme = "graphite" | "rose" | "ocean" | "aurora" | "forest" | "burgundy" | "plum" | "pastel" | "steel" | "white" | "black";
 export type StudyType = "Konu anlatımı" | "Soru çözümü" | "Tekrar" | "Hızlı gözden geçirme" | "Yanlış analizi" | "Hâkimiyet kontrolü";
@@ -9,7 +10,7 @@ export type Settings = {
 };
 export type TaskStep = { id: string; title: string; completed: boolean };
 export type Task = {
-  id: string; title: string; plan_date: string; exam: "TYT" | "AYT" | null; subject: string | null;
+  id: string; course_id?: string | null; title: string; plan_date: string; exam: "TYT" | "AYT" | null; subject: string | null;
   topic_id: string | null; resource: string; completion_criteria: string; planned_minutes: number;
   difficulty: Difficulty; progress: number; weight_override: number | null; priority: "low" | "normal" | "high";
   position: number; notes: string; study_type: StudyType; steps: TaskStep[]; revision: number;
@@ -21,14 +22,14 @@ export type Topic = {
   revision: number; updated_at: string;
 };
 export type StudySession = {
-  id: string; title: string; task_id: string | null; topic_id: string | null; subject: string | null;
+  id: string; course_id?: string | null; title: string; task_id: string | null; topic_id: string | null; subject: string | null;
   study_type: StudyType; mode: "stopwatch" | "countdown"; target_seconds: number | null;
   status: "running" | "paused" | "finished"; started_at: string; active_since: string | null;
   accumulated_seconds: number; finished_at: string | null; revision: number;
 };
 export type StudyInterval = { id: string; session_id: string; started_at: string; ended_at: string | null };
 /** A reported duration has a calendar date, but no claimed clock start or end. */
-export type ManualStudyEntry = { id: string; study_date: string; subject: string; duration_seconds: number; created_at: string };
+export type ManualStudyEntry = { id: string; course_id?: string | null; study_date: string; subject: string; duration_seconds: number; created_at: string };
 export type DayPlan = {
   id: string; plan_date: string; version: number; target_minutes: number; task_share: number;
   difficulty_factors: Record<Difficulty, number>; snapshot: Task[]; changed_at: string;
@@ -72,7 +73,7 @@ export type DayMark = {
   id: string; mark_date: string; kind: "rest" | "zero";
   revision: number; created_at: string; updated_at: string;
 };export type AppState = {
-  configured: boolean; authenticated: boolean; server_now: string; settings: Settings | null;
+  education?: EducationState; configured: boolean; authenticated: boolean; server_now: string; settings: Settings | null;
   tasks: Task[]; topics: Topic[]; sessions: StudySession[]; intervals: StudyInterval[];
   manual_study_entries?: ManualStudyEntry[];
   day_plans: DayPlan[]; topic_history: TopicHistory[]; practice_entries: PracticeEntry[]; exam_formats: ExamFormat[]; exams: ExamRecord[]; journal_entries: JournalEntry[]; day_marks: DayMark[];
@@ -81,4 +82,3 @@ export function emptyState(configured = false): AppState {
   return { configured, authenticated: false, server_now: new Date().toISOString(), settings: null,
     tasks: [], topics: [], sessions: [], intervals: [], manual_study_entries: [], day_plans: [], topic_history: [], practice_entries: [], exam_formats: [], exams: [], journal_entries: [], day_marks: [] };
 }
-

@@ -129,6 +129,8 @@ test('isolated demo seed is repeatable, creates exactly 10/25 students and consi
     }
     const date = new Date();
     assert.equal((await seedClassroomDemo(db, date)).seeded, true);
+    const liveSeeded=(await db.query<{user_id:string}>('select user_id from public.classroom_presence where expires_at>$1',[date.toISOString()])).rows;
+    assert.deepEqual(new Set(liveSeeded.map(row=>row.user_id)),new Set(DEMO_PRESENCE_SIMULATIONS.map(row=>row.user_id)));
     const counts = (await db.query<{ teacher_id: string; count: number }>(`select teacher_id,count(*)::integer as count
       from public.classroom_accounts where role='student' and status='approved' group by teacher_id order by teacher_id`)).rows;
     assert.deepEqual(counts, DEMO_TEACHER_IDS.map((teacher_id, index) => ({ teacher_id, count: index === 0 ? 10 : 25 })));

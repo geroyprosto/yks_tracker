@@ -1,0 +1,22 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { educationCommandSchema, type EducationState } from '../education';
+import { classroomContext } from './classroom';
+import { ApiError } from './http';
+import { databaseError } from './service';
+
+export async function requireEducationUser() {
+  const context=await classroomContext();
+  if(!context.user.email_confirmed_at)throw new ApiError(403,'EMAIL_VERIFICATION_REQUIRED','Önce e-posta adresinizi doğrulayın.');
+  if(context.account?.role!=='student'||!['pending','approved'].includes(context.account.status))throw new ApiError(403,'STUDENT_REQUIRED','Öğrenci profiline erişmek için öğrenci hesabı gerekir.');
+  return context.client;
+}
+export async function getEducation(client:SupabaseClient):Promise<EducationState>{
+  const {data,error}=await client.rpc('education_state');if(error)databaseError(error);return data as EducationState;
+}
+export async function executeEducationCommand(client:SupabaseClient,input:unknown){
+  const parsed=educationCommandSchema.safeParse(input);
+  if(!parsed.success)throw new ApiError(400,'INVALID_INPUT',parsed.error.issues[0]?.message??'Alanları kontrol edin.');
+  const {data,error}=await client.rpc('education_command',{request_id:parsed.data.request_id,command_type:parsed.data.type,payload:parsed.data.payload});
+  if(error)databaseError(error);
+  return {ok:true as const,result:data as {id:string;request_id:string;replayed:boolean},state:await getEducation(client)};
+}

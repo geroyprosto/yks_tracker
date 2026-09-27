@@ -112,7 +112,7 @@ test('different scales require optional normalization and different assessment t
   await expect(page.getByText('Henüz yalnız bir sonuç var;', {exact: false})).toBeVisible();
 });
 
-test('study and history course filters share course IDs and never apply a whole-day zero mark to a course', async ({page}) => {
+test('study course filters separate assigned and unassigned records without course-specific zero marks', async ({page}) => {
   const state = fixture();
   state.sessions = [state.education!.courses[0].id, state.education!.courses[3].id, null].map((course_id, index) => ({id: `session-${index}`, course_id, subject: index === 1 ? 'İktisat' : 'Matematik', title: ['Matematik çalışması', 'İktisat çalışması', 'Eski kayıt'][index], study_type: 'Tekrar', task_id: null, topic_id: null, mode: 'stopwatch', target_seconds: null, status: 'finished', started_at: '2026-09-26T09:00:00Z', active_since: null, accumulated_seconds: (index + 1) * 60, finished_at: `2026-09-26T09:0${index + 1}:00Z`, revision: 1}));
   state.intervals = state.sessions.map(session => ({id: `${session.id}-interval`, session_id: session.id, started_at: session.started_at, ended_at: session.finished_at}));
@@ -126,10 +126,7 @@ test('study and history course filters share course IDs and never apply a whole-
   await page.getByText('Gün ayrıntıları', {exact: true}).click();
   await page.getByLabel('İncelenen gün', {exact: true}).fill('2026-09-25');
   await expect(page.getByRole('button', {name: '0 çalışma olarak doğrula', exact: true})).toHaveCount(0);
-  await page.getByRole('group', {name: 'İstatistik görünümü'}).getByRole('button', {name: 'Kayıtlar', exact: true}).click();
-  await expect(page.locator('.session-list .session-row')).toHaveCount(1);
-  await expect(page.locator('.session-list')).toContainText('Matematik çalışması');
+  await expect(page.locator('.study-day-detail').getByRole('button', {name: /^\d+ kayıt$/})).toHaveCount(0);
   await page.getByRole('combobox', {name: 'Çalışma dersi', exact: true}).selectOption('__unassigned__');
-  await expect(page.locator('.session-list')).toContainText('Eski kayıt');
-  await expect(page.locator('.session-list')).not.toContainText('Matematik çalışması');
+  await expect(total).toHaveText('3 dk');
 });

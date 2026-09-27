@@ -95,27 +95,23 @@ test('sample charts appear by default, toggle off restores real empty data, and 
   expect(commandRequests).toBe(0);
 });
 
-test('synthetic HTTP preview shows two thick neon rings with accessible values and legends', async ({ page }) => {
+test('synthetic HTTP preview shows enlarged accessible rings without the daily footer', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await mockedAppearance(page);
-  await page.getByRole('button', {name: 'Hesaplama ayrıntıları'}).click();
   const dailyCard = page.locator('.daily-card');
   await expect(dailyCard.locator('.neon-metric')).toHaveCount(2);
   await expect(dailyCard.getByRole('img', {name: 'Görevler: %70', exact: true})).toBeVisible();
   await expect(dailyCard.getByRole('img', {name: 'Net çalışma süresi: %50', exact: true})).toBeVisible();
-  await expect(dailyCard.getByRole('heading', {name: 'Günlük ilerleme', exact: true})).toHaveCount(0);
-  await expect(dailyCard.getByText('Hedef ağırlıkları')).toHaveCount(0);
-  const legends = dailyCard.locator('.ring-legend');
-  await expect(legends).toHaveCount(2);
-  await expect(legends.nth(0)).toContainText('Tamamlanan%70');
-  await expect(legends.nth(0)).toContainText('Kalan%30');
-  await expect(legends.nth(1)).toContainText('Tamamlanan%50');
-  await expect(legends.nth(1)).toContainText('Kalan%50');
+  await expect(dailyCard.locator('.card-bottom, .ring-legend')).toHaveCount(0);
+  await expect(dailyCard.getByRole('button', {name: /Hesaplama ayrıntıları|Hedefi düzenle/})).toHaveCount(0);
+  const donuts = dailyCard.locator('.neon-donut');
+  await expect(donuts).toHaveCount(2);
+  await expect(donuts.nth(0)).toHaveCSS('width', '240px');
+  await expect(donuts.nth(1)).toHaveCSS('width', '240px');
 
   await expect(page.locator('.donut-segment').first()).toHaveCSS('stroke-width', '28px');
   await expect(page.locator('.donut-center strong').first()).toHaveCSS('text-shadow', 'none');
-  await expect(page.locator('.ring-legend b').first()).toHaveCSS('text-shadow', 'none');
   await noOverflow(page);
   await snapshot(page, 'synthetic-ocean-desktop');
   await page.locator('.daily-card').screenshot({ path: 'artifacts/gradient-cards-synthetic-ocean-desktop-daily-crop.png', animations: 'disabled' });
@@ -130,9 +126,18 @@ test('synthetic HTTP preview shows two thick neon rings with accessible values a
   await page.locator('.distribution-card').screenshot({path: 'artifacts/gradient-cards-synthetic-ocean-mobile-distribution-crop.png', animations: 'disabled'});
   await navigate(page, 'Bugün');
   await noOverflow(page);
+  const mobileDonuts = await donuts.evaluateAll(nodes => nodes.map(node => ({
+    width: node.getBoundingClientRect().width,
+    available: node.parentElement!.getBoundingClientRect().width,
+  })));
+  expect(mobileDonuts.every(({width, available}) => width > 0 && width <= available + 1 && width <= 225)).toBe(true);
   const metrics = await page.locator('.neon-metric').evaluateAll(nodes => nodes.map(node => ({ width: node.clientWidth, scrollWidth: node.scrollWidth })));
   expect(metrics.every(metric => metric.scrollWidth <= metric.width + 1)).toBe(true);
   await snapshot(page, 'synthetic-ocean-mobile');
+  await page.setViewportSize({width: 760, height: 800});
+  await expect(donuts.nth(0)).toHaveCSS('width', '225px');
+  await expect(donuts.nth(1)).toHaveCSS('width', '225px');
+  await noOverflow(page);
 
   expect(errors).toEqual([]);
 });

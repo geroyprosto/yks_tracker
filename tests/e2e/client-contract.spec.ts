@@ -98,23 +98,17 @@ test("mocked authenticated state refresh preserves local unsynced appearance cho
   await expect(page.locator("html")).toHaveAttribute("data-simple", "true");
 });
 
-test("finalized session duration is read-only and has no correction action", async ({ page }) => {
+test("finalized session time remains in statistics without a records view", async ({ page }) => {
   const state = authenticatedState();
-  state.sessions = [{ id: "finished-session", title: "Kaydedilmiş tekrar", task_id: null, topic_id: null, subject: null, study_type: "Tekrar", mode: "stopwatch", target_seconds: null, status: "finished", started_at: new Date(Date.now() - 3_600_000).toISOString(), active_since: null, accumulated_seconds: 1800, finished_at: new Date().toISOString(), revision: 2 }];
+  const finishedAt = Date.now();
+  const startedAt = new Date(finishedAt - 1_800_000).toISOString();
+  state.sessions = [{ id: "finished-session", title: "Kaydedilmiş tekrar", task_id: null, topic_id: null, subject: null, study_type: "Tekrar", mode: "stopwatch", target_seconds: null, status: "finished", started_at: startedAt, active_since: null, accumulated_seconds: 1800, finished_at: new Date(finishedAt).toISOString(), revision: 2 }];
+  state.intervals = [{id: 'finished-interval', session_id: 'finished-session', started_at: startedAt, ended_at: new Date(finishedAt).toISOString()}];
   await mockState(page, state);
-  const requests: { type: string; payload: Record<string, unknown> }[] = [];
-  await page.route("**/api/command", async route => {
-    requests.push(route.request().postDataJSON());
-    state.sessions[0] = { ...state.sessions[0], accumulated_seconds: 900, revision: 3 };
-    await route.fulfill({ json: { ok: true, state } });
-  });
   await page.goto("/");
   await page.getByRole("navigation", { name: "Ana gezinme" }).getByRole("button", { name: "Çalışma İstatistikleri", exact: true }).click();
-  await page.getByRole("group", { name: "İstatistik görünümü" }).getByRole("button", { name: "Kayıtlar", exact: true }).click();
-  await expect(page.getByRole("button", {name:/süreyi düzelt/})).toHaveCount(0);
-  await expect(page.getByText('Kesinleşmiş çalışma süreleri değiştirilemez.', {exact:false})).toBeVisible();
-  await expect(page.locator('.session-row')).toContainText('30 dk');
-  expect(requests).toHaveLength(0);
+  await expect(page.locator('.study-stats-metrics > div').first().locator('strong')).toHaveText('30 dk');
+  await expect(page.getByRole("group", { name: "İstatistik görünümü" }).getByRole("button", { name: "Kayıtlar", exact: true })).toHaveCount(0);
 });
 
 test("mocked task reorder submits an atomic move command and shows returned order", async ({ page }) => {
@@ -156,26 +150,4 @@ test("mocked default goal change fills all weekdays and keeps individual edits i
   await page.getByRole("button", { name: "Hedefleri kaydet", exact: true }).click();
   await expect.poll(() => sent?.type).toBe("settings.update");
   expect(sent).toMatchObject({ payload: { expected_revision: 4, daily_target_minutes: 240, weekday_targets: [240, 240, 240, 240, 240, 240, 120] } });
-});
-
-test("mocked current day target sends plan update and closes after successful save", async ({ page }) => {
-  const state = authenticatedState();
-  const today = localDate();
-  state.day_plans = [{ id: "today-plan", plan_date: today, version: 3, target_minutes: 360, task_share: .7, difficulty_factors: { easy: 1, medium: 1.25, hard: 1.5 }, snapshot: [], changed_at: new Date().toISOString() }];
-  await mockState(page, state);
-  let sent: { type: string; payload: Record<string, unknown> } | undefined;
-  await page.route("**/api/command", async route => {
-    sent = route.request().postDataJSON();
-    state.day_plans[0] = { ...state.day_plans[0], target_minutes: 120, version: 4 };
-    await route.fulfill({ json: { ok: true, state } });
-  });
-  await page.goto("/");
-  await page.getByRole("button", { name: "Hedefi düzenle", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Bugünün süre hedefi" });
-  await expect(dialog.getByLabel("Net çalışma hedefi (dakika)")).toHaveValue("360");
-  await dialog.getByLabel("Net çalışma hedefi (dakika)").fill("120");
-  await dialog.getByRole("button", { name: "Hedefi kaydet", exact: true }).click();
-  await expect(dialog).not.toBeVisible();
-  expect(sent).toMatchObject({ type: "plan.update", payload: { plan_date: today, expected_revision: 3, target_minutes: 120 } });
-  await expect(page.locator(".neon-metric").filter({ hasText: "Net çalışma süresi" })).toContainText("0 dk / 2 sa 0 dk");
 });

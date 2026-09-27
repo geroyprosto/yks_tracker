@@ -1,18 +1,19 @@
 'use client';
 
 import {useEffect, useState, type CSSProperties} from 'react';
-import {ArrowUpRight, Check, ChevronRight, ListTodo, Maximize2, NotebookPen, Pause, Play, Sparkles, Timer} from 'lucide-react';
+import {ArrowUpRight, Check, ListTodo, Maximize2, NotebookPen, Pause, Play, Sparkles, Timer} from 'lucide-react';
 import type {AppState} from '@/lib/domain/types';
 import {taskProgress, timeProgress} from '@/lib/progress';
 import {secondsByDay, sessionSeconds} from '@/lib/timing';
 import {clockText, duration, formatDay, localDate, type CommandFn} from '@/lib/ui';
 import {useChartTooltip} from './chart-tooltip';
 import type {PageId} from './dashboard';
-import {Modal} from './modal';
 import {PracticeOverview} from './practice-overview';
 import {Card, Empty, LinkButton, Ring} from './primitives';
 import {TodayCalendar} from './today-calendar';
 import {YksCountdown} from './yks-countdown';
+
+const hourFormatter = new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 2});
 
 export function Today({state, preview, command, busy, offset, go, openTimer, expandTimer, addTask, openExamDateSettings, openPractice}: {
   state: AppState;
@@ -29,8 +30,6 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
 }) {
   const modules=state.education?.profile?.modules;
   const yks=state.education?.profile?.yks_goal??true;
-  const [editTarget, setEditTarget] = useState(false);
-  const [showBreakdown, setShowBreakdown] = useState(false);
   const [taskFilter, setTaskFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const tooltip = useChartTooltip();
   const [latestAnalysis, setLatestAnalysis] = useState<{start:string;end:string;stale:boolean}|null>(null);
@@ -90,21 +89,14 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
   const weekTotal = days.reduce((sum, day) => sum + (totals[day] ?? 0), 0);
 
   return <>
-    {editTarget && <Modal title="Bugünün süre hedefi" onClose={() => setEditTarget(false)}><form className="form-grid" onSubmit={async event => {
-      event.preventDefault();
-      const form = new FormData(event.currentTarget);
-      if (plan && await command('plan.update', {plan_date: today, expected_revision: plan.version, target_minutes: Number(form.get('target'))})) setEditTarget(false);
-    }}><label className="span-2">Net çalışma hedefi (dakika)<input type="number" min="0" max="1440" required name="target" defaultValue={target}/></label><p className="footnote span-2">Yalnız bugünün planını değiştirir. Önceki hedef sürümü korunur. Sıfır hedef tanımlı değil olarak gösterilir.</p><div className="form-actions span-2"><button className="button secondary" type="button" onClick={() => setEditTarget(false)}>Vazgeç</button><button className="button primary" disabled={busy || !state.authenticated}>Hedefi kaydet</button></div></form></Modal>}
-
     <div className="overview-grid">
       <Card className="daily-card" title="Bugün ne kadar ilerledin?" eyebrow="GÜNLÜK ÖZET" action={<span className="pill">{completed} / {tasks.length} görev</span>}>
-        <div className="neon-metrics" id="daily-progress-details">
-          <Ring value={progress} showLegend={showBreakdown} label="Görevler" detail={tasks.length ? completed + ' / ' + tasks.length + ' tamamlandı' : 'İlk görevini ekle'}/>
-          <Ring value={time} showLegend={showBreakdown} color={1} label="Net çalışma süresi" detail={duration(seconds) + ' / ' + duration(target * 60)}/>
+        <div className="neon-metrics">
+          <Ring value={progress} showLegend={false} label="Görevler" detail={tasks.length ? completed + ' / ' + tasks.length + ' tamamlandı' : 'İlk görevini ekle'}/>
+          <Ring value={time} showLegend={false} color={1} label="Net çalışma süresi" detail={duration(seconds) + ' / ' + duration(target * 60)}/>
         </div>
-        <div className="card-bottom"><button type="button" className="text-button" aria-expanded={showBreakdown} aria-controls="daily-progress-details" onClick={() => setShowBreakdown(value => !value)}>{showBreakdown ? 'Ayrıntıları gizle' : 'Hesaplama ayrıntıları'}<ChevronRight size={15}/></button><button className="text-button" disabled={preview} onClick={() => plan ? setEditTarget(true) : go('settings', 'plan')}>Hedefi düzenle<ChevronRight size={15}/></button></div>
       </Card>
-      {((modules?.timer??true)||activeSession)&&<Card className="focus-card gradient-card" title="Odak oturumu" eyebrow="ÇALIŞMA ZAMANI">
+      {((modules?.timer??true)||activeSession)&&<Card className="focus-card gradient-card" title="Odak oturumu" eyebrow="ÇALIŞMA ZAMANI" action={<span className="focus-card-status" role="status"><i aria-hidden="true" className={activeSession?.status === 'running' && !countdownDone ? 'is-running' : ''}/>{dialStatus}</span>}>
         <div className="focus-card-scene">
           <div className="focus-dial" role="timer" aria-live="off" aria-label={dialMode + ': ' + dialTime + '. ' + dialStatus}>
             <div className="focus-dial-ticks" aria-hidden="true">
@@ -116,15 +108,14 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
             </div>
             <div className="focus-dial-face" aria-hidden="true">
               <Timer size={16}/>
-              <span className="focus-dial-mode">{dialMode}</span>
+              {activeSession?.mode !== 'countdown' && <span className="focus-dial-mode">{dialMode}</span>}
               <strong className={dialTime.length > 5 ? 'is-long' : ''}>{dialTime}</strong>
               <small>{dialTime.length > 5 ? 'saat : dakika : saniye' : 'dakika : saniye'}</small>
-              <span className="focus-dial-status"><i className={activeSession?.status === 'running' && !countdownDone ? 'is-running' : ''}/>{dialStatus}</span>
             </div>
           </div>
           <div className="focus-card-copy">
             <h3>{activeSession?.title ?? 'Bir süre ayır, odaklan.'}</h3>
-            <p>{activeSession ? countdownDone ? 'Süren doldu. Oturumunu kaydedebilirsin.' : activeSession.status === 'paused' ? 'Hazır olduğunda kaldığın yerden sürdür.' : 'Çalışma süren kaydediliyor.' : 'Bir görev seç veya serbest çalışmaya başla.'}</p>
+            {!countdownDone && <p>{activeSession ? activeSession.status === 'paused' ? 'Hazır olduğunda kaldığın yerden sürdür.' : 'Çalışma süren kaydediliyor.' : 'Bir görev seç veya serbest çalışmaya başla.'}</p>}
           </div>
           <div className="focus-card-actions">
             {activeSession && !countdownDone && <button className="focus-card-toggle" type="button" disabled={busy} onClick={() => void command(activeSession.status === 'running' ? 'timer.pause' : 'timer.resume', {id: activeSession.id, expected_revision: activeSession.revision})}>{activeSession.status === 'running' ? <Pause size={16}/> : <Play size={16}/>}<span>{activeSession.status === 'running' ? 'Duraklat' : 'Sürdür'}</span></button>}
@@ -144,7 +135,7 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
         </Card>}
         {(modules?.statistics??true)&&<Card className="rhythm-card today-rhythm-card" title="Çalışma ritmin" eyebrow="SON 7 GÜN" action={<LinkButton onClick={() => go('stats')}>İstatistikler</LinkButton>}>
           <div className="chart-summary"><strong>{duration(weekTotal)}</strong><span>toplam net çalışma</span></div>
-          <div className="week-chart" role="group" aria-label={'Son yedi gün toplam çalışma ' + duration(weekTotal)}>{days.map(day => <button type="button" className={'day-bar ' + (day === today ? 'current' : '')} key={day} {...tooltip.triggerProps(day, {title:formatDay(day, {day:'numeric',month:'long'}),value:totals[day] ? duration(totals[day]) : 'Kayıt yok',context:'Net çalışma süresi',note:day === today ? 'Bugün' : undefined})}><span className="bar-value">{totals[day] ? Math.round(totals[day] / 60) + ' dk' : '—'}</span><span className="bar-track"><span style={{height: Math.max(0, 100 * (totals[day] ?? 0) / max) + '%'}}/></span><span>{new Intl.DateTimeFormat('tr-TR', {weekday: 'short', timeZone: 'UTC'}).format(new Date(day + 'T12:00:00Z'))}</span></button>)}</div>
+          <div className="week-chart" role="group" aria-label={'Son yedi gün toplam çalışma ' + duration(weekTotal)}>{days.map(day => <button type="button" className={'day-bar ' + (day === today ? 'current' : '')} key={day} {...tooltip.triggerProps(day, {title:formatDay(day, {day:'numeric',month:'long'}),value:totals[day] ? duration(totals[day]) : 'Kayıt yok',context:'Net çalışma süresi',note:day === today ? 'Bugün' : undefined})}><span className="bar-value">{totals[day] ? hourFormatter.format(totals[day] / 3600) + ' sa' : '—'}</span><span className="bar-track"><span style={{height: Math.max(0, 100 * (totals[day] ?? 0) / max) + '%'}}/></span><span>{new Intl.DateTimeFormat('tr-TR', {weekday: 'short', timeZone: 'UTC'}).format(new Date(day + 'T12:00:00Z'))}</span></button>)}</div>
           <p className="footnote">— Kayıt olmayan günler. Henüz çalışma yapılmadığı anlamına gelmez.</p>
         </Card>}
         {yks&&(modules?.statistics??true)&&<div className="today-practice-card"><PracticeOverview state={state} preview={preview} onOpen={openPractice}/></div>}

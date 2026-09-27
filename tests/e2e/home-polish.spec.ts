@@ -70,27 +70,6 @@ test('home task filters explain an empty completed view and return to the plan',
   expect(writes()).toBe(0);
 });
 
-test('calculation details reveal legends for only the task and time rings', async ({page}) => {
-  const writes = await openHome(page);
-  const card = page.locator('.daily-card');
-  const values = card.locator('.donut-center strong');
-  await expect(values).toHaveText(['%50', '%0']);
-  await expect(card.locator('.neon-metric')).toHaveCount(2);
-  await expect(card.getByRole('heading', {name: 'Günlük ilerleme', exact: true})).toHaveCount(0);
-  await expect(card.locator('.ring-legend')).toHaveCount(0);
-  const details = card.getByRole('button', {name: 'Hesaplama ayrıntıları'});
-  await expect(details).toHaveAttribute('aria-expanded', 'false');
-  await details.click();
-  await expect(card.getByText('Hedef ağırlıkları')).toHaveCount(0);
-  await expect(card.locator('.ring-legend')).toHaveCount(2);
-  const close = card.getByRole('button', {name: 'Ayrıntıları gizle'});
-  await expect(close).toHaveAttribute('aria-expanded', 'true');
-  await close.click();
-  await expect(card.locator('.ring-legend')).toHaveCount(0);
-  await expect(values).toHaveText(['%50', '%0']);
-  expect(writes()).toBe(0);
-});
-
 test('profile initials and greeting use the saved student name with Turkish casing', async ({page}) => {
   await openHome(page);
   await expect(page.locator('.profile-button strong')).toHaveText('ipek ışık');
@@ -106,19 +85,5 @@ test('an unset exam date keeps the countdown card and opens plan settings', asyn
   await countdown.getByRole('button', {name: 'Sınav tarihini ayarla'}).click();
   await expect(page.getByRole('button', {name: 'Plan ve hedefler', exact: true})).toHaveClass(/active/);
   await expect(page.locator('input[name="exam_date"]')).toBeVisible();
-  expect(writes()).toBe(0);
-});
-
-test('editing the daily goal without a current plan opens plan settings', async ({page}) => {
-  const state = homeState();
-  state.day_plans = [{
-    id: 'past-plan', plan_date: '2026-09-23', version: 1, target_minutes: 120, task_share: .7,
-    difficulty_factors: {easy: 1, medium: 1.25, hard: 1.5}, snapshot: [], changed_at: now,
-  }];
-  const writes = await openHome(page, state);
-  await page.locator('.daily-card').getByRole('button', {name: 'Hedefi düzenle'}).click();
-  await expect(page.getByRole('button', {name: 'Plan ve hedefler', exact: true})).toHaveClass(/active/);
-  await expect(page.getByLabel('Varsayılan günlük hedef (dk)', {exact: false})).toHaveValue('180');
-  await expect(page.getByRole('dialog', {name: 'Bugünün süre hedefi'})).toHaveCount(0);
   expect(writes()).toBe(0);
 });

@@ -52,8 +52,9 @@
   min-height: 190px;
 }
 
-.panel :global(.monthly-exam-plot) { max-height: 245px; }
-.panel :global(.monthly-exam-plot-desktop) { min-width: 0; }
+.panel :global(.monthly-exam-plot-wrap) { margin-inline: auto; }
+.panel :global(.monthly-exam-plot-desktop) { min-width: 0; max-width: 684px; }
+.panel :global(.monthly-exam-plot-mobile) { max-width: 328px; }
 .panel :global(.monthly-exam-plot-scroll) { overflow: hidden; }
 .panel :global(.monthly-exam-summary) { margin-bottom: 10px; }
 .panel :global(.monthly-exam-note) { margin-top: 10px; }

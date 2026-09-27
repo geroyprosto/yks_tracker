@@ -58,6 +58,48 @@ test('monthly and detailed chart points reveal contextual data at their edges an
   await expect(tooltip).toContainText('64,25 net');
 });
 
+test('monthly chart hover targets stay centered on their visible SVG dots', async ({page}) => {
+  await page.setViewportSize({width: 1920, height: 1000});
+  await openExams(page, [
+    exam('İlk TYT denemem', '2026-09-04', 64.25),
+    exam('Orta TYT denemem', '2026-09-15', 73.5),
+    exam('Son TYT denemem', '2026-09-26', 81.75),
+  ]);
+
+  const plot = page.locator('.monthly-exam-plot-desktop');
+  const dots = plot.locator('.monthly-exam-point');
+  const targets = plot.locator('[data-chart-point]');
+  await expect(dots).toHaveCount(3);
+  await expect(targets).toHaveCount(3);
+
+  for (let index = 0; index < 3; index++) {
+    const dot = (await dots.nth(index).boundingBox())!;
+    const target = (await targets.nth(index).boundingBox())!;
+    expect(Math.abs(dot.x + dot.width / 2 - target.x - target.width / 2), `point ${index + 1} horizontal alignment`).toBeLessThanOrEqual(1);
+    expect(Math.abs(dot.y + dot.height / 2 - target.y - target.height / 2), `point ${index + 1} vertical alignment`).toBeLessThanOrEqual(1);
+  }
+
+  const middleDot = (await dots.nth(1).boundingBox())!;
+  const dotCenterX = middleDot.x + middleDot.width / 2;
+  await page.mouse.move(dotCenterX, middleDot.y + middleDot.height / 2);
+  const tooltip = page.getByRole('tooltip');
+  await expect(tooltip).toContainText('73,5 net');
+  const tooltipBox = (await tooltip.boundingBox())!;
+  expect(Math.abs(tooltipBox.x + tooltipBox.width / 2 - dotCenterX)).toBeLessThanOrEqual(1);
+
+  await page.setViewportSize({width: 520, height: 1000});
+  const mobilePlot = page.locator('.monthly-exam-plot-mobile');
+  await expect(mobilePlot).toBeVisible();
+  const mobileDots = mobilePlot.locator('.monthly-exam-point');
+  const mobileTargets = mobilePlot.locator('[data-chart-point]');
+  for (const index of [0, 2]) {
+    const dot = (await mobileDots.nth(index).boundingBox())!;
+    const target = (await mobileTargets.nth(index).boundingBox())!;
+    expect(Math.abs(dot.x + dot.width / 2 - target.x - target.width / 2), `mobile point ${index + 1} horizontal alignment`).toBeLessThanOrEqual(1);
+    expect(Math.abs(dot.y + dot.height / 2 - target.y - target.height / 2), `mobile point ${index + 1} vertical alignment`).toBeLessThanOrEqual(1);
+  }
+});
+
 test('study bars show readable values on hover and focus without clipping the chart edge', async ({page}) => {
   await openExams(page, []);
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Çalışma İstatistikleri', exact: true}).click();

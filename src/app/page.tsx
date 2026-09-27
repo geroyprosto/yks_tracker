@@ -19,6 +19,7 @@ export default async function Home() {
     if (error instanceof ApiError && error.status === 401) return <Login />;
     throw error;
   }
+  if(account?.role==='student'&&account.status==='pending')redirect('/personalize');
   if (!account || account.role !== 'student' || account.status !== 'approved') redirect('/classroom');
   return <Dashboard />;
 }

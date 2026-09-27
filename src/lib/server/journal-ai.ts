@@ -38,6 +38,8 @@ export async function suggestJournalFields(client: SupabaseClient, date: string,
   if (error) {
     if (error.message.includes('AI_LIMIT_REACHED')) throw new ApiError(429, 'JOURNAL_AI_BUDGET',
       'Bu ayki ortak AI istek veya bütçe sınırına ulaşıldı.');
+    if(error.message.includes('AI_APP_BUDGET_REACHED'))throw new ApiError(429,'JOURNAL_AI_BUDGET','Uygulamanın aylık AI bütçesi doldu.');
+    if(error.message.includes('AI_DISABLED'))throw new ApiError(503,'AI_DISABLED','AI bu pilotta kapalı; günlük alanlarını elle düzenleyebilirsin.');
     if (error.message.includes('IDEMPOTENCY_CONFLICT')) throw new ApiError(409, 'JOURNAL_AI_CONFLICT',
       'Bu istek başka bir günlük metnine ait.');
     throw new ApiError(503, 'JOURNAL_AI_STORAGE', 'Günlük AI bütçe veritabanı kurulumu eksik.');
@@ -54,6 +56,8 @@ export async function suggestJournalFields(client: SupabaseClient, date: string,
       'Bu metnin önceki AI isteğinin sonucu belirsiz. Mükerrer ücret oluşmaması için otomatik tekrar gönderilmeyecek; alanları elle düzenleyebilirsin.');
   }
   try {
+    const marked=await admin.rpc('ai_mark_sent',{p_user_id:userId,p_kind:'journal',p_id:claim.suggestion.id,p_request_id:requestId});
+    if(marked.error)throw new ApiError(503,'JOURNAL_AI_STORAGE','AI gönderimi başlatılamadı.');
     const generated = await requestJournalSuggestion(config, text);
     const final = await admin.rpc('journal_ai_suggestion_finalize', {
       p_user_id: userId, p_suggestion_id: claim.suggestion.id, p_request_id: requestId,

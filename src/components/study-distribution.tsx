@@ -17,8 +17,8 @@ export function StudyDistribution({report}: {report: StudyReport}) {
   const [dimension, setDimension] = useState<Dimension>('subjects');
   const source = report[dimension];
   const total = source.reduce((sum, row) => sum + row.seconds, 0);
-  const displayed = source.length > 5 ? [...source.slice(0, 4), {label: 'Diğer', seconds: source.slice(4).reduce((sum, row) => sum + row.seconds, 0)}] : source;
-  const rows = displayed.map((row, color) => ({...row, key: row.label, color, value: total ? row.seconds / total * 100 : 0}));
+  const displayed = source.length > 5 ? [...source.slice(0, 4), {label: 'Diğer', key: '__other__', seconds: source.slice(4).reduce((sum, row) => sum + row.seconds, 0)}] : source;
+  const rows = displayed.map((row, color) => ({...row, key: row.key??row.label, color, value: total ? row.seconds / total * 100 : 0}));
   const legend = (items: typeof rows) => <ul className="distribution-legend">{items.map(row => <li key={row.key}>
     <span className="legend-dot" style={{'--legend-color': 'var(--ring-' + (row.color + 1) + ')'} as CSSProperties}/>
     <div><strong>{row.label}</strong><small>{duration(row.seconds)}</small></div>
@@ -34,7 +34,7 @@ export function StudyDistribution({report}: {report: StudyReport}) {
       {total === 0 ? <div className="distribution-empty"><h3>Bu dönem henüz boş.</h3><p>Çalışmalarını kaydettikçe sürelerini ve dağılımını burada göreceksin.</p></div> : legend(rows)}
     </div>
     {source.length > 5 && <details className="distribution-all"><summary>Tüm dağılımı gör · {source.length} başlık</summary>
-      {legend(source.map((row, index) => ({...row, key: row.label, color: Math.min(index, 4), value: row.seconds / total * 100})))}
+      {legend(source.map((row, index) => ({...row, key: row.key??row.label, color: Math.min(index, 4), value: row.seconds / total * 100})))}
     </details>}
     <p className="footnote">Seçili dönemin net çalışma süresi · Molalar hariç.</p>
   </Card>;

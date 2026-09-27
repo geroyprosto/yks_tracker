@@ -9,7 +9,7 @@ const exam = z.enum(["TYT", "AYT"]);
 const factors = z.object({easy:z.number().min(0.1).max(10),medium:z.number().min(0.1).max(10),hard:z.number().min(0.1).max(10)}).strict();
 const step = z.object({id, title:text(240).min(1),completed:z.boolean()}).strict();
 const taskFields = z.object({
- title:text(240).min(1),plan_date:date,exam:exam.nullable().optional(),subject:text(120).nullable().optional(),topic_id:id.nullable().optional(),
+ course_id:id.nullable().optional(),title:text(240).min(1),plan_date:date,exam:exam.nullable().optional(),subject:text(120).nullable().optional(),topic_id:id.nullable().optional(),
  resource:text(500).optional(),completion_criteria:text(500).optional(),planned_minutes:z.number().int().min(0).max(1440).optional(),
  difficulty:z.enum(["easy","medium","hard"]).optional(),progress:z.number().min(0).max(1).optional(),
  weight_override:z.number().min(0).max(100000).nullable().optional(),priority:z.enum(["low","normal","high"]).optional(),
@@ -94,16 +94,11 @@ export const commandSchema=z.discriminatedUnion("type",[
  z.object({...envelope,type:z.literal("day.unmark"),payload:z.object({id,expected_revision:revision}).strict()}),
  z.object({...envelope,type:z.literal("settings.update"),payload:settingsFields}),
  z.object({...envelope,type:z.literal("plan.update"),payload:z.object({plan_date:date,expected_revision:revision,target_minutes:z.number().int().min(0).max(1440).optional(),task_share:z.number().min(0).max(1).optional(),difficulty_factors:factors.optional()}).strict()}),
- z.object({...envelope,type:z.literal("manual_study.create"),payload:z.object({confirmed_by_user:z.literal(true),study_date:date,subject:text(120).min(1),minutes:z.number().int().min(1).max(1440)}).strict()}),
- z.object({...envelope,type:z.literal("timer.start"),payload:z.object({title:text(240).min(1).optional(),task_id:id.nullable().optional(),topic_id:id.nullable().optional(),subject:text(120).nullable().optional(),study_type:studyType.optional(),mode:z.enum(["stopwatch","countdown"]).optional(),target_seconds:z.number().int().min(60).max(86400).nullable().optional()}).strict().refine(v=>v.mode!=="countdown"||!!v.target_seconds,"Geri sayım hedef süresi gerekli.")}),
+ z.object({...envelope,type:z.literal("manual_study.create"),payload:z.object({course_id:id.nullable().optional(),confirmed_by_user:z.literal(true),study_date:date,subject:text(120).min(1).optional(),minutes:z.number().int().min(1).max(1440)}).strict().refine(value=>Boolean(value.course_id||value.subject),'Ders seçin veya ders adını yazın.')}),
+ z.object({...envelope,type:z.literal("timer.start"),payload:z.object({course_id:id.nullable().optional(),title:text(240).min(1).optional(),task_id:id.nullable().optional(),topic_id:id.nullable().optional(),subject:text(120).nullable().optional(),study_type:studyType.optional(),mode:z.enum(["stopwatch","countdown"]).optional(),target_seconds:z.number().int().min(60).max(86400).nullable().optional()}).strict().refine(v=>v.mode!=="countdown"||!!v.target_seconds,"Geri sayım hedef süresi gerekli.")}),
  z.object({...envelope,type:z.literal("timer.pause"),payload:transition}),
  z.object({...envelope,type:z.literal("timer.resume"),payload:transition}),
  z.object({...envelope,type:z.literal("timer.finish"),payload:transition.extend({confirmed_seconds:z.number().int().min(0).max(604800).optional()})}),
- z.object({...envelope,type:z.literal("timer.correct"),payload:transition.extend({confirmed_seconds:z.number().int().min(0).max(604800),reason:text(1000).min(3)})}),
 ]);
 export type Command=z.infer<typeof commandSchema>;
 export const loginSchema=z.object({email:z.email().max(320),password:z.string().min(1).max(1024)}).strict();
-
-
-
-

@@ -86,3 +86,9 @@
 .reportUsage{padding-top:10px;border-top:1px solid var(--border);color:var(--muted);font-size:10px}
 @media(max-width:900px){.statusGrid,.actionGrid{grid-template-columns:1fr}.cardDescription{min-height:0}}
 @media(max-width:520px){.workspace{gap:14px}.hero{min-height:0;gap:13px;padding:21px;border-radius:15px}.heroIcon{width:39px;height:39px;border-radius:12px}.heroIcon svg{width:20px}.hero h2{font-size:20px}.hero p:last-child{font-size:11px}.statusCard,.actionCard,.history{padding:18px;border-radius:13px}.dateForm{gap:9px}.dateForm input{padding-inline:8px;font-size:11px}.reportCard summary{flex-wrap:wrap}.reportTitle{flex-basis:calc(100% - 50px)}.reportCard summary .pill{margin-left:47px}.historyHeader h3{font-size:16px}.refreshButton{padding-inline:9px}}
+.fiveCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-block:16px}
+.reportSection{border:1px solid var(--border);border-radius:14px;padding:16px;overflow-wrap:anywhere}
+.reportSection:first-child{grid-column:1/-1}
+.reportSection h4{font-size:14px;margin:0 0 10px}
+.reportSection p{margin:8px 0;line-height:1.6}
+@media(max-width:600px){.fiveCards{grid-template-columns:1fr}}

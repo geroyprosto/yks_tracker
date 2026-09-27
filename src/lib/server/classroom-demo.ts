@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { mkdir, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { tmpdir } from 'node:os';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError } from './http';
@@ -15,7 +16,11 @@ const globalDemo = globalThis as typeof globalThis & { classroomDemo?: DemoRunti
 
 async function initialize() {
   const {PGlite}=await import('@electric-sql/pglite');
-  const dir = path.join(process.cwd(), 'tmp', process.env.YKSIM_E2E === '1' ? 'classroom-demo-e2e' : 'classroom-demo');
+  const testRun=process.env.CLASSROOM_DEMO_TEST_RUN;
+  if(process.env.YKSIM_E2E==='1'&&testRun&&!/^[a-zA-Z0-9-]{1,80}$/.test(testRun))throw new Error('INVALID_DEMO_TEST_RUN');
+  const dir = process.env.YKSIM_E2E==='1'
+    ? path.join(tmpdir(), 'yksim-classroom-e2e', testRun ?? 'default')
+    : path.join(process.cwd(), 'tmp', 'classroom-demo');
   await mkdir(dir, { recursive: true });
   const db = new PGlite(dir);
   await db.waitReady;
@@ -91,7 +96,7 @@ export async function clearDemoSession() {
 
 export function demoClient(userId:string|null): SupabaseClient {
   const rpc = async(name:string, args:Record<string,unknown> = {}) => {
-    const allowed = new Set(['yks_state','yks_command','classroom_state','classroom_identity','classroom_command','classroom_apply','classroom_invite','classroom_tick']);
+    const allowed = new Set(['education_state','education_command','yks_state','yks_command','classroom_state','classroom_identity','classroom_command','classroom_apply','classroom_invite','classroom_tick']);
     if (!allowed.has(name) || Object.keys(args).some(k => !/^[a-z_]+$/.test(k))) return { data:null, error:{message:'INVALID_INPUT'} };
     try {
       const data = await demoQuery(db => db.transaction(async tx => {

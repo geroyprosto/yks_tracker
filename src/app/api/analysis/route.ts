@@ -23,6 +23,8 @@ export async function POST(request:Request){
       const today=localDate();
       if(!validAnalysisRange(action.start_date,action.end_date,today))
         throw new ApiError(400,'INVALID_RANGE','Geçerli ve en fazla bir yıllık, geleceğe uzanmayan aralık seçin.');
+      const days=(Date.parse(action.end_date)-Date.parse(action.start_date))/86400000+1;
+      if(![7,14,30].includes(days))throw new ApiError(400,'INVALID_RANGE','Son 7, 14 veya 30 günlük bir aralık seçin.');
       await generateManualAnalysis(client,action.start_date,action.end_date,action.request_id);
     }else{
       const today=localDate();

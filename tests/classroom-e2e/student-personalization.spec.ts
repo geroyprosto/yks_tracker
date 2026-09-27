@@ -1,0 +1,96 @@
+import {expect,test,type BrowserContext} from '@playwright/test';
+import {CLASSROOM_DEMO_ACCOUNTS,DEMO_STUDENT_IDS,DEMO_TEACHER_IDS} from '../../src/lib/classroom/demo-seed';
+import type {AppState} from '../../src/lib/domain/types';
+import type {EducationState} from '../../src/lib/education';
+
+const origin='http://127.0.0.1:3200';
+async function login(context:BrowserContext,id:string){await expect(await context.request.post('/api/demo',{headers:{Origin:origin},data:{account_id:id}})).toBeOK();}
+async function state(context:BrowserContext):Promise<AppState>{const response=await context.request.get('/api/state');await expect(response).toBeOK();return response.json();}
+function protectedSnapshot(value:AppState){return {topics:value.topics,history:value.topic_history,exams:value.exams,finished:value.sessions.filter(s=>s.status==='finished').map(s=>({id:s.id,seconds:s.accumulated_seconds,started_at:s.started_at,finished_at:s.finished_at})),manual:value.manual_study_entries};}
+
+test('university setup shares persistent courses with timer, tasks, batch scores and preserves YKS history',async({page,context})=>{
+ await login(context,DEMO_STUDENT_IDS[32]);
+ let before=await state(context);
+ for(const session of before.sessions.filter(item=>item.status!=='finished'))await expect(await context.request.post('/api/command',{headers:{Origin:origin},data:{request_id:crypto.randomUUID(),type:'timer.finish',payload:{id:session.id,expected_revision:session.revision}}})).toBeOK();
+ before=await state(context);
+ await page.goto('/personalize');
+ await page.getByRole('radio',{name:/Üniversitede okuyorum/}).check();
+ await page.getByRole('checkbox',{name:/YKS’ye hazırlanıyorum/}).uncheck();
+ await page.getByLabel('Bölüm (isteğe bağlı)').fill('Uluslararası Ticaret');
+ await page.getByRole('button',{name:'İleri',exact:true}).click();
+ const termSelect=page.getByRole('combobox',{name:'Dönem',exact:true});
+ if(await termSelect.count())await termSelect.selectOption('new');
+ await page.getByLabel('Dönem adı',{exact:true}).fill('Güz '+Date.now());
+ await page.getByRole('button',{name:'İleri',exact:true}).click();
+ await page.getByRole('textbox',{name:'Derslerini alt alta yaz'}).fill('Matematik\nBilişim\nYabancı Dil\nİktisat');
+ await page.getByRole('button',{name:'Bu dersleri ekle'}).click();
+ await expect(page.getByLabel('Çalışma Alanımın Özeti')).toContainText('4 ders');
+ await page.screenshot({path:'artifacts/student-personalization-desktop.png',fullPage:true});
+ await page.getByRole('button',{name:'İleri',exact:true}).click();
+ await page.getByRole('button',{name:/Değişiklikleri kaydet|Çalışma alanımı oluştur/}).click();
+ await expect(page.getByRole('navigation',{name:'Ana gezinme'})).toBeVisible();
+ await expect(page.getByRole('navigation',{name:'Ana gezinme'}).getByRole('button',{name:'Konularım',exact:true})).toHaveCount(0);
+ const after=await state(context);
+ expect(protectedSnapshot(after)).toEqual(protectedSnapshot(before));
+ const education=after.education!;
+ const courses=education.courses.filter(course=>course.term_id===education.profile!.active_term_id);
+ expect(courses.map(c=>c.name).sort()).toEqual(['Matematik','Bilişim','Yabancı Dil','İktisat'].sort());
+ await page.getByRole('button',{name:'Çalışma sayacını aç',exact:true}).click();
+ const timer=page.getByRole('dialog',{name:'Çalışmaya başla'});
+ await timer.getByRole('combobox',{name:'Ders',exact:true}).selectOption(courses.find(c=>c.name==='Matematik')!.id);
+ await timer.getByRole('button',{name:'Çalışmaya başla',exact:true}).click();
+ await expect(timer).not.toBeVisible();
+ const active=(await state(context)).sessions.find(item=>item.status!=='finished')!;
+ expect(active.course_id).toBe(courses.find(c=>c.name==='Matematik')!.id);
+ await page.getByRole('button',{name:'Çalışma sayacını aç',exact:true}).click();
+ await page.getByRole('button',{name:'Duraklat',exact:true}).last().click();
+ await page.getByRole('button',{name:'Sürdür',exact:true}).last().click();
+ await page.getByRole('button',{name:'Bitir ve kaydet',exact:true}).click();
+ await page.getByRole('navigation',{name:'Ana gezinme'}).getByRole('button',{name:'Sınav Sonuçları',exact:true}).click();
+ for(const [name,score] of [['Matematik','72'],['Bilişim','88'],['Yabancı Dil','65'],['İktisat','79']])await page.getByRole('textbox',{name:name+' puanı',exact:true}).fill(score);
+ await page.getByRole('button',{name:'Tümünü kaydet',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('4 sınav sonucu birlikte kaydedildi');
+ await page.getByRole('combobox',{name:'Grafikteki ders'}).selectOption(courses.find(c=>c.name==='İktisat')!.id);
+ await expect(page.getByRole('img',{name:/İktisat için 1 sınav sonucu/})).toBeVisible();
+ const results=(await state(context)).education!.results.filter(result=>result.term_id===education.profile!.active_term_id);
+ expect(results).toHaveLength(4);
+ await page.getByRole('navigation',{name:'Ana gezinme'}).getByRole('button',{name:'Görevlerim',exact:true}).click();
+ await page.getByRole('button',{name:/İlk görevi ekle|Yeni görev/}).first().click();
+ const task=page.getByRole('dialog',{name:'Yeni görev'});
+ await task.getByLabel('Görev başlığı').fill('Bilişim tekrar');
+ await task.getByRole('combobox',{name:'Ders (isteğe bağlı)',exact:true}).selectOption(courses.find(c=>c.name==='Bilişim')!.id);
+ await task.getByRole('button',{name:'Görevi kaydet'}).click();
+ await expect(task).not.toBeVisible();
+ expect((await state(context)).tasks.find(task=>task.title==='Bilişim tekrar')?.course_id).toBe(courses.find(c=>c.name==='Bilişim')!.id);
+});
+
+test('pending student saves only own draft; mobile keyboard/back/resume and role guards work',async({page,context})=>{
+ const pending=CLASSROOM_DEMO_ACCOUNTS.find(account=>account.key==='pending-student')!;
+ await login(context,pending.id);
+ await page.setViewportSize({width:360,height:800});
+ await page.addInitScript(()=>{localStorage.setItem('yksim-theme','white');localStorage.setItem('yksim-reduced','true');});
+ await page.goto('/personalize');
+ await expect(page.getByText('Hesabın onay bekliyor.',{exact:false})).toBeVisible();
+ await page.getByRole('radio',{name:/Lisede okuyorum/}).check();
+ await page.getByRole('combobox',{name:'Sınıfın'}).selectOption('10');
+ await page.getByRole('checkbox',{name:/YKS’ye hazırlanıyorum/}).check();
+ await page.getByRole('button',{name:'İleri',exact:true}).focus();
+ await page.keyboard.press('Enter');
+ await expect(page.getByRole('heading',{name:'Bu dönemine bir ad ver.'})).toBeFocused();
+ await page.getByRole('button',{name:'Geri',exact:true}).click();
+ await expect(page.getByRole('combobox',{name:'Sınıfın'})).toHaveValue('10');
+ await page.getByRole('button',{name:'Taslağı kaydet',exact:true}).click();
+ await expect(page.getByRole('status')).toContainText('Taslağın kaydedildi');
+ await page.reload();
+ await expect(page.getByRole('combobox',{name:'Sınıfın'})).toHaveValue('10');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+ await page.screenshot({path:'artifacts/student-personalization-mobile.png',fullPage:true});
+ const response=await context.request.get('/api/education');await expect(response).toBeOK();
+ const education:EducationState=await response.json();
+ expect(education.can_commit).toBe(false);expect(education.courses).toEqual([]);expect(education.results).toEqual([]);
+ const forbidden=await context.request.post('/api/education',{headers:{Origin:origin},data:{request_id:crypto.randomUUID(),type:'profile.save',payload:{expected_revision:0,...education.draft!.data}}});
+ expect(forbidden.status()).toBe(403);
+ expect((await context.request.get('/api/state')).status()).toBe(403);
+ await login(context,DEMO_TEACHER_IDS[0]);
+ expect((await context.request.get('/api/education')).status()).toBe(403);
+});

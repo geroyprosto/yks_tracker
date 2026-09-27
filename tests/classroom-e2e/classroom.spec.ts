@@ -173,8 +173,7 @@ test('live messages, replies and a real timer start persist across student devic
     await studentPage.reload();
     await studentPage.getByRole('button', { name: 'Çalışma sayacını aç' }).click();
     const timer = studentPage.getByRole('dialog');
-    const mathematics = timer.getByRole('button', { name: 'Matematik', exact: true });
-    if (await mathematics.getAttribute('aria-pressed') !== 'true') await mathematics.click();
+    await timer.getByRole('combobox', {name: 'Ders', exact:true}).selectOption({label:'TYT · Matematik'});
     await timer.getByRole('button', { name: 'Çalışmaya başla', exact: true }).click();
     await expect.poll(async () => (await state(teacher)).feedback.filter(item => item.alert_id === acceptedId).map(item => item.event).sort()).toEqual(['accepted', 'started']);
     feedback = (await state(teacher)).feedback.filter(item => item.alert_id === acceptedId);

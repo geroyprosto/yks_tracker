@@ -20,6 +20,8 @@ export function databaseError(error:{message:string;code?:string}):never{
   INVALID_INVITE:[410,"Davet iptal edilmiş veya süresi dolmuş."],
   CONFLICT:[409,"Kayıt başka bir cihazda değişti. Güncel verileri alıp tekrar deneyin."],
   ACTIVE_SESSION:[409,"Zaten açık bir çalışma oturumu var. Önce onu bitirin."],
+  DURATION_IMMUTABLE:[409,"Kesinleşmiş çalışma süresi değiştirilemez."],
+  DUPLICATE_COURSE:[409,"Bu ders aynı dönemde ve çalışma bağlamında zaten var."],
   CONFIRM_DURATION:[422,"Uzun süreli oturumun gerçek çalışma süresini doğrulayın."],
   INVALID_TRANSITION:[409,"Sayaç durumu değişti. Güncel verileri alıp tekrar deneyin."],
   OWNER_REQUIRED:[403,"Bu hesap için erişim tanımlı değil."],NOT_FOUND:[404,"Kayıt bulunamadı."],

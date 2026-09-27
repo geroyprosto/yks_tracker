@@ -27,7 +27,8 @@ test("real setup API exposes empty data and the dashboard never invents study re
   await showRealEmpty(page);
   await expect(page.getByText("Kişisel alanın kurulum için hazır.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Bugün için temiz bir sayfa" })).toBeVisible();
-  await expect(page.getByText("Henüz plan oluşturulmadı", { exact: true })).toBeVisible();
+  await expect(page.getByRole("img", {name:"Görevler: tanımlı değil",exact:true})).toBeVisible();
+  await expect(page.getByText("İlk görevini ekle", {exact:true})).toBeVisible();
   await expect(page.getByRole("button", { name: "Çalışma sayacını aç", exact: true }).first()).toBeDisabled();
   expect(await page.locator(".bar-value").allTextContents()).toEqual(Array(7).fill("—"));
   await expectNoOverflow(page);
@@ -129,7 +130,7 @@ test("mobile routes, forms, and themes remain inside a 360px viewport", async ({
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Menüyü aç", exact: true }).click();
   await expect(page.getByRole("navigation", { name: "Ana gezinme" })).toBeVisible();
-  await page.getByRole("navigation", { name: "Ana gezinme" }).getByRole("button", { name: "Denemelerim" }).click();
+  await page.getByRole("navigation", { name: "Ana gezinme" }).getByRole("button", { name: "Sınav Sonuçları" }).click();
   await expect(page.getByRole("heading", { name: "Denemelerini birlikte oku." })).toBeVisible();
   expect(errors).toEqual([]);
 });

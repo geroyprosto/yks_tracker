@@ -89,14 +89,14 @@ test("countdown caps at target after the browser was closed",async()=>{
  const result=await state();const session=result.sessions.find(s=>s.id===started.id)!;assert.equal(session.status,"finished");assert.equal(session.accumulated_seconds,60);
  const interval=result.intervals.find(i=>i.session_id===started.id)!;assert.equal((Date.parse(interval.ended_at!)-Date.parse(interval.started_at))/1000,60);
 });
-test("forgotten stopwatch requires confirmation and corrections retain audit history",async()=>{
+test("forgotten stopwatch requires confirmation before finish and finalized duration is immutable",async()=>{
  const started=await command("timer.start",{title:"Unutulan sayaç",mode:"stopwatch"});await ageActive(7*3600);let session=(await state()).sessions.find(s=>s.id===started.id)!;
  await assert.rejects(()=>command("timer.finish",{id:session.id,expected_revision:session.revision}),/CONFIRM_DURATION/);
  assert.equal((await state()).sessions.find(s=>s.id===started.id)!.status,"running");
  await command("timer.finish",{id:session.id,expected_revision:session.revision,confirmed_seconds:1800});session=(await state()).sessions.find(s=>s.id===started.id)!;assert.equal(session.accumulated_seconds,1800);
- await command("timer.correct",{id:session.id,expected_revision:session.revision,confirmed_seconds:1200,reason:"Fazla süre düzeltmesi"});
- assert.equal((await state()).sessions.find(s=>s.id===started.id)!.accumulated_seconds,1200);
- const log=(await db.query<{old_value:{accumulated_seconds:number}}>("select old_value from public.audit_log where entity_id=$1 and action='timer.correct'",[started.id])).rows[0];assert.equal(log.old_value.accumulated_seconds,1800);
+ await assert.rejects(()=>command("timer.correct",{id:session.id,expected_revision:session.revision,confirmed_seconds:1200,reason:"Fazla süre düzeltmesi"}),/DURATION_IMMUTABLE/);
+ assert.equal((await state()).sessions.find(s=>s.id===started.id)!.accumulated_seconds,1800);
+ assert.equal((await db.query("select id from public.audit_log where entity_id=$1 and action='timer.correct'",[started.id])).rows.length,0);
 });
 test("topic hierarchy rejects cycles and other-account foreign references",async()=>{
  const a=await command("topic.create",{exam:"AYT",subject:"Test dersi",name:"Üst konu"});const b=await command("topic.create",{exam:"AYT",subject:"Test dersi",name:"Alt konu",parent_id:a.id});

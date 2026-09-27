@@ -1,6 +1,6 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { AppState } from '../domain/types';
-import { buildAnalysisSnapshot } from '../analysis-snapshot';
+import { buildAnalysisSnapshot, buildStudentAnalysisSnapshot } from '../analysis-snapshot';
 import { localDate } from '../ui';
 import { getState } from './service';
 import { getConfiguration } from './auth';
@@ -12,7 +12,7 @@ type ReportRow={id:string;user_id:string;start_date:string;end_date:string;sourc
   usage:{input_tokens:number;output_tokens:number;estimated_cost_usd:number|null}|null;error_message:string|null;
   request_id:string;created_at:string;updated_at:string};
 type ScheduleRow={enabled:boolean;start_date:string|null}|null;
-type UsageRow={requests:number;estimated_cost_usd:number|null}|null;
+type UsageRow={requests:number;estimated_cost_usd:number|null;resets_at:string;enabled:boolean;month:string}|null;
 function databaseSetupError(){return new ApiError(503,'ANALYSIS_STORAGE_UNAVAILABLE','Analiz veritabanı kurulumu veya bağlantısı eksik.');}
 export function analysisAdmin():SupabaseClient {
   const config=getConfiguration();
@@ -27,11 +27,10 @@ export async function ownerId(client:SupabaseClient){
 }
 export async function getAnalysisStatus(client:SupabaseClient){
   const id=await ownerId(client);
-  const month=localDate(new Date()).slice(0,7)+'-01';
   const [settings,reports,usage]=await Promise.all([
     client.from('analysis_settings').select('enabled,start_date').eq('user_id',id).maybeSingle(),
     client.from('analysis_reports').select('id,user_id,start_date,end_date,source_hash,status,body,summary,usage,error_message,request_id,created_at,updated_at').eq('user_id',id).order('created_at',{ascending:false}).limit(25),
-    client.from('analysis_usage').select('requests,estimated_cost_usd').eq('user_id',id).eq('month',month).maybeSingle(),
+    client.rpc('ai_usage_status'),
   ]);
   if(settings.error||reports.error||usage.error)throw databaseSetupError();
   const rows=reports.data as ReportRow[];
@@ -39,39 +38,37 @@ export async function getAnalysisStatus(client:SupabaseClient){
   const hashes=new Map<string,string>();
   if(current.length){
     const state=await getState(client);
-    for(const row of current){const key=row.start_date+'/'+row.end_date;
+    for(const row of current){const key=row.start_date+'/'+row.end_date+'/'+(row.summary?.schema_version??1);
       if(!hashes.has(key)){
-        try{hashes.set(key,buildAnalysisSnapshot(state,row.start_date,row.end_date).sourceHash);}catch{hashes.set(key,'');}
+        try{hashes.set(key,(row.summary?.schema_version===2?buildStudentAnalysisSnapshot:buildAnalysisSnapshot)(state,row.start_date,row.end_date).sourceHash);}catch{hashes.set(key,'');}
       }
     }
   }
   const config=getAnalysisProviderConfig();
-  return {ok:true,configured:Boolean(config&&analysisServiceConfigured()),model:process.env.OPENAI_MODEL?.trim()||null,
+  return {ok:true,configured:Boolean(config&&analysisServiceConfigured()&&(usage.data as UsageRow)?.enabled),model:process.env.OPENAI_MODEL?.trim()||null,
     scheduler_ready:schedulerReady(),schedule:settings.data as ScheduleRow,
     reports:rows.map(row=>({id:row.id,start_date:row.start_date,end_date:row.end_date,status:row.status,body:row.body,
-      created_at:row.created_at,stale:row.status==='completed'&&hashes.get(row.start_date+'/'+row.end_date)!==row.source_hash,
+      created_at:row.created_at,stale:row.status==='completed'&&hashes.get(row.start_date+'/'+row.end_date+'/'+(row.summary?.schema_version??1))!==row.source_hash,
       error_message:row.error_message,summary:row.summary,usage:row.usage})),
-    limits:{monthly_requests:(config?.monthlyRequests??Number(process.env.AI_MONTHLY_REQUEST_LIMIT))||0,
+    resets_at:(usage.data as UsageRow)?.resets_at??null,
+    limits:{monthly_requests:4,
       monthly_usd:(config?.monthlyUsd??Number(process.env.AI_MONTHLY_BUDGET_USD))||0},
     used:{requests:(usage.data as UsageRow)?.requests??0,estimated_cost_usd:(usage.data as UsageRow)?.estimated_cost_usd??0}};
 }
 export async function setAnalysisSchedule(client:SupabaseClient,enabled:boolean,startDate:string|null){
-  if(enabled&&!schedulerReady())throw new ApiError(503,'SCHEDULER_NOT_READY','14 günlük sunucu zamanlayıcısı henüz kurulu ve yayında değil.');
+  if(enabled)throw new ApiError(409,'AUTOMATIC_AI_DISABLED','Bu pilotta AI yalnız isteğin üzerine çalışır. Otomatik rapor kapalıdır.');
   const userId=await ownerId(client);
   const {error}=await analysisAdmin().rpc('analysis_schedule_set_for_owner',
     {p_user_id:userId,p_enabled:enabled,p_start_date:startDate});
   if(error?.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
   if(error)throw databaseSetupError();
 }
-function validateSources(days:string[],result:{observations:Array<{source_days:string[]}>}){
-  const valid=new Set(days);
-  for(const item of result.observations)item.source_days=item.source_days.filter(day=>valid.has(day));
-}
 export async function generateAnalysisForState(options:{owner:string;state:AppState;start:string;end:string;requestId:string;
 }){
   const config=getAnalysisProviderConfig();
   if(!config)throw new ApiError(503,'ANALYSIS_SETUP_REQUIRED','OpenAI API anahtarı, model ve maliyet sınırları henüz kurulmadı.');
-  const {snapshot,sourceHash}=buildAnalysisSnapshot(options.state,options.start,options.end);
+  const {snapshot,sourceHash}=buildStudentAnalysisSnapshot(options.state,options.start,options.end);
+  if(snapshot.summary.data_days===0)throw new ApiError(400,'ANALYSIS_NO_DATA','Bu aralıkta değerlendirilecek kayıt yok. AI hakkı kullanılmadı.');
   const prompt=providerPayload(snapshot);
   const reservation=reservedCostUsd(config,prompt);
   if(reservation>config.monthlyUsd)throw new ApiError(429,'ANALYSIS_BUDGET','Tek rapor maliyet üst sınırı aylık bütçeyi aşıyor.');
@@ -82,16 +79,18 @@ export async function generateAnalysisForState(options:{owner:string;state:AppSt
   const claim=await analysisAdmin().rpc('analysis_report_claim_for_owner',{p_user_id:options.owner,...params});
   if(claim.error){
     if(claim.error.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
-    if(claim.error.message==='AI_LIMIT_REACHED')throw new ApiError(429,'ANALYSIS_BUDGET','Bu ayki AI rapor sınırına ulaşıldı.');
+    if(claim.error.message.includes('AI_DISABLED'))throw new ApiError(503,'AI_DISABLED','AI sunucuda kapalı; çalışma kayıtların kullanılabilir.');
+    if(/AI_LIMIT_REACHED|AI_APP_BUDGET_REACHED/.test(claim.error.message))throw new ApiError(429,'ANALYSIS_BUDGET','Bu ayki 4 AI kullanımı veya uygulama bütçesi doldu.');
     throw databaseSetupError();
   }
   const value=claim.data as {report:ReportRow;claimed:boolean};
   if(!value?.claimed)return value?.report;
   const admin=analysisAdmin();
   try{
+    const marked=await admin.rpc('ai_mark_sent',{p_user_id:options.owner,p_kind:'report',p_id:value.report.id,p_request_id:options.requestId});
+    if(marked.error)throw databaseSetupError();
     const generated=await requestAnalysis(config,prompt);
-    validateSources(snapshot.summary.source_days,generated.analysis);
-    const summary={...snapshot.summary,observations:generated.analysis.observations};
+    const summary={...snapshot.summary,schema_version:2,structured_report:generated.analysis,evidence:snapshot.evidence};
     const result=await admin.rpc('analysis_report_finalize',{p_user_id:options.owner,p_report_id:value.report.id,
       p_request_id:options.requestId,p_body:formatAnalysis(generated.analysis),p_summary:summary,
       p_usage:generated.usage,p_actual_cost_usd:generated.cost});
@@ -109,11 +108,8 @@ export async function generateManualAnalysis(client:SupabaseClient,start:string,
   return generateAnalysisForState({owner:await ownerId(client),state,start,end,requestId});
 }
 export async function generateScheduledAnalysis(admin:SupabaseClient,owner:string,start:string,end:string,requestId:string){
-  const {data,error}=await admin.rpc('analysis_source_state',{p_user_id:owner});
-  if(error?.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
-  if(error||!data)throw databaseSetupError();
-  const state={...(data as AppState),configured:true,authenticated:true,server_now:new Date().toISOString()};
-  return generateAnalysisForState({owner,state,start,end,requestId});
+  void admin;void owner;void start;void end;void requestId;
+  throw new ApiError(409,'AUTOMATIC_AI_DISABLED','Otomatik AI raporu bu pilotta kapalıdır.');
 }
 export function dueAnalysisWindow(startDate:string,today=localDate()){
   const from=Date.parse(startDate+'T12:00:00Z'),now=Date.parse(today+'T12:00:00Z');

@@ -41,7 +41,7 @@ export const CLASSROOM_DEMO_ACCOUNTS: readonly ClassroomDemoAccount[] = [
   { id: id(0, 0, 202), key: 'pending-student', name: 'Ali Çınar', email: 'ali@classroom-demo.invalid', role: 'student', status: 'pending', teacher_id: null },
 ];
 
-const SEED_VERSION = 1;
+const SEED_VERSION = 2;
 type SeedConnection = Pick<PGlite, 'query'>;
 type Row = Record<string, unknown>;
 async function insertRows(db: SeedConnection, table: string, rows: Row[], conflict: string[], update = true) {
@@ -50,10 +50,22 @@ async function insertRows(db: SeedConnection, table: string, rows: Row[], confli
   const columns = Object.keys(rows[0]);
   const changes = columns.filter(column => !conflict.includes(column));
   await db.query(`insert into ${table} (${columns.join(',')})
-    select ${columns.join(',')} from jsonb_populate_recordset(null::${table}, $1::jsonb)
+    select ${columns.map(column=>`incoming.${column}`).join(',')} from jsonb_populate_recordset(null::${table}, $1::jsonb) incoming
+    ${update?'':`where not exists(select 1 from ${table} current_row where ${conflict.map(column=>`current_row.${column}=incoming.${column}`).join(' and ')})`}
     on conflict (${conflict.join(',')}) do ${update && changes.length
       ? `update set ${changes.map(column => `${column}=excluded.${column}`).join(',')}` : 'nothing'}`,
   [JSON.stringify(rows)]);
+}
+/** Seed historical fixtures through the same open -> interval -> finish ordering as the timer. */
+async function insertFinishedStudy(db:SeedConnection,sessions:Row[],intervals:Row[]) {
+  for(const session of sessions){
+    if((await db.query('select id from public.study_sessions where id=$1',[session.id])).rows.length)continue;
+    // A returning demo user may have a live session. Never replace or pause it to refresh fixtures.
+    if((await db.query("select id from public.study_sessions where user_id=$1 and status in ('running','paused')",[session.user_id])).rows.length)continue;
+    await insertRows(db,'public.study_sessions',[{...session,status:'paused',finished_at:null}],['id'],false);
+    await insertRows(db,'public.study_intervals',intervals.filter(row=>row.session_id===session.id),['id'],false);
+    await db.query("update public.study_sessions set status='finished',finished_at=$2 where id=$1",[session.id,session.finished_at]);
+  }
 }
 function stamp(date: string, hour = 12, minute = 0) {
   return new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00+03:00`).toISOString();
@@ -103,7 +115,7 @@ export async function seedClassroomDemo(db: PGlite, now = new Date()): Promise<{
     singleton boolean primary key default true check(singleton),version integer not null,day date not null);
     revoke all on private.classroom_demo_seed_local from public,anon,authenticated;`);
   const old = await db.query<{ version: number; day: string }>('select version,day::text from private.classroom_demo_seed_local where singleton');
-  if (old.rows[0]?.version === SEED_VERSION && old.rows[0]?.day === today) return { seeded: false, day: today };
+  if (old.rows[0]?.version === SEED_VERSION) return { seeded: false, day: today };
 
   await db.transaction(async tx => {
     const ids = CLASSROOM_DEMO_ACCOUNTS.map(account => account.id);
@@ -123,6 +135,9 @@ export async function seedClassroomDemo(db: PGlite, now = new Date()): Promise<{
       timezone: CLASSROOM_TIMEZONE, daily_target_minutes: 180 + index % 5 * 30,
       theme: 'ocean', appearance: 'dark', updated_at: now.toISOString(),
     })), ['user_id'], false);
+    await tx.query(`insert into public.education_profiles(user_id,education_level,yks_goal)
+      select id,'graduate',true from public.classroom_accounts where id=any($1::uuid[]) and role='student' and status='approved'
+      on conflict(user_id) do nothing`,[DEMO_STUDENT_IDS]);
     const formats = (await tx.query<ExamFormat>('select * from public.exam_format_versions where version=1')).rows;
     const topics = (await tx.query<{ exam: 'TYT' | 'AYT'; subject: string; name: string; source: string }>('select * from private.starter_topics()')).rows;
 
@@ -134,6 +149,8 @@ export async function seedClassroomDemo(db: PGlite, now = new Date()): Promise<{
         ...topic, id: id(4, person, topicIndex), user_id, mastery: (index * 3 + topicIndex * 7 + Math.floor(topicIndex / 9)) % 5,
         notes: '', source: topic.source, updated_at: iso(current - (topicIndex % 20) * 86400000),
       })), ['user_id', 'exam', 'subject', 'name'], false);
+      await tx.query(`insert into public.education_courses(user_id,name,context,exam)
+        select distinct user_id,subject,'yks',exam from public.topics where user_id=$1 on conflict do nothing`,[user_id]);
 
       const sessions: Row[] = [];
       const intervals: Row[] = [];
@@ -183,27 +200,8 @@ export async function seedClassroomDemo(db: PGlite, now = new Date()): Promise<{
         accumulated_seconds: Math.floor((end - boundary + 20 * 60000) / 1000), finished_at: iso(end), revision: 1 });
       intervals.push({ id: id(3, person, 1000), user_id, session_id: crossId,
         started_at: iso(boundary - 20 * 60000), ended_at: iso(end) });
-      await insertRows(tx, 'public.study_sessions', sessions, ['id']);
-      await insertRows(tx, 'public.study_intervals', intervals, ['id']);
+      await insertFinishedStudy(tx,sessions,intervals);
       await insertRows(tx, 'public.practice_entries', questions, ['id']);
-
-      const activeMode = index % 4;
-      if (activeMode === 1 || activeMode === 2) {
-        const currentId = id(2, person, 200);
-        const competing = await tx.query('select id from public.study_sessions where user_id=$1 and status in (\'running\',\'paused\') and id<>$2', [user_id, currentId]);
-        if (!competing.rows.length) {
-          const activeStart = current - 60 * 1000;
-          await insertRows(tx, 'public.study_sessions', [{ id: currentId, user_id, title: 'Matematik odak çalışması',
-            subject: 'Matematik', study_type: 'Soru çözümü', mode: 'stopwatch', status: activeMode === 1 ? 'running' : 'paused',
-            started_at: iso(activeStart), active_since: activeMode === 1 ? iso(activeStart) : null,
-            accumulated_seconds: activeMode === 1 ? 0 : 40, finished_at: null, revision: 1 }], ['id']);
-          await insertRows(tx, 'public.study_intervals', [{ id: id(3, person, 2000), user_id, session_id: currentId,
-            started_at: iso(activeStart), ended_at: activeMode === 1 ? null : iso(activeStart + 40000) }], ['id']);
-        }
-      }
-      await insertRows(tx, 'public.classroom_presence', [{ user_id, device_id: id(8, person),
-        visible: activeMode !== 0, last_seen: iso(current - (activeMode === 0 ? (35 + index * 7) * 60000 : 0)),
-        expires_at: iso(current + (activeMode === 0 ? -60000 : 90000)) }], ['user_id', 'device_id']);
 
       for (const [formatIndex, code] of (['TYT', 'AYT_SAYISAL'] as const).entries()) {
         // A few students have no AYT yet; one per class has no exam data at all.
@@ -259,13 +257,31 @@ export async function seedClassroomDemo(db: PGlite, now = new Date()): Promise<{
         if (!refused) {
           // The sample "started" event is backed by an actual matching study interval.
           const responseSession = id(2, person, 300);
-          await insertRows(tx, 'public.study_sessions', [{ id: responseSession, user_id, title: 'Sabah tekrarı', subject: 'Matematik',
+          await insertFinishedStudy(tx,[{ id: responseSession, user_id, title: 'Sabah tekrarı', subject: 'Matematik',
             study_type: 'Tekrar', mode: 'stopwatch', status: 'finished', started_at: iso(startedTime), active_since: null,
-            accumulated_seconds: 1200, finished_at: iso(startedTime + 1200000), revision: 1 }], ['id'], false);
-          await insertRows(tx, 'public.study_intervals', [{ id: id(3, person, 3000), user_id, session_id: responseSession,
-            started_at: iso(startedTime), ended_at: iso(startedTime + 1200000) }], ['id'], false);
+            accumulated_seconds: 1200, finished_at: iso(startedTime + 1200000), revision: 1 }], [{ id: id(3, person, 3000), user_id, session_id: responseSession,
+            started_at: iso(startedTime), ended_at: iso(startedTime + 1200000) }]);
         }
       }
+      const activeMode = index % 4;
+      if (activeMode === 1 || activeMode === 2) {
+        const currentId = id(2, person, 200);
+        const competing = await tx.query('select id from public.study_sessions where user_id=$1 and status in (\'running\',\'paused\') and id<>$2', [user_id, currentId]);
+        if (!competing.rows.length) {
+          const activeStart = current - 60 * 1000;
+          await insertRows(tx, 'public.study_sessions', [{ id: currentId, user_id, title: 'Matematik odak çalışması',
+            subject: 'Matematik', study_type: 'Soru çözümü', mode: 'stopwatch', status: activeMode === 1 ? 'running' : 'paused',
+            started_at: iso(activeStart), active_since: activeMode === 1 ? iso(activeStart) : null,
+            accumulated_seconds: activeMode === 1 ? 0 : 40, finished_at: null, revision: 1 }], ['id'],false);
+          await insertRows(tx, 'public.study_intervals', [{ id: id(3, person, 2000), user_id, session_id: currentId,
+            started_at: iso(activeStart), ended_at: activeMode === 1 ? null : iso(activeStart + 40000) }], ['id'],false);
+        }
+      }
+      const simulatedDevice=DEMO_PRESENCE_SIMULATIONS.some(simulation=>simulation.user_id===user_id);
+      await insertRows(tx, 'public.classroom_presence', [{ user_id, device_id: id(8, person),
+        visible: simulatedDevice, last_seen: iso(current - (simulatedDevice ? 0 : (35 + index * 7) * 60000)),
+        expires_at: iso(current + (simulatedDevice ? 90000 : -60000)) }], ['user_id', 'device_id']);
+
     }
     await insertRows(tx, 'public.classroom_applications', CLASSROOM_DEMO_ACCOUNTS.filter(account => account.status === 'pending').map((account, index) => ({
       id: id(11, index), user_id: account.id, name: account.name, email: account.email, requested_role: account.role,

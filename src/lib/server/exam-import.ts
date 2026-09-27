@@ -4,7 +4,7 @@ import { z } from "zod";
 import { commandSchema } from "../domain/commands";
 import { extractPdfDraft, MAX_PDF_BYTES, PdfImportError, validatePdfUpload } from "../exam-import/extract";
 import type { ImportCandidate, ImportDocument } from "../exam-import/types";
-import { extractVisualCandidates } from "../exam-import/visual";
+
 import { ApiError } from "./http";
 import { databaseError, getState } from "./service";
 
@@ -94,23 +94,8 @@ export async function uploadImportDocument(client:SupabaseClient,file:File,allow
   }
   let visualStatus:NonNullable<ImportDocument["visual_extraction_status"]>="not_needed";
   if(extracted.vision_pages.length) {
-    if(allowVisualExtraction) {
-      const visual=await extractVisualCandidates(bytes,extracted.vision_pages);
-      visualStatus=visual.status;
-      if(visual.candidates.length) {
-        const recognizedPages=new Set(visual.candidates.flatMap(candidate=>candidate.source_pages));
-        extracted.candidates=extracted.candidates.filter(candidate=>
-          candidate.results.length>0 || candidate.reported_total_net!==null ||
-          !candidate.source_pages.some(page=>recognizedPages.has(page)));
-        extracted.candidates.push(...visual.candidates);
-        extracted.candidates=extracted.candidates.slice(0,50)
-          .map((candidate,index)=>({...candidate,index}));
-      }
-      if(visual.warnings.length) extracted.candidates[0]?.warnings.push(...visual.warnings);
-    } else {
-      visualStatus="skipped_by_user";
-      extracted.candidates[0]?.warnings.push("Görsel okuma seçilmedi; PDF'yi açıp alanları elle doğrulayın.");
-    }
+    visualStatus=allowVisualExtraction?"provider_not_configured":"skipped_by_user";
+    extracted.candidates[0]?.warnings.push("Bu pilotta ücretli görsel okuma kapalı; PDF metin aktarımı ve elle doğrulama kullanılabilir.");
     extracted.extraction_status=extracted.candidates.some(candidate=>
       candidate.results.length>0 || candidate.reported_total_net!==null)?"ready":"needs_visual_review";
   }

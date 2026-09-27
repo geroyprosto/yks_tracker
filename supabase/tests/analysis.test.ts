@@ -36,6 +36,7 @@ before(async () => {
     await db.query("insert into public.classroom_accounts(id,name,email,role,status) values($1,'Test',$2,$3,$4)",
       [id, `${id}@example.test`, role, status]);
   }
+  await db.exec('update private.ai_budget_policy set enabled=true,monthly_budget_usd=10');
   await asOwner();
   await db.query("select public.yks_state()");
 });
@@ -74,7 +75,9 @@ async function claim(requestId: string, hash = HASH_A, maxRequests = 3, reserve 
         "$6::integer,$7::numeric,$8::numeric) as value",
       [OWNER, requestId, "2026-09-01", "2026-09-14", hash, maxRequests, 1, reserve],
     );
-    return result.rows[0].value;
+    const value=result.rows[0].value;
+    if(value.claimed)await db.query("select public.ai_mark_sent($1,'report',$2,$3)",[OWNER,value.report.id,requestId]);
+    return value;
   } finally { await asOwner(); }
 }
 async function usage() {
@@ -91,10 +94,10 @@ test("only the server can change the owner schedule", async () => {
   );
   await asService();
   const enabled = await db.query<{ value: { enabled: boolean; start_date: string } }>(
-    "select to_jsonb(public.analysis_schedule_set_for_owner($1::uuid,true,$2::date)) as value",
+    "select to_jsonb(public.analysis_schedule_set_for_owner($1::uuid,false,$2::date)) as value",
     [OWNER, "2026-09-25"],
   );
-  assert.equal(enabled.rows[0].value.enabled, true);
+  assert.equal(enabled.rows[0].value.enabled, false);
   assert.equal(enabled.rows[0].value.start_date, "2026-09-25");
   await assert.rejects(
     () => db.query("select public.analysis_schedule_set_for_owner($1::uuid,true,$2::date)", [OTHER, "2026-09-25"]),
@@ -183,11 +186,11 @@ test("failed attempt stays blocked, retains budget, and stays private", async ()
     "select to_jsonb(public.analysis_report_fail($1::uuid,$2::uuid,$3::uuid,$4::text)) as value",
     [OWNER, second.report.id, id, "Provider response could not be confirmed"],
   );
-  assert.equal(failed.rows[0].value.status, "failed");
+  assert.equal(failed.rows[0].value.status, "uncertain");
   await asOwner();
   const reattempt = await claim(randomUUID(), HASH_B, 3, 0.3);
   assert.equal(reattempt.claimed, false);
-  assert.equal(reattempt.report.status, "failed");
+  assert.equal(reattempt.report.status, "uncertain");
   assert.equal((await usage()).requests, 2);
   assert.equal(Number((await usage()).estimated_cost_usd), 0.42);
   await asOther();
@@ -230,10 +233,10 @@ test("two simultaneous claims share one reservation and RPC grants stay narrow",
 test("approved student uses private reports and schedule while inactive accounts and MCP stay blocked", async () => {
   await asService();
   const schedule = await db.query<{ value: { enabled: boolean } }>(
-    "select to_jsonb(public.analysis_schedule_set_for_owner($1::uuid,true,$2::date)) as value",
+    "select to_jsonb(public.analysis_schedule_set_for_owner($1::uuid,false,$2::date)) as value",
     [STUDENT, "2026-09-25"],
   );
-  assert.equal(schedule.rows[0].value.enabled, true);
+  assert.equal(schedule.rows[0].value.enabled, false);
   const source = await db.query<{ value: { tasks: unknown[]; manual_study_entries: unknown[] } }>(
     "select public.analysis_source_state($1::uuid) as value", [STUDENT],
   );

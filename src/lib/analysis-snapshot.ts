@@ -3,6 +3,8 @@ import type { AppState, JournalEntry, Task } from './domain/types';
 import { taskCompletion } from './progress';
 import { buildStudyReport } from './study-report';
 import { localDate } from './ui';
+import {REPORT_SCHEMA_VERSION} from './ai-report';
+import {secondsByDay} from './timing';
 
 const DAY=/^\d{4}-\d{2}-\d{2}$/;
 const JOURNAL_FIELDS=new Set(['original_text','sleep_at','wake_at','sleep_quality','mood','energy','stress','environment','interruptions','activities','people_tags','food_drink','thoughts']);
@@ -81,4 +83,42 @@ export function buildAnalysisSnapshot(state:AppState,start:string,end:string,now
   },days};
   const sourceHash=createHash('sha256').update(JSON.stringify(snapshot)).digest('hex');
   return {snapshot,sourceHash};
+}
+
+/** A versioned, bounded student snapshot; no names, email, raw PDFs or full history. */
+export function buildStudentAnalysisSnapshot(state:AppState,start:string,end:string) {
+  const base=buildAnalysisSnapshot(state,start,end);
+  const education=state.education;
+  const profile=education?.profile;
+  const timezone=state.settings?.timezone??'Europe/Istanbul';
+  const selectedSessions=state.sessions.filter(row=>localDate(Date.parse(row.started_at),timezone)<=end&&localDate(Date.parse(row.finished_at??state.server_now),timezone)>=start);
+  const selectedTasks=state.tasks.filter(row=>row.plan_date>=start&&row.plan_date<=end);
+  const selected=(education?.results??[]).filter(row=>row.exam_date>=start&&row.exam_date<=end);
+  const selectedIds=new Set(selected.map(row=>row.course_id));
+  for(const row of [...selectedSessions,...selectedTasks])if(row.course_id)selectedIds.add(row.course_id);
+  const courses=(education?.courses??[]).filter(course=>selectedIds.has(course.id)||(!course.archived&&(course.term_id===profile?.active_term_id||(course.context==='yks'&&profile?.yks_goal!==false))))
+    .slice(0,80).map(course=>({id:course.id,name:course.name,context:course.context,exam:course.exam,term_id:course.term_id}));
+  const allowedCourses=new Set(courses.map(course=>course.id));
+  const results=selected.filter(row=>allowedCourses.has(row.course_id)).slice(0,120).map(row=>({evidence_id:`result:${row.id}`,
+    course_id:row.course_id,course_name:row.course_name,date:row.exam_date,assessment_type:row.assessment_type,
+    assessment_name:row.assessment_name,score:row.score,scale:row.scale,percentage:Math.round(row.score/row.scale*10000)/100}));
+  const sourceDays=[...new Set([...base.snapshot.summary.source_days,...results.map(row=>row.date)])].sort();
+  const evidence=[...sourceDays.map(day=>({id:`day:${day}`,date:day})),...results.map(row=>({id:row.evidence_id,date:row.date}))];
+  const courseStudy=courses.map(course=>{
+    const sessions=selectedSessions.filter(row=>row.course_id===course.id),ids=new Set(sessions.map(row=>row.id));
+    const totals=secondsByDay({sessions,intervals:state.intervals.filter(row=>ids.has(row.session_id)),manual_study_entries:(state.manual_study_entries??[]).filter(row=>row.course_id===course.id)},timezone,Date.parse(state.server_now));
+    const tasks=selectedTasks.filter(row=>row.course_id===course.id);
+    return {course_id:course.id,context:course.context,exam:course.exam,term_id:course.term_id,
+      seconds:Object.entries(totals).filter(([date])=>date>=start&&date<=end).reduce((n,[,seconds])=>n+seconds,0),
+      task_count:tasks.length,completed_task_count:tasks.filter(task=>taskCompletion(task)===1).length};
+  });
+  const recordCount=base.snapshot.days.reduce((n,day)=>n+day.task_count+day.exam_count+(day.journal?1:0),0)
+    +selectedSessions.length+selected.length
+    +state.practice_entries.filter(row=>row.practice_date>=start&&row.practice_date<=end).length
+    +(state.manual_study_entries??[]).filter(row=>row.study_date>=start&&row.study_date<=end).length;
+  const snapshot={schema_version:REPORT_SCHEMA_VERSION,period:base.snapshot.period,
+    education:profile?{level:profile.education_level,grade:profile.grade,department:profile.department,university_year:profile.university_year,yks_goal:profile.yks_goal,active_term_id:profile.active_term_id}:{level:'graduate',yks_goal:true},
+    courses,results,evidence,course_study:courseStudy,summary:{...base.snapshot.summary,subjects:undefined,source_days:sourceDays,data_days:sourceDays.length,
+      record_count:recordCount,course_result_count:selected.length,omitted_result_count:selected.length-results.length},days:base.snapshot.days};
+  return {snapshot,sourceHash:createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')};
 }

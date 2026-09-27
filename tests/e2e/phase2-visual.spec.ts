@@ -88,7 +88,7 @@ test('Phase 2 pages and PDF review fit six themes at desktop and mobile widths',
       await page.getByRole('button', { name: theme.name, exact: true }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id);
       for (const [pageName, label, heading] of [
-        ['exams', 'Denemelerim', 'Denemelerini birlikte oku.'],
+        ['exams', 'Sınav Sonuçları', 'Denemelerini birlikte oku.'],
         ['stats', 'Çalışma İstatistikleri', 'Odaklanma süresi grafiği'],
         ['journal', 'Günlüğüm', 'Bugünü kendi sözlerinle anlat.'],
       ] as const) {
@@ -97,11 +97,12 @@ test('Phase 2 pages and PDF review fit six themes at desktop and mobile widths',
         await assertNoOverflow(page, `${theme.id}-${width}-${pageName}`);
         await page.screenshot({ path: `artifacts/phase2-qa/${theme.id}-${width}-${pageName}.png`, fullPage: true, animations: 'disabled' });
       }
-      await navigate(page, 'Denemelerim');
+      await navigate(page, 'Sınav Sonuçları');
       await page.getByRole('button', { name: 'PDF yükle' }).click();
       const modal = page.getByRole('dialog', { name: "PDF'den deneme incele" });
       await expect(modal).toBeVisible();
-      await expect(modal.getByRole('checkbox', { name: /Taranmış sonuç sayfalarını görsel olarak oku/ })).not.toBeChecked();
+      await expect(modal.getByRole('checkbox', { name: /Taranmış sonuç sayfalarını görsel olarak oku/ })).toHaveCount(0);
+      await expect(modal.getByText('Taranmış sayfalar için ücretli görsel okuma pilotta kapalıdır.',{exact:false})).toBeVisible();
       await modal.getByRole('button', { name: /ornek-sonuc\.pdf/ }).click();
       await expect(modal.getByText('Çıkarılan bilgileri kontrol et')).toBeVisible();
       await expect(modal.getByText('Matematik neti kaynak PDF ile karşılaştır.')).toBeVisible();

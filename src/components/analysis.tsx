@@ -1,7 +1,8 @@
 'use client';
 
 import {useEffect, useRef, useState} from 'react';
-import {AlertCircle, ArrowRight, CalendarClock, Check, CircleHelp, Clock3, FileText, RefreshCw, Sparkles} from 'lucide-react';
+import {AlertCircle, ArrowRight, Check, CircleHelp, FileText, RefreshCw, Sparkles} from 'lucide-react';
+import {REPORT_HEADINGS,type StructuredReport} from '@/lib/ai-report';
 import {formatDay, localDate} from '@/lib/ui';
 import styles from './analysis.module.css';
 
@@ -15,7 +16,7 @@ type Report = {
   stale: boolean;
   error_message?: string | null;
   usage?: {input_tokens: number; output_tokens: number; estimated_cost_usd: number | null};
-  summary?: {source_days?: string[]; data_days?: number; missing_days?: number};
+  summary?: {source_days?: string[]; data_days?: number; missing_days?: number;record_count?:number;structured_report?:StructuredReport};
 };
 
 type AnalysisResponse = {
@@ -27,6 +28,7 @@ type AnalysisResponse = {
   reports: Report[];
   limits: {monthly_requests: number; monthly_usd: number};
   used: {requests: number; estimated_cost_usd: number | null};
+  resets_at?:string;
 };
 
 type Action =
@@ -79,6 +81,13 @@ function ReportText({body, sourceDays, onOpenDay}: {body: string; sourceDays: st
   })}</div>;
 }
 
+function ReportCards({report}:{report:StructuredReport}) {
+  const sections=[[report.overview],report.study_observations.map(x=>x.text),report.result_observations.map(x=>x.text),report.next_actions.map(x=>x.text),report.limitations];
+  return <div className={styles.fiveCards}>{sections.map((items,index)=><section key={REPORT_HEADINGS[index]} className={styles.reportSection}>
+    <h4>{REPORT_HEADINGS[index]}</h4>{items.length?items.map((text,i)=><p key={i}>{text}</p>):<p>Bu başlık için yeterli kayıt yok.</p>}
+  </section>)}</div>;
+}
+
 export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
   const day = localDate();
   const [data, setData] = useState<AnalysisResponse | null>(null);
@@ -89,14 +98,10 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
   const [message, setMessage] = useState('');
   const [startDate, setStartDate] = useState(shiftDate(day, -13));
   const [endDate, setEndDate] = useState(day);
-  const [scheduleEnabled, setScheduleEnabled] = useState(false);
-  const [scheduleStart, setScheduleStart] = useState(day);
   const retryIds = useRef(new Map<string, string>());
 
   const applyData = (incoming: AnalysisResponse) => {
     setData(incoming);
-    setScheduleEnabled(Boolean(incoming.schedule?.enabled));
-    setScheduleStart(incoming.schedule?.start_date ?? localDate());
   };
 
   const load = async () => {
@@ -117,8 +122,6 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
     void fetchAnalysis(controller.signal).then(incoming => {
       if (controller.signal.aborted) return;
       setData(incoming);
-      setScheduleEnabled(Boolean(incoming.schedule?.enabled));
-      setScheduleStart(incoming.schedule?.start_date ?? localDate());
     }).catch(cause => {
       if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Analiz bilgileri yüklenemedi.');
     }).finally(() => {
@@ -157,12 +160,9 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
   };
 
   const rangeValid = isDate(startDate) && isDate(endDate) && startDate <= endDate && endDate <= day
-    && (Date.parse(endDate + 'T12:00:00Z') - Date.parse(startDate + 'T12:00:00Z')) / 86400000 <= 365;
-  const scheduleValid = isDate(scheduleStart) && scheduleStart <= shiftDate(day, 365);
-  const scheduleDirty = Boolean(data) && (scheduleEnabled !== Boolean(data?.schedule?.enabled) || (scheduleEnabled && scheduleStart !== (data?.schedule?.start_date ?? day)));
+    && [7,14,30].includes((Date.parse(endDate) - Date.parse(startDate)) / 86400000 + 1);
   const requestsLimit = data?.limits.monthly_requests ?? 0;
   const requestsUsed = data?.used.requests ?? 0;
-  const costLimit = data?.limits.monthly_usd ?? 0;
   const costUsed = data?.used.estimated_cost_usd ?? null;
 
   return <div className={styles.workspace}>
@@ -193,8 +193,9 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
           <h3>Kullanım sınırı</h3>
           <div className={styles.usageLine}><span>İstek</span><strong>{requestsUsed} / {requestsLimit}</strong></div>
           <div className={styles.meter} role="progressbar" aria-label="Aylık istek kullanımı" aria-valuenow={requestsUsed} aria-valuemin={0} aria-valuemax={Math.max(requestsLimit, 1)}><span style={{width: `${requestsLimit > 0 ? Math.min(100, requestsUsed / requestsLimit * 100) : 0}%`}}/></div>
-          <div className={styles.usageLine}><span>Tahmini API maliyeti</span><strong>{costUsed === null ? 'Hesaplanamadı' : usd(costUsed)} / {usd(costLimit)}</strong></div>
+          <div className={styles.usageLine}><span>Tahmini API maliyeti</span><strong>{costUsed === null ? 'Hesaplanamadı' : usd(costUsed)}</strong></div>
           <p className={styles.tinyNote}>ChatGPT aboneliğinden ayrı API kullanımıdır.</p>
+          {data.resets_at&&<p className={styles.tinyNote}>Yenilenme: {new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeZone:'Europe/Istanbul'}).format(new Date(data.resets_at))} · İstanbul saati</p>}
         </section>
       </div>
 
@@ -203,23 +204,15 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
           <div className={styles.sectionHeader}><span className={styles.sectionIcon}><FileText size={19} aria-hidden="true"/></span><div><p className={styles.eyebrow}>İSTEĞE BAĞLI</p><h3 id="manual-report-title">Dönem raporu</h3></div></div>
           <p className={styles.cardDescription}>İncelemek istediğin tarih aralığını seç. Yeni analiz isteği API kullanımı doğurabilir.</p>
           <form className={styles.dateForm} onSubmit={event => {event.preventDefault(); if (rangeValid) void submit({action: 'report', start_date: startDate, end_date: endDate});}}>
+            <label>Rapor dönemi<select value={Math.round((Date.parse(endDate)-Date.parse(startDate))/86400000)+1} onChange={event=>{setEndDate(day);setStartDate(shiftDate(day,1-Number(event.target.value)));}}>{[7,14,30].map(days=><option key={days} value={days}>Son {days} gün</option>)}</select></label>
             <label>Başlangıç<input type="date" value={startDate} max={endDate || day} onChange={event => setStartDate(event.target.value)} required/></label>
             <label>Bitiş<input type="date" value={endDate} min={startDate || undefined} max={day} onChange={event => setEndDate(event.target.value)} required/></label>
-            {!rangeValid && <p className={styles.formHint} role="alert">Geçmişte kalan, en fazla bir yıllık bir tarih aralığı seç.</p>}
+            {!rangeValid && <p className={styles.formHint} role="alert">7, 14 veya 30 günlük bir tarih aralığı seç.</p>}
             <button className={styles.primaryButton} type="submit" disabled={!data.configured || !rangeValid || busyAction !== null}>{busyAction === 'report' ? 'Rapor hazırlanıyor…' : 'Rapor oluştur'}<ArrowRight size={16} aria-hidden="true"/></button>
           </form>
         </section>
 
-        <section className={styles.actionCard} aria-labelledby="schedule-title">
-          <div className={styles.sectionHeader}><span className={styles.sectionIcon}><CalendarClock size={19} aria-hidden="true"/></span><div><p className={styles.eyebrow}>HER 14 GÜNDE BİR</p><h3 id="schedule-title">Otomatik rapor</h3></div></div>
-          <p className={styles.cardDescription}>Başlangıç gününü seçip zamanlamayı kendin açabilirsin. Rapor geçmişine yeni kayıt eklenir.</p>
-          <form className={styles.scheduleForm} onSubmit={event => {event.preventDefault(); if (scheduleValid && (data.scheduler_ready || !scheduleEnabled)) void submit({action: 'schedule', enabled: scheduleEnabled, start_date: scheduleStart});}}>
-            <label className={styles.toggleRow}><span><strong>İki haftalık rapor</strong><small>{scheduleEnabled ? 'Etkin' : 'Kapalı'}</small></span><input type="checkbox" checked={scheduleEnabled} disabled={(!data.scheduler_ready || !data.configured) && !scheduleEnabled || busyAction !== null} onChange={event => setScheduleEnabled(event.target.checked)}/></label>
-            <label className={styles.startDate}>Başlangıç günü<input type="date" value={scheduleStart} max={shiftDate(day, 365)} onChange={event => setScheduleStart(event.target.value)} disabled={!scheduleEnabled || busyAction !== null}/></label>
-            <p className={`${styles.schedulerNote} ${!data.scheduler_ready ? styles.schedulerWarning : ''}`}><Clock3 size={15} aria-hidden="true"/>{data.scheduler_ready ? 'Sunucu zamanlayıcısı hazır; tarayıcı açık olmasa da çalışabilir.' : 'Sunucu zamanlayıcısı henüz kurulmadı. Bilgisayar kapalıyken otomatik rapor üretilmez.'}</p>
-            <button className={styles.secondaryButton} type="submit" disabled={!scheduleDirty || !scheduleValid || busyAction !== null || (scheduleEnabled && (!data.scheduler_ready || !data.configured))}>{busyAction === 'schedule' ? 'Kaydediliyor…' : 'Zamanlamayı kaydet'}</button>
-          </form>
-        </section>
+        <section className={styles.actionCard}><h3>Kontrol sende</h3><p>Beş bölüm tek raporda hazırlanır ve bir AI kullanımı sayılır. Kayıtlı raporu tekrar açmak ücretsizdir. Arka planda rapor üretilmez.</p><p>Öneriler takvimine kendiliğinden görev eklemez.</p></section>
       </div>
 
       <section className={styles.history} aria-labelledby="report-history-title">
@@ -233,7 +226,8 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
               {report.status === 'failed' && <p className={styles.failedText}>{report.error_message || 'Rapor hazırlanamadı. Durumu daha sonra yenileyebilirsin.'}</p>}
               {report.status === 'uncertain' && <p className={styles.failedText}>Son isteğin sonucu doğrulanamadı. Yeni ücretli istek gönderilmez; destek için işlem durumunu kontrol et.</p>}
               {(report.status === 'running' || report.status === 'pending') && <p className={styles.runningText}>Rapor sunucuda hazırlanıyor. Bir süre sonra yenile.</p>}
-              {report.body && <ReportText body={report.body} sourceDays={report.summary?.source_days??[]} onOpenDay={onOpenDay}/>}
+              {typeof report.summary?.record_count==='number'&&<p>Hesaplanan kayıt sayısı: {report.summary.record_count}</p>}
+              {report.status==='completed'&&(report.summary?.structured_report?<ReportCards report={report.summary.structured_report}/>:report.body&&<ReportText body={report.body} sourceDays={report.summary?.source_days??[]} onOpenDay={onOpenDay}/>)}
               {Boolean(report.summary?.source_days?.length) && <div className={styles.sourceDays}><strong>Kaynak günler</strong><div>{report.summary?.source_days?.map(sourceDay => <button key={sourceDay} type="button" onClick={() => onOpenDay(sourceDay)}>{dateLabel(sourceDay)} <ArrowRight size={12} aria-hidden="true"/></button>)}</div></div>}
               {report.usage && <p className={styles.reportUsage}>API kullanımı: {report.usage.input_tokens.toLocaleString('tr-TR')} giriş + {report.usage.output_tokens.toLocaleString('tr-TR')} çıkış tokenı{report.usage.estimated_cost_usd !== null ? ` · yaklaşık ${usd(report.usage.estimated_cost_usd)}` : ' · maliyet hesaplanamadı'}</p>}
             </div>

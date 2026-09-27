@@ -20,6 +20,7 @@ before(async()=>{
   const migrations=new URL('../migrations/',import.meta.url);
   for(const name of (await readdir(migrations)).filter(name=>name.endsWith('.sql')).sort())
     await db.exec(await readFile(new URL(name,migrations),'utf8'));
+  await db.exec('update private.ai_budget_policy set enabled=true,monthly_budget_usd=10');
   await db.query('insert into public.owner_allowlist(user_id) values($1)',[OWNER]);
   await db.exec('reset role; set role authenticated');
   await db.query("select set_config('request.jwt.claim.sub',$1,false)",[OWNER]);
@@ -34,7 +35,9 @@ async function claim(requestId:string,hash:string,maxRequests=2,budget=1,reserve
   const response=await db.query<{value:{suggestion:{id:string;status:string};claimed:boolean;replayed:boolean}}>(
     'select public.journal_ai_suggestion_claim($1::uuid,$2::uuid,$3::text,$4::integer,$5::numeric,$6::numeric) as value',
     [OWNER,requestId,hash,maxRequests,budget,reserved]);
-  return response.rows[0].value;
+  const value=response.rows[0].value;
+  if(value.claimed)await db.query("select public.ai_mark_sent($1,'journal',$2,$3)",[OWNER,value.suggestion.id,requestId]);
+  return value;
 }
 
 test('diary and period reports share an atomic monthly request and USD reservation',async()=>{
@@ -100,10 +103,10 @@ test('failed provider attempt keeps its reservation and is never sent again',asy
   'select to_jsonb(public.journal_ai_suggestion_fail(',
   '$1::uuid,$2::uuid,$3::uuid,$4::text)) as value'
  ].join(''),[OWNER,first.suggestion.id,requestId,'Provider response uncertain']);
- assert.equal(failed.rows[0].value.status,'failed');
+ assert.equal(failed.rows[0].value.status,'uncertain');
  const again=await claim(randomUUID(),HASH_C,5,1,0.1);
  assert.equal(again.claimed,false);
- assert.equal(again.suggestion.status,'failed');
+ assert.equal(again.suggestion.status,'uncertain');
  await asOwner();
  const usage=await db.query<{requests:number;estimated_cost_usd:string}>(
   'select requests,estimated_cost_usd from public.analysis_usage where user_id=$1',[OWNER]);

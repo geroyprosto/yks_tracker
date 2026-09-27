@@ -7,6 +7,7 @@ import {clockText, type CommandFn} from '@/lib/ui';
 import {sessionSeconds} from '@/lib/timing';
 import {Modal, ModalErrorContext} from './modal';
 import {TimerFocusView, type FocusOrigin} from './timer-focus-view';
+import {CourseSelector} from './course-selector';
 
 type Exam = 'TYT' | 'AYT';
 type TimerMode = 'stopwatch' | 'countdown';
@@ -48,6 +49,14 @@ type TimerPanelProps = {
 export function TimerPanel({state, command, busy, offset, expanded, focus, origin, onFocus, onClose}: TimerPanelProps) {
   const error = useContext(ModalErrorContext);
   const [now, setNow] = useState(() => Date.now());
+  const [courseId,setCourseId]=useState<string|undefined>(undefined);
+  const modern=Boolean(state.education?.profile);
+  const yks=state.education?.profile?.yks_goal??true;
+  const availableCourses=(state.education?.courses??[]).filter(course=>!course.archived&&(course.context==='yks'?yks:course.term_id===state.education?.profile?.active_term_id));
+  const recentId=[...state.sessions].sort((a,b)=>b.started_at.localeCompare(a.started_at)).find(session=>availableCourses.some(course=>course.id===session.course_id))?.course_id;
+  const selectedCourseId=courseId??recentId??'';
+  const pickedCourse=availableCourses.find(course=>course.id===selectedCourseId);
+  const unavailableCourse=modern&&Boolean(selectedCourseId)&&!pickedCourse;
   const [examChoice, setExamChoice] = useState<Exam | null>(null);
   // undefined follows the latest saved course; null is an intentional course-free selection.
   const [courseChoice, setCourseChoice] = useState<string | null | undefined>(undefined);
@@ -85,16 +94,17 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
   const selectedCourse = courseChoice === undefined ? lastCourse : courseChoice;
   const exam: Exam = examChoice ?? (selectedCourse?.startsWith('AYT ') ? 'AYT' : 'TYT');
   const subjectName = selectedCourse?.startsWith(exam + ' ') ? selectedCourse.slice(4) : null;
-  const selectedActivity = activities.find(item => item.label === activity)!;
-  const canOmitCourse = activity === 'Deneme çözümü' || activity === 'Deneme analizi';
-  const generatedTitle = subjectName
-    ? activity === 'Ders çalışması' ? exam + ' ' + subjectName : exam + ' ' + subjectName + ' ' + activity.toLocaleLowerCase('tr-TR')
-    : canOmitCourse ? exam + ' ' + activity.toLocaleLowerCase('tr-TR') : '';
+  const effectiveActivity = !yks && activity.toLocaleLowerCase('tr-TR').includes('deneme') ? 'Ders çalışması' : activity;
+  const selectedActivity = activities.find(item => item.label === effectiveActivity)!;
+  const canOmitCourse = effectiveActivity === 'Deneme çözümü' || effectiveActivity === 'Deneme analizi';
+  const generatedTitle = modern ? pickedCourse ? (pickedCourse.context==='yks'?pickedCourse.exam+' ':'')+pickedCourse.name+(effectiveActivity==='Ders çalışması'?'':' · '+effectiveActivity) : 'Serbest çalışma' : subjectName
+    ? effectiveActivity === 'Ders çalışması' ? exam + ' ' + subjectName : exam + ' ' + subjectName + ' ' + effectiveActivity.toLocaleLowerCase('tr-TR')
+    : canOmitCourse ? exam + ' ' + effectiveActivity.toLocaleLowerCase('tr-TR') : '';
   const rememberedMinutes = recentCountdownMinutes(state.sessions);
   const displayedMinutes = minuteInput ?? String(rememberedMinutes);
   const durationMinutes = Number(displayedMinutes);
   const durationValid = mode !== 'countdown' || (Number.isInteger(durationMinutes) && durationMinutes >= 1 && durationMinutes <= 360);
-  const canStart = !!generatedTitle && durationValid;
+  const canStart = !!generatedTitle && durationValid && !unavailableCourse;
   const targetSeconds = mode === 'countdown' && durationValid ? durationMinutes * 60 : null;
 
   const transition = async (type: 'timer.pause' | 'timer.resume' | 'timer.finish') => {
@@ -120,7 +130,8 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
       title: generatedTitle,
       task_id: null,
       topic_id: null,
-      subject: subjectName ? exam + ' ' + subjectName : null,
+      subject: modern ? pickedCourse?.name??null : subjectName ? exam + ' ' + subjectName : null,
+      ...(modern?{course_id:pickedCourse?.id??null}:{}),
       study_type: selectedActivity.studyType,
       mode,
       target_seconds: targetSeconds,
@@ -143,6 +154,7 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
     </div>
 
     <div className="timer-setup-section">
+      {modern?<><CourseSelector state={state} value={selectedCourseId} onChange={setCourseId} disabled={busy}/>{unavailableCourse&&<p role="status" className="notice">Seçili ders artık aktif çalışma alanında değil. Başlamadan önce başka bir ders seç veya ders seçimini kaldır.</p>}</>:<>
       <span className="timer-setup-label">Ders</span>
       <div className="timer-exam-tabs" role="group" aria-label="Sınav bölümü">
         {(['TYT', 'AYT'] as const).map(item => <button key={item} type="button" className="timer-exam-tab" data-active={exam === item} data-initial-focus={exam === item ? true : undefined} aria-pressed={exam === item} onClick={() => {setExamChoice(item); setCourseChoice(null);}}>{item}</button>)}
@@ -150,13 +162,13 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
       <div className="timer-subjects" role="group" aria-label={exam + ' dersi'}>
         {catalogSubjects[exam].map(subject => <button key={subject} type="button" className="timer-subject-option" data-active={subjectName === subject} aria-pressed={subjectName === subject} onClick={() => setCourseChoice(subjectName === subject ? null : exam + ' ' + subject)}>{subject}</button>)}
       </div>
-      <p className="timer-subject-hint">Tam deneme için ders seçmeden “Deneme çözümü” veya “Deneme analizi” seçebilirsin.</p>
+      <p className="timer-subject-hint">Tam deneme için ders seçmeden “Deneme çözümü” veya “Deneme analizi” seçebilirsin.</p></>}
     </div>
 
     <div className="timer-setup-section">
       <span className="timer-setup-label">Çalışma türü</span>
       <div className="timer-study-types" role="group" aria-label="Çalışma türü">
-        {activities.map(item => <button key={item.label} type="button" className="timer-study-option" data-active={activity === item.label} aria-pressed={activity === item.label} onClick={() => setActivity(item.label)}>{item.label}</button>)}
+        {activities.filter(item=>yks||!item.label.includes('deneme')&&!item.label.includes('Deneme')).map(item => <button key={item.label} type="button" className="timer-study-option" data-active={effectiveActivity === item.label} aria-pressed={effectiveActivity === item.label} onClick={() => setActivity(item.label)}>{item.label}</button>)}
       </div>
     </div>
 

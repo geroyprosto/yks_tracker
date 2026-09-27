@@ -1,0 +1,48 @@
+.page {display: grid; gap: 1.5rem; min-width: 0;}
+.intro {display: flex; align-items: center; justify-content: space-between; gap: 1rem;}
+.intro h2 {font-size: 1.375rem; margin: .5rem 0;}
+.intro p:last-child, .note {color: var(--muted); font-size: .75rem; line-height: 1.7;}
+.entry, .analysis {min-width: 0; display: grid; gap: 1rem;}
+.entry :global(.card-head), .analysis :global(.card-head) {margin-bottom: 0;}
+.entry :global(.segmented) {justify-self: start;}
+.fieldset {border: 0; padding: 0; margin: 0; display: grid; gap: 1rem; min-width: 0;}
+.fields {display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem;}
+.fields label, .filters label, .import > label, .importTools label {display: grid; gap: .375rem; font-size: .75rem; color: var(--muted); min-width: 0;}
+.fields input, .fields select, .filters input, .filters select, .table input, .table select, .import textarea, .importTools input, .importTools select {width: 100%; min-width: 0;}
+.filters {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem;}
+.tableScroll {min-width: 0; max-width: 100%; overflow-x: auto;}
+.table {border-collapse: collapse; width: 100%; text-align: left; font-size: .8125rem;}
+.table caption {text-align: left; font-size: .75rem; color: var(--muted); padding-bottom: .75rem;}
+.table th, .table td {padding: .75rem .5rem; border-bottom: 1px solid var(--border); vertical-align: middle;}
+.table thead th {font-size: .6875rem; color: var(--muted); font-weight: 500;}
+.table tbody th {font-weight: 500; min-width: 8rem;}
+.table input {min-width: 8rem;}
+.table input[type=date] {min-width: 9rem;}
+.table select {min-width: 10rem;}
+.table small {display: block; margin-top: .25rem; color: var(--muted); font-size: .6875rem;}
+.table [aria-invalid=true] {border-color: var(--danger);}
+.saveRow {display: flex; align-items: center; justify-content: space-between; gap: 1rem;}
+.saveRow > span {font-size: .6875rem; color: var(--muted);}
+.success {font-size: .8125rem; color: var(--success);}
+.import {display: grid; gap: 1rem; min-width: 0;}
+.importTools {display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto; align-items: end; gap: .75rem;}
+.importTools input[type=file] {font-size: .6875rem; padding: .5rem;}
+.checkbox {display: flex !important; align-items: center; gap: .5rem !important;}
+.checkbox input {width: 1rem; height: 1rem;}
+.summary {display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; padding: 1rem 0; border-block: 1px solid var(--border);}
+.summary > div {display: grid; gap: .375rem; align-content: start;}
+.summary span, .summary small {font-size: .6875rem; color: var(--muted);}
+.summary strong {font-size: 1.5rem; font-weight: 500; font-variant-numeric: tabular-nums;}
+.notice {padding: 1rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface-raised); font-size: .8125rem;}
+.editor {display: grid; gap: 1.25rem;}
+.editor > p {font-size: .8125rem; color: var(--muted);}
+@media (min-width: 1200px) {.fields {grid-template-columns: repeat(4, minmax(0, 1fr));}.editor .fields {grid-template-columns: repeat(2, minmax(0, 1fr));}}
+@media (max-width: 640px) {
+  .intro {align-items: start;}.intro h2 {font-size: 1.125rem;}
+  .fields, .filters {grid-template-columns: repeat(2, minmax(0, 1fr));}
+  .importTools {grid-template-columns: 1fr;}.importTools button {width: 100%;}
+  .summary {gap: .75rem;}.summary strong {font-size: 1.125rem;}
+  .saveRow {align-items: stretch; flex-direction: column; gap: .75rem;}
+  .table th, .table td {padding: .625rem .375rem;}
+}
+@media (max-width: 380px) {.fields, .filters {grid-template-columns: 1fr;}.summary {grid-template-columns: 1fr;}.summary > div {grid-template-columns: 1fr auto;}.summary small {grid-column: 1 / -1;}}

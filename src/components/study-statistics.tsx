@@ -12,6 +12,7 @@ import {StudyDayDetail} from './study-day-detail';
 import {StudyDistribution} from './study-distribution';
 import {StudyGoalCalendar} from './study-goal-calendar';
 import {StudyStatsCharts} from './study-stats-charts';
+import {Card} from './primitives';
 
 type Period = StudyReportPeriod | 'all';
 const periods: {id: Period; label: string}[] = [
@@ -63,8 +64,8 @@ function rangeTitle(period: Period, start: string, end: string) {
   return formatDay(start, {day: 'numeric', month: 'short', year: 'numeric'}) + ' – ' + formatDay(end, {day: 'numeric', month: 'short', year: 'numeric'});
 }
 
-export function StudyStatistics({state, command, busy, go, initialDate}: {
-  state: AppState; command: CommandFn; busy: boolean; go: (page: PageId, date?: string) => void; initialDate?: string | null;
+export function StudyStatistics({state, command, busy, go, initialDate, scoped=false}: {
+  state: AppState; command: CommandFn; busy: boolean; go: (page: PageId, date?: string) => void; initialDate?: string | null; scoped?: boolean;
 }) {
   const now = Date.parse(state.server_now);
   const timezone = state.settings?.timezone ?? 'Europe/Istanbul';
@@ -134,13 +135,13 @@ export function StudyStatistics({state, command, busy, go, initialDate}: {
       {period === 'all' && first < floor && <p className="study-stats-help">Grafik son 10 yılı gösterir. Üstteki toplamlar tüm kayıtlarını içerir.</p>}
       <div className="study-analysis-grid">
         <StudyDistribution report={report}/>
-        <StudyGoalCalendar key={calendarMonth} state={state} now={now} initialMonth={calendarMonth} onSelectDate={selectDay}/>
+        {scoped?<Card title="Bu seçimin çalışma kayıtları" className="study-panel"><p className="soft-copy">Grafikler ve görev özetleri seçtiğin ders veya döneme aittir. Günlük hedefler bütün çalışma alanını kapsadığı için bu filtrede hedef karşılaştırması yapılmaz.</p><p className="footnote">Günlük hedef takvimini görmek için ders ve dönem filtrelerini “Tüm” olarak değiştir.</p></Card>:<StudyGoalCalendar key={calendarMonth} state={state} now={now} initialMonth={calendarMonth} onSelectDate={selectDay}/>}
       </div>
       <details className="study-detail-disclosure" open={detailsOpen} onToggle={event => setDetailsOpen(event.currentTarget.open)}>
-        <summary><span><CalendarDays size={18}/><strong>Gün ayrıntıları</strong><small>Hedef, oturumlar ve günlük notun</small></span><ChevronDown size={18}/></summary>
+        <summary><span><CalendarDays size={18}/><strong>Gün ayrıntıları</strong><small>{scoped?'Seçili dersin görev ve oturumları':'Hedef, oturumlar ve günlük notun'}</small></span><ChevronDown size={18}/></summary>
         <div className="study-detail-content">
           <label className="study-detail-date">İncelenen gün<input type="date" max={today} value={selectedDate} onChange={event => {if (event.target.value && event.target.value <= today) setSelectedDate(event.target.value);}}/></label>
-          <StudyDayDetail state={state} selected={selected} today={today} command={command} busy={busy} go={go}/>
+          <StudyDayDetail state={state} selected={selected} today={today} command={command} busy={busy} go={go} scoped={scoped}/>
         </div>
       </details>
     </>}

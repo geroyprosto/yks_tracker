@@ -1,11 +1,12 @@
 import type {AppState} from './domain/types';
 import {secondsByDay} from './timing';
 import {localDate} from './ui';
+import {educationCourseLabel} from './study-course-filter';
 
 export type StudyReportPeriod='day'|'week'|'month'|'year'|'custom';
 export type StudyDayStatus='ongoing'|'worked'|'rest'|'zero'|'planned-missing'|'missing';
 export type StudyDay={date:string;seconds:number;targetMinutes:number|null;status:StudyDayStatus;goalMet:boolean;tasks:number;sessions:number;exams:number;hasJournal:boolean};
-export type StudyFacet={label:string;seconds:number};
+export type StudyFacet={label:string;seconds:number;key?:string};
 export type StudyReport={start:string;end:string;days:StudyDay[];totalSeconds:number;averageAllSeconds:number|null;averageWorkedSeconds:number|null;highestDay:StudyDay|null;workedDays:number;goalMetDays:number;restDays:number;zeroDays:number;missingDays:number;subjects:StudyFacet[];topics:StudyFacet[];studyTypes:StudyFacet[]};
 
 function date(value:string){return new Date(`${value}T12:00:00Z`)}
@@ -39,6 +40,13 @@ export function buildStudyReport(state:AppState,range:{start:string;end:string},
  const inRange=new Set(dayList.map(day=>day.date));
  const topicNames=new Map(state.topics.map(topic=>[topic.id,`${topic.subject} / ${topic.name}`]));
  const facetMaps={subjects:new Map<string,number>(),topics:new Map<string,number>(),studyTypes:new Map<string,number>()};
+ const subjectLabels=new Map<string,string>();
+ const courses=new Map((state.education?.courses??[]).map(course=>[course.id,course]));
+ const subjectKey=(item:{course_id?:string|null;subject:string|null})=>{
+  const course=item.course_id?courses.get(item.course_id):undefined;
+  if(!course||!state.education?.profile)return item.subject??'Ders belirtilmedi';
+  const key=`course:${course.id}`;subjectLabels.set(key,educationCourseLabel(course,state.education));return key;
+ };
  const add=(map:Map<string,number>,key:string,seconds:number)=>map.set(key,(map.get(key)??0)+seconds);
  const intervalsBySession=new Map<string,typeof state.intervals>();
  for(const interval of state.intervals){const items=intervalsBySession.get(interval.session_id)??[];items.push(interval);intervalsBySession.set(interval.session_id,items)}
@@ -46,17 +54,17 @@ export function buildStudyReport(state:AppState,range:{start:string;end:string},
   const intervals=intervalsBySession.get(session.id)??[];if(!intervals.length)continue;
   const totals=secondsByDay({sessions:[session],intervals},timezone,now);
   const seconds=Object.entries(totals).reduce((sum,[day,value])=>sum+(inRange.has(day)?value:0),0);if(!seconds)continue;
-  add(facetMaps.subjects,session.subject??'Ders belirtilmedi',seconds);
+  add(facetMaps.subjects,subjectKey(session),seconds);
   add(facetMaps.topics,session.topic_id?topicNames.get(session.topic_id)??'Konu silinmiş':'Konu belirtilmedi',seconds);
   add(facetMaps.studyTypes,session.study_type,seconds);
  }
  for(const entry of state.manual_study_entries??[]){
   if(!inRange.has(entry.study_date))continue;
-  add(facetMaps.subjects,entry.subject,entry.duration_seconds);
+  add(facetMaps.subjects,subjectKey(entry),entry.duration_seconds);
   add(facetMaps.topics,'Konu belirtilmedi',entry.duration_seconds);
   add(facetMaps.studyTypes,'Tür belirtilmedi',entry.duration_seconds);
  }
- const facets=(map:Map<string,number>):StudyFacet[]=>[...map].map(([label,seconds])=>({label,seconds})).sort((a,b)=>b.seconds-a.seconds||a.label.localeCompare(b.label,'tr'));
+ const facets=(map:Map<string,number>,labels?:Map<string,string>):StudyFacet[]=>[...map].map(([key,seconds])=>({label:labels?.get(key)??key,seconds,...(labels?.has(key)?{key}:{})})).sort((a,b)=>b.seconds-a.seconds||a.label.localeCompare(b.label,'tr'));
  const closedObserved=dayList.filter(day=>day.date<today&&(day.status==='worked'||day.status==='zero'));
  const closedWorked=closedObserved.filter(day=>day.seconds>0);
  const totalSeconds=dayList.reduce((sum,day)=>sum+day.seconds,0);
@@ -67,5 +75,5 @@ export function buildStudyReport(state:AppState,range:{start:string;end:string},
   highestDay,workedDays:dayList.filter(day=>day.seconds>0).length,goalMetDays:dayList.filter(day=>day.goalMet).length,
   restDays:dayList.filter(day=>day.status==='rest').length,zeroDays:dayList.filter(day=>day.status==='zero').length,
   missingDays:dayList.filter(day=>day.status==='missing'||day.status==='planned-missing').length,
-  subjects:facets(facetMaps.subjects),topics:facets(facetMaps.topics),studyTypes:facets(facetMaps.studyTypes)};
+  subjects:facets(facetMaps.subjects,subjectLabels),topics:facets(facetMaps.topics),studyTypes:facets(facetMaps.studyTypes)};
 }

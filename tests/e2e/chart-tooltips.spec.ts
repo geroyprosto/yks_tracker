@@ -18,7 +18,7 @@ async function openExams(page: Page, exams: ExamRecord[]) {
   }}));
   await page.goto('/');
   if ((page.viewportSize()?.width ?? 1440) <= 760) await page.getByRole('button', {name: 'Menüyü aç', exact: true}).click();
-  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Denemelerim', exact: true}).click();
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Sınav Sonuçları', exact: true}).click();
 }
 
 test('monthly and detailed chart points reveal contextual data at their edges and by keyboard', async ({page}) => {

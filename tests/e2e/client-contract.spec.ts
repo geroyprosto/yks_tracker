@@ -98,7 +98,7 @@ test("mocked authenticated state refresh preserves local unsynced appearance cho
   await expect(page.locator("html")).toHaveAttribute("data-simple", "true");
 });
 
-test("mocked session correction requires a reason, refuses increases, and submits the reduction", async ({ page }) => {
+test("finalized session duration is read-only and has no correction action", async ({ page }) => {
   const state = authenticatedState();
   state.sessions = [{ id: "finished-session", title: "Kaydedilmiş tekrar", task_id: null, topic_id: null, subject: null, study_type: "Tekrar", mode: "stopwatch", target_seconds: null, status: "finished", started_at: new Date(Date.now() - 3_600_000).toISOString(), active_since: null, accumulated_seconds: 1800, finished_at: new Date().toISOString(), revision: 2 }];
   await mockState(page, state);
@@ -111,25 +111,10 @@ test("mocked session correction requires a reason, refuses increases, and submit
   await page.goto("/");
   await page.getByRole("navigation", { name: "Ana gezinme" }).getByRole("button", { name: "Çalışma İstatistikleri", exact: true }).click();
   await page.getByRole("group", { name: "İstatistik görünümü" }).getByRole("button", { name: "Kayıtlar", exact: true }).click();
-  await page.getByRole("button", { name: "Kaydedilmiş tekrar süreyi düzelt", exact: true }).click();
-  const dialog = page.getByRole("dialog", { name: "Hatalı süreyi düzelt" });
-  const seconds = dialog.getByLabel(/Gerçek net süre/);
-  const submit = dialog.getByRole("button", { name: "Düzeltmeyi kaydet", exact: true });
-  await seconds.fill("1801");
-  await dialog.getByLabel("Düzeltme nedeni").fill("Sayacı kapatmayı unuttum.");
-  await submit.click();
+  await expect(page.getByRole("button", {name:/süreyi düzelt/})).toHaveCount(0);
+  await expect(page.getByText('Kesinleşmiş çalışma süreleri değiştirilemez.', {exact:false})).toBeVisible();
+  await expect(page.locator('.session-row')).toContainText('30 dk');
   expect(requests).toHaveLength(0);
-  expect(await seconds.evaluate((input: HTMLInputElement) => input.validity.rangeOverflow)).toBe(true);
-  await seconds.fill("900");
-  await dialog.getByLabel("Düzeltme nedeni").fill("");
-  await submit.click();
-  expect(requests).toHaveLength(0);
-  await dialog.getByLabel("Düzeltme nedeni").fill("Sayacı kapatmayı unuttum.");
-  await submit.click();
-  await expect(dialog).not.toBeVisible();
-  expect(requests).toHaveLength(1);
-  expect(requests[0]).toMatchObject({ type: "timer.correct", payload: { id: "finished-session", expected_revision: 2, confirmed_seconds: 900, reason: "Sayacı kapatmayı unuttum." } });
-  await expect(page.locator(".session-row")).toContainText("15 dk");
 });
 
 test("mocked task reorder submits an atomic move command and shows returned order", async ({ page }) => {

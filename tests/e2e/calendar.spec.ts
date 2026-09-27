@@ -74,7 +74,7 @@ test('read-only Today calendar, selection, disconnect and Phase 2 navigation wor
   expect(writes).toBe(0);
 
   const nav = page.getByRole('navigation', { name: 'Ana gezinme' });
-  await nav.getByRole('button', { name: 'Denemelerim' }).click();
+  await nav.getByRole('button', { name: 'Sınav Sonuçları' }).click();
   await expect(page.getByRole('heading', { name: 'Denemelerini birlikte oku.' })).toBeVisible();
   await nav.getByRole('button', { name: 'Çalışma İstatistikleri' }).click();
   await expect(page.getByRole('heading', { name: 'Odaklanma süresi grafiği' })).toBeVisible();

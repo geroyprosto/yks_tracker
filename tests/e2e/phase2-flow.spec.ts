@@ -23,7 +23,7 @@ async function navigate(page:Page,label:string){
 test('reported overall net is submitted without fabricated subject rows',async({page})=>{
  const value=state();const requests:Record<string,unknown>[]=[];
  await page.route('**/api/command',route=>{requests.push(route.request().postDataJSON());return route.fulfill({json:{ok:true,state:value}})});
- await open(page,value);await navigate(page,'Denemelerim');
+ await open(page,value);await navigate(page,'Sınav Sonuçları');
  await page.getByRole('button',{name:'Deneme ekle'}).click();
  const dialog=page.getByRole('dialog',{name:'Yeni deneme ekle'});
  await dialog.getByLabel('Deneme adı').fill('TYT genel net');
@@ -69,7 +69,7 @@ test('PDF duplicate warning requires an explicit second confirmation',async({pag
   return route.fulfill(commits===1?{status:409,json:{error:{code:'POSSIBLE_DUPLICATE',message:'Benzer bir deneme kaydı var.'}}}:{json:{id:'created',replayed:false,state:value}});
  });
  await page.route(`**/api/exam-import/${draft.id}`,route=>route.fulfill({json:draft}));
- await open(page,value);await navigate(page,'Denemelerim');
+ await open(page,value);await navigate(page,'Sınav Sonuçları');
  await page.getByRole('button',{name:'PDF yükle'}).click();
  const dialog=page.getByRole('dialog',{name:"PDF'den deneme incele"});
  await dialog.getByRole('button',{name:/sonuc\.pdf/}).click();
@@ -99,7 +99,7 @@ test('class PDF requires selecting the student before saving and preserves detec
  await page.route('**/api/exam-import/drafts',route=>route.fulfill({json:{documents:[draft]}}));
  await page.route('**/api/exam-import/commit',route=>{submitted.push(route.request().postDataJSON());return route.fulfill({json:{id:'created',replayed:false,state:value}})});
  await page.route(`**/api/exam-import/${draft.id}`,route=>route.fulfill({json:draft}));
- await open(page,value);await navigate(page,'Denemelerim');
+ await open(page,value);await navigate(page,'Sınav Sonuçları');
  await page.getByRole('button',{name:'PDF yükle'}).click();
  const dialog=page.getByRole('dialog',{name:"PDF'den deneme incele"});
  await dialog.getByRole('button',{name:/sinif-sonuc\.pdf/}).click();

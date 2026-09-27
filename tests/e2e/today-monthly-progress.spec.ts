@@ -37,7 +37,7 @@ test('monthly progress lives in Exams and Today task actions still raise the rin
   await expect(firstRing.locator('.donut-center strong')).toHaveText('%100');
   const transition = await firstRing.locator('.donut-segment').evaluate(node => getComputedStyle(node).transitionDuration);
   expect(transition).toContain('0.85s');
-  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Denemelerim', exact: true}).click();
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Sınav Sonuçları', exact: true}).click();
   const chart = page.locator('.monthly-exam-chart-card');
   await expect(chart.getByRole('heading', { name: 'Aylık deneme gelişimin' })).toBeVisible();
   const plot = chart.getByRole('img', { name: /net gelişimi/i });

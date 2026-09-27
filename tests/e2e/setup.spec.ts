@@ -29,7 +29,7 @@ test("real setup API exposes empty data and the dashboard never invents study re
   await expect(page.getByRole("heading", { name: "Bugün için temiz bir sayfa" })).toBeVisible();
   await expect(page.getByRole("img", {name:"Görevler: tanımlı değil",exact:true})).toBeVisible();
   await expect(page.getByText("İlk görevini ekle", {exact:true})).toBeVisible();
-  await expect(page.getByRole("button", { name: "Çalışma sayacını aç", exact: true }).first()).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Sayaç — çalışma sayacını aç", exact: true }).first()).toBeDisabled();
   expect(await page.locator(".bar-value").allTextContents()).toEqual(Array(7).fill("—"));
   await expectNoOverflow(page);
   await page.screenshot({ path: testInfo.outputPath("desktop-setup.png"), fullPage: true });

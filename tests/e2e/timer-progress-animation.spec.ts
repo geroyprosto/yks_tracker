@@ -60,7 +60,7 @@ test('finishing a study timer grows the time ring while only task and time rings
   await expect(time.getByRole('img', { name: 'Net çalışma süresi: %0' })).toBeVisible();
   await expect(time.locator('.donut-segment')).toHaveCount(0);
 
-  await page.getByRole('button', { name: 'Çalışma sayacını aç', exact: true }).click();
+  await page.getByRole('button', { name: 'Sayaç — çalışma sayacını aç', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Çalışma sayacı' });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Bitir ve kaydet', exact: true }).click();

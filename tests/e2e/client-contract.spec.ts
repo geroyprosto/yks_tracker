@@ -45,7 +45,7 @@ test("mocked failed timer finish keeps the active session dialog open", async ({
   await mockState(page, state);
   await page.route("**/api/command", route => route.fulfill({ status: 409, json: { ok: false, error: { code: "CONFLICT", message: "Oturum değişti. Yenileyip tekrar dene." } } }));
   await page.goto("/");
-  await page.getByRole("button", { name: "Çalışma sayacını aç", exact: true }).first().click();
+  await page.getByRole("button", { name: "Sayaç — çalışma sayacını aç", exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "Çalışma sayacı" });
   await dialog.getByRole("button", { name: "Bitir ve kaydet", exact: true }).click();
   await expect(dialog.getByRole("alert")).toHaveText("Oturum değişti. Yenileyip tekrar dene.");
@@ -58,7 +58,7 @@ test("mocked authenticated mobile user can choose a course, activity, and durati
   await page.setViewportSize({ width: 360, height: 800 });
   await mockState(page, authenticatedState());
   await page.goto("/");
-  await page.getByRole("button", { name: "Çalışma sayacını aç", exact: true }).first().click();
+  await page.getByRole("button", { name: "Sayaç — çalışma sayacını aç", exact: true }).first().click();
   const dialog = page.getByRole("dialog", { name: "Çalışmaya başla" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("group", { name: "Sınav bölümü" }).getByRole("button", { name: "TYT" })).toBeFocused();

@@ -35,14 +35,14 @@ test('university setup shares persistent courses with timer, tasks, batch scores
  const education=after.education!;
  const courses=education.courses.filter(course=>course.term_id===education.profile!.active_term_id);
  expect(courses.map(c=>c.name).sort()).toEqual(['Matematik','Bilişim','Yabancı Dil','İktisat'].sort());
- await page.getByRole('button',{name:'Çalışma sayacını aç',exact:true}).click();
+ await page.getByRole('button',{name:'Sayaç — çalışma sayacını aç',exact:true}).click();
  const timer=page.getByRole('dialog',{name:'Çalışmaya başla'});
  await timer.getByRole('combobox',{name:'Ders',exact:true}).selectOption(courses.find(c=>c.name==='Matematik')!.id);
  await timer.getByRole('button',{name:'Çalışmaya başla',exact:true}).click();
  await expect(timer).not.toBeVisible();
  const active=(await state(context)).sessions.find(item=>item.status!=='finished')!;
  expect(active.course_id).toBe(courses.find(c=>c.name==='Matematik')!.id);
- await page.getByRole('button',{name:'Çalışma sayacını aç',exact:true}).click();
+ await page.getByRole('button',{name:'Sayaç — çalışma sayacını aç',exact:true}).click();
  await page.getByRole('button',{name:'Duraklat',exact:true}).last().click();
  await page.getByRole('button',{name:'Sürdür',exact:true}).last().click();
  await page.getByRole('button',{name:'Bitir ve kaydet',exact:true}).click();

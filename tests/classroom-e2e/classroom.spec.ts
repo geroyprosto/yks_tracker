@@ -171,7 +171,7 @@ test('live messages, replies and a real timer start persist across student devic
     expect(feedback.map(item => item.event)).toEqual(['accepted']);
     // Reload is a real second client lifecycle; the accepted timestamp stays server-side.
     await studentPage.reload();
-    await studentPage.getByRole('button', { name: 'Çalışma sayacını aç' }).click();
+    await studentPage.getByRole('button', { name: 'Sayaç — çalışma sayacını aç' }).click();
     const timer = studentPage.getByRole('dialog');
     await timer.getByRole('combobox', {name: 'Ders', exact:true}).selectOption({label:'TYT · Matematik'});
     await timer.getByRole('button', { name: 'Çalışmaya başla', exact: true }).click();

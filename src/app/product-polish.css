@@ -37,9 +37,9 @@
 .daily-card .metric-detail { min-height: 32px; font-size: 11px; line-height: 1.5; margin: 0; }
 
 .overview-grid .focus-card.gradient-card {
-  --focus-dial-size: 184px;
+  --focus-dial-size: 232px;
   min-height: 380px;
-  padding: 22px 20px 56px;
+  padding: 22px 20px;
   border-color: color-mix(in srgb, var(--feature-glow) 28%, var(--border));
   box-shadow: none;
 }
@@ -54,8 +54,10 @@
 .overview-grid .focus-card-copy { min-height: 0; text-align: center; }
 .overview-grid .focus-card-copy h3 { font-size: 14px; }
 .overview-grid .focus-card-copy p { font-size: 11px; }
-.overview-grid .focus-card-actions { margin-top: 14px; }
-.overview-grid .focus-card-expand { min-height: 32px; padding: 6px 9px; bottom: 12px; }
+.overview-grid .focus-card-actions { flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 14px; }
+.overview-grid .focus-card-actions .button.primary { flex: 1; min-width: 0; width: auto; }
+.overview-grid .focus-card-toggle { flex-basis: 100%; }
+.overview-grid .focus-card-expand { position: static; flex: none; min-height: 42px; padding: 8px 11px; }
 
 .today-primary-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; }
 .today-primary-grid .column { gap: 20px; }
@@ -138,13 +140,12 @@
 
 @media (max-width: 1150px) and (min-width: 761px) {
   .overview-grid { grid-template-columns: minmax(0, 1fr); }
-  .overview-grid .focus-card.gradient-card { min-height: 230px; padding: 22px 24px; }
-  .overview-grid .focus-card-scene { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; align-content: center; }
+  .overview-grid .focus-card.gradient-card { --focus-dial-size: 205px; min-height: 230px; padding: 22px 24px; }
+  .overview-grid .focus-card-scene { display: grid; grid-template-columns: minmax(0, 1fr) 205px; column-gap: 24px; align-content: center; }
   .overview-grid .focus-dial { grid-column: 2; grid-row: 1 / 3; margin: 0; }
   .overview-grid .focus-card-copy { grid-column: 1; grid-row: 1; text-align: left; }
   .overview-grid .focus-card-actions { grid-column: 1; grid-row: 1; align-self: center; max-width: 330px; }
   .overview-grid .focus-card-copy + .focus-card-actions { grid-row: 2; }
-  .overview-grid .focus-card-expand { right: 225px; bottom: 12px; }
   .today-primary-grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 760px) {
@@ -160,7 +161,7 @@
   .daily-card .donut-center strong { font-size: clamp(27px, 7.5vw, 37.5px); letter-spacing: -.6px; }
   .daily-card .neon-metric h3 { font-size: 11px; min-height: 32px; }
   .daily-card .metric-detail { font-size: 10px; min-height: 30px; }
-  .overview-grid .focus-card.gradient-card { min-height: 0; padding-bottom: 56px; }
+  .overview-grid .focus-card.gradient-card { min-height: 0; }
   .overview-grid .focus-card-actions { max-width: 360px; }
   .page-heading > .button { align-self: flex-start; }
   .today-primary-grid .calendar-program-card, .today-primary-grid .yks-countdown-card { padding: 20px; }
@@ -169,4 +170,8 @@
 
 @media (max-width: 540px) {
   .daily-card .neon-metrics { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+
+@media (max-width: 380px) {
+  .overview-grid .focus-card.gradient-card { --focus-dial-size: 205px; }
 }

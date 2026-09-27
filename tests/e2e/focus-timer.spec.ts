@@ -245,7 +245,7 @@ test('compact setup remembers the latest minutes and starts an activity without 
     await route.fulfill({json: {ok: true, state}});
   });
   await page.goto('/');
-  await page.getByRole('button', {name: 'Çalışma sayacını aç', exact: true}).first().click();
+  await page.getByRole('button', {name: 'Sayaç — çalışma sayacını aç', exact: true}).first().click();
   const dialog = page.getByRole('dialog', {name: 'Çalışmaya başla'});
   await expect(dialog.getByRole('group', {name: 'Sınav bölümü'}).getByRole('button', {name: 'AYT'})).toBeFocused();
   await expect(dialog.getByLabel('Süre (dakika)')).toHaveValue('70');

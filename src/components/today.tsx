@@ -119,10 +119,10 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
           </div>}
           <div className="focus-card-actions">
             {activeSession && !countdownDone && <button className="focus-card-toggle" type="button" disabled={busy} onClick={() => void command(activeSession.status === 'running' ? 'timer.pause' : 'timer.resume', {id: activeSession.id, expected_revision: activeSession.revision})}>{activeSession.status === 'running' ? <Pause size={16}/> : <Play size={16}/>}<span>{activeSession.status === 'running' ? 'Duraklat' : 'Sürdür'}</span></button>}
-            <button className="button primary wide" disabled={!state.authenticated} onClick={openTimer}><Play size={16}/>Çalışma sayacını aç</button>
+            <button className="button primary" aria-label="Sayaç — çalışma sayacını aç" disabled={!state.authenticated} onClick={openTimer}><Play size={16}/>Sayaç</button>
+            <button className="focus-card-expand" type="button" aria-label="Sayacı büyüt" title="Odak ekranını aç" onClick={event => expandTimer(event.currentTarget.closest<HTMLElement>('.focus-card') ?? event.currentTarget)}><Maximize2 size={16}/><span>Büyüt</span></button>
           </div>
         </div>
-        <button className="focus-card-expand" type="button" aria-label="Sayacı büyüt" title="Odak ekranını aç" onClick={event => expandTimer(event.currentTarget.closest<HTMLElement>('.focus-card') ?? event.currentTarget)}><Maximize2 size={16}/><span>Büyüt</span></button>
       </Card>}
     </div>
 

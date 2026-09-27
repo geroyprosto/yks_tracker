@@ -78,7 +78,7 @@ test('empty focus card keeps an accessible timer in the wider desktop layout', a
     await expect(focus).not.toContainText(text);
   }
   await expect(focus.getByRole('timer')).toHaveAttribute('aria-label', /00:00.*Başlamaya hazır/);
-  await expect(focus.getByRole('button', {name: 'Çalışma sayacını aç'})).toBeVisible();
+  await expect(focus.getByRole('button', {name: 'Sayaç — çalışma sayacını aç'})).toBeVisible();
 
   const focusBox = await focus.boundingBox();
   expect(focusBox?.width).toBeGreaterThanOrEqual(360);

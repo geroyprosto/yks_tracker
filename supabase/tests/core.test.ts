@@ -230,7 +230,9 @@ test("exam formats stay versioned and full TYT totals count each section exactly
  assert.equal(formats.find(f=>f.code==="TYT")!.sections.reduce((n,s)=>n+s.question_count,0),120);
  assert.equal(formats.find(f=>f.code==="AYT_SAYISAL")!.sections.reduce((n,s)=>n+s.question_count,0),80);
  const sections=formats.find(f=>f.code==="TYT")!.sections;
- const results=sections.map(s=>s.key==="matematik"
+ const results=sections.map(s=>s.key==="turkce"
+  ? {section_key:s.key,correct:10,wrong:5}
+  : s.key==="matematik"
   ? {section_key:s.key,correct:10,wrong:4,blank:26}
   : s.key==="fizik"
    ? {section_key:s.key,correct:0,wrong:7,blank:0}
@@ -242,8 +244,10 @@ test("exam formats stay versioned and full TYT totals count each section exactly
  const exam=(await state()).exams.find(e=>e.id===created.id)!;
  assert.equal(exam.format_code,"TYT");assert.equal(exam.format_version,1);
  assert.equal(exam.format_snapshot.total_questions,120);
- assert.equal(exam.total_net,7.25);
+ assert.equal(exam.total_net,16);
  assert.equal(exam.score,312.5);assert.equal(exam.rank,62000);
+ assert.equal(exam.results.find(r=>r.section_key==="turkce")!.blank,25);
+ assert.equal(exam.results.find(r=>r.section_key==="turkce")!.net,8.75);
  assert.equal(exam.results.find(r=>r.section_key==="matematik")!.net,9);
  assert.equal(exam.results.find(r=>r.section_key==="fizik")!.net,-1.75);
  assert.equal(exam.source_document_id,null);
@@ -299,7 +303,7 @@ test("exam validation rejects overflow, duplicate sections, mixed modes and hidd
   [{section_key:"fizik",correct:15,wrong:0,blank:0}],
   [{section_key:"fizik",correct:2,wrong:2,blank:11}],
   [{section_key:"fizik",correct:0,wrong:-1,blank:0}],
-  [{section_key:"fizik",correct:0,wrong:14}],
+  [{section_key:"fizik",correct:1,wrong:14}],
   [{section_key:"fizik",correct:0,wrong:14,blank:0,net:-3.5}],
   [{section_key:"fizik",net:15}],
   [{section_key:"fizik",net:2},{section_key:"fizik",net:3}],
@@ -439,6 +443,15 @@ test("reported overall exam net is stored without guessed subject results",async
  exam=(await state()).exams.find(e=>e.id===created.id)!;
  assert.equal(exam.total_net,73.5);
  assert.equal(exam.total_net_source,"reported");
+ const sections=(await state()).exam_formats.find(format=>format.code==="TYT")!.sections;
+ await command("exam.update",{id:created.id,expected_revision:2,reported_total_net:null,
+  results:sections.map(section=>({section_key:section.key,
+   correct:section.key==="turkce"?10:0,wrong:section.key==="turkce"?5:0}))});
+ exam=(await state()).exams.find(e=>e.id===created.id)!;
+ assert.equal(exam.reported_total_net,null);
+ assert.equal(exam.total_net,8.75);
+ assert.equal(exam.total_net_source,"sections");
+ assert.equal(exam.results.find(result=>result.section_key==="turkce")!.blank,25);
  await assert.rejects(()=>command("exam.create",{name:"Boş",exam_date:"2026-09-15",
   format_code:"TYT",results:[]}),/INVALID_INPUT/);
  await assert.rejects(()=>command("exam.create",{name:"Sınır",exam_date:"2026-09-15",

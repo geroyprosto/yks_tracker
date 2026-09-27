@@ -23,7 +23,7 @@ const practiceFields = z.object({
 }).strict();
 const practiceCreate = practiceFields.refine(v=>v.question_count>0||v.test_count>0,"En az bir soru veya test girin.");const examFormatCode = z.enum(["TYT","AYT_SAYISAL","BRANCH"]);
 const examResult = z.union([
- z.object({section_key:text(80).min(1),correct:z.number().int().min(0).max(1000),wrong:z.number().int().min(0).max(1000),blank:z.number().int().min(0).max(1000)}).strict(),
+ z.object({section_key:text(80).min(1),correct:z.number().int().min(0).max(1000),wrong:z.number().int().min(0).max(1000),blank:z.number().int().min(0).max(1000).optional()}).strict(),
  z.object({section_key:text(80).min(1),net:z.number().finite().min(-1000).max(1000)}).strict(),
 ]);
 const examResults = z.array(examResult).max(50).refine(

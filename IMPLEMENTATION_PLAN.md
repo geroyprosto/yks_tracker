@@ -31,16 +31,15 @@ Güncelleme: 25 Eylül 2026. Öncelik: veri doğruluğu ve gizlilik → günlük
 
 ## Aşama 2 — Sonuçlar ve bağlam
 
-**Çıktı:** Denemeler, süre istatistikleri, PDF inceleme, günlük ve yalnız okunur Calendar.
+**Çıktı:** Denemeler, süre istatistikleri, günlük ve yalnız okunur Calendar.
 
-1. Sürümlü TYT/AYT Sayısal/branş formatları; soru ve net doğrulamaları; yalnız net girişi; alt dersleri iki kez saymayan hesaplama.
-2. Gerçek kayıtlarla net grafikleri, dönem/yayın/tür filtreleri, nokta/ortalama/örnek sayısı ve veri olmayan dönemler.
+1. Sürümlü TYT/AYT Sayısal/branş formatları; soru sayısına göre toplam net doğrulaması, isteğe bağlı ad ve varsayılan bugünün tarihi.
+2. Gerçek kayıtlarla toplam net grafikleri, dönem/tür filtreleri, nokta/ortalama/örnek sayısı ve veri olmayan dönemler.
 3. Gün/hafta/ay/yıl/özel aralık süre raporları; takvim gününden ilişkilere geçiş; dinlenme/eksik/sıfır ayrımı.
-4. Özel belge deposu, sınırlandırılmış PDF yükleme; yerel metin çıkarma, kaynaklı inceleme/düzeltme, hash/idempotency ve transaction. Görsel OCR dış veri aktarımı onayı veya güvenilir yerel adapter sağlanana dek elle kaynak incelemesine düşer.
-5. Orijinali korunan serbest günlük, isteğe bağlı alanlar, yerel tarih ilişkisi ve AI paylaşım seçimi.
-6. Google OAuth ayrı bağlantı yaşam döngüsü; yalnız events.readonly ve gerekirse calendarlist.readonly; takvim seçimi, bugünün olayları, yenileme/süre sonu/çevrimdışı durumları. Takvim yazma kodu ve izni eklenmez.
+4. Orijinali korunan serbest günlük, isteğe bağlı alanlar, yerel tarih ilişkisi ve AI paylaşım seçimi.
+5. Google OAuth ayrı bağlantı yaşam döngüsü; yalnız events.readonly ve gerekirse calendarlist.readonly; takvim seçimi, bugünün olayları, yenileme/süre sonu/çevrimdışı durumları. Takvim yazma kodu ve izni eklenmez.
 
-**Kapanış koşulu:** PDF inceleme→düzeltme→kayıt gerçek akışı, negatif net/hatalı toplamlar, mükerrer yükleme, grafikte örnek sayıları ve Calendar'ın hiçbir çalışma/görev yazması üretmediği test edilir. Yerel veritabanı ve tarayıcı sözleşmeleri doğrulandı; gerçek sahip girişi ve ilk Google Calendar API okuması da yapıldı. Özel Supabase Storage yükleme/indirme, Google bağlantı uç durumları ve taranmış PDF için OpenAI görsel okuma canlı kabulü bekliyor.
+**Kapanış koşulu:** Negatif net/hatalı toplamlar, grafikte örnek sayıları ve Calendar'ın hiçbir çalışma/görev yazması üretmediği test edilir. Yerel veritabanı ve tarayıcı sözleşmeleri doğrulandı; gerçek sahip girişi ve ilk Google Calendar API okuması da yapıldı. Google bağlantı uç durumlarının canlı kabulü bekliyor.
 
 ## Aşama 3 — AI ve yetkili ChatGPT bağlantısı
 
@@ -50,11 +49,11 @@ Güncelleme: 25 Eylül 2026. Öncelik: veri doğruluğu ve gizlilik → günlük
 2. Kodla hesaplanmış istatistikler + izinli alanlar ile rapor; kaynak günler/eksikler/örnek sayıları; belirsizlik ve alternatif açıklamalar.
 3. Kullanıcının etkinleştireceği başlangıç tarihinden 14 günlük sunucu planlama, durum/hata, tekrar ücretlendirmesini önleyen idempotency/cache, veri değişince eskime uyarısı.
 4. Resmî MCP/Apps/Plugins belgeleriyle uygun OAuth. Dar şemalı araçlar, doğrulanmış sahip, servis katmanında yetki, audit ve gerçek işlem sonrası kayıt kimliği/link.
-5. ChatGPT PDF aktarımı platform kabiliyetine göre doğrulanır; doğrudan dosya yolu varsayılmaz. Şemalı deneme sonucu için açık kullanıcı onayı ve tekrar anahtarı isteyen `create_exam` aracı kodlandı; gerçek özel bağlantıda kabul edilecek.
+5. Şemalı deneme sonucu için açık kullanıcı onayı ve tekrar anahtarı isteyen `create_exam` aracı kodlandı; gerçek özel bağlantıda kabul edilecek.
 
 **Kapanış koşulu:** AI anahtarsız çekirdek çalışır; izinsiz günlük alanları gönderilmez; tekrar rapor/MCP yazması çift kayıt oluşturmaz; yetkisiz kimlik tüm özel verilere kapalıdır. Model erişimi ve özel bağlantı kurulumu doğrulanmadan “hazır” gösterilmez.
 
-**25 Eylül 2026 durum:** Dönem raporu, kaynak gün/eksik veri, izinli günlük alanları, tahmini kullanım sınırı, geçmiş rapor/eskime ve 14 günlük cron yolu kodlandı. Dört okuma ve iki idempotent yazma aracı (`create_task`, yapılandırılmış sonuç isteyen `create_exam`) içeren MCP kaynağı varsayılan olarak kapalıdır. İki Aşama 3 migration'ı buluta uygulanıp dört tabloda RLS ve schedule RPC yetkileri doğrulansa da model erişimi/ücretli çağrı denenmediği, Vercel yayını bulunmadığı ve Supabase OAuth Server açılmadığı ve kodlanan kullanıcı izin ekranı canlı sağlayıcıyla sınanmadığı için Aşama 3 canlı kabulü yapılmadı. OAuth `aud` değerinin MCP kaynağına bağlanması ayrıca çözülmeli; ayrıntılar [PHASE3_SETUP.md](docs/PHASE3_SETUP.md) içinde. PDF dosyasının ChatGPT üzerinden aktarımı yapılmadı; şemalı deneme aktarım aracı kodlandı, gerçek ChatGPT kabulü bekliyor.
+**25 Eylül 2026 durum:** Dönem raporu, kaynak gün/eksik veri, izinli günlük alanları, tahmini kullanım sınırı, geçmiş rapor/eskime ve 14 günlük cron yolu kodlandı. Dört okuma ve iki idempotent yazma aracı (`create_task`, yapılandırılmış sonuç isteyen `create_exam`) içeren MCP kaynağı varsayılan olarak kapalıdır. İki Aşama 3 migration'ı buluta uygulanıp dört tabloda RLS ve schedule RPC yetkileri doğrulansa da model erişimi/ücretli çağrı denenmediği, Vercel yayını bulunmadığı ve Supabase OAuth Server açılmadığı ve kodlanan kullanıcı izin ekranı canlı sağlayıcıyla sınanmadığı için Aşama 3 canlı kabulü yapılmadı. OAuth `aud` değerinin MCP kaynağına bağlanması ayrıca çözülmeli; ayrıntılar [PHASE3_SETUP.md](docs/PHASE3_SETUP.md) içinde. Şemalı deneme aktarım aracının gerçek ChatGPT kabulü bekliyor.
 
 ## Aşama 4 — Çevrimdışı, dayanıklılık ve yayın hazırlığı
 

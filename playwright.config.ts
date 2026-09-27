@@ -35,7 +35,6 @@ export default defineConfig({
       GOOGLE_CLIENT_SECRET: "",
       GOOGLE_TOKEN_ENCRYPTION_KEY: "",
       OPENAI_API_KEY: "",
-      PDF_VISION_MODEL: "",
       APP_ORIGIN: baseURL,
     },
   },

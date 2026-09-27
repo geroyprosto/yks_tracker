@@ -47,8 +47,8 @@ test("task and topic dialogs are keyboard accessible and cannot save without aut
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("Görev başlığı")).toBeFocused();
   await dialog.getByLabel("Görev başlığı").fill("Tarayıcı kabul testi");
-  await dialog.getByRole("button", { name: "Alt adım ekle" }).click();
-  await dialog.getByLabel("1. alt adım", { exact: true }).fill("İlk adım");
+  await expect(dialog.getByRole("group", { name: "Alt adımlar" })).toHaveCount(0);
+  await expect(dialog.getByLabel("Notlar", { exact: true })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Görevi kaydet" })).toBeDisabled();
   await page.keyboard.press("Escape");
   await expect(dialog).not.toBeVisible();
@@ -131,7 +131,7 @@ test("mobile routes, forms, and themes remain inside a 360px viewport", async ({
   await page.getByRole("button", { name: "Menüyü aç", exact: true }).click();
   await expect(page.getByRole("navigation", { name: "Ana gezinme" })).toBeVisible();
   await page.getByRole("navigation", { name: "Ana gezinme" }).getByRole("button", { name: "Sınav Sonuçları" }).click();
-  await expect(page.getByRole("heading", { name: "Denemelerini birlikte oku." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Deneme sonuçların" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 

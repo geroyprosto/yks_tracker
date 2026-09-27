@@ -45,7 +45,7 @@ Başlangıç değerlendirme adayı sunucu ayarı `OPENAI_MODEL=gpt-4.1-mini-2025
 
 Hesap kotası sunucu/SQL tarafında sabit dört kullanımdır; Europe/Istanbul takvim ayı ve sunucu saati kullanılır. Rapor + mevcut günlük önerisi bu hakkı paylaşır. Uygulama USD bütçesi `private.ai_budget_policy` ile ayrıca kontrol edilir. `private.ai_application_usage` hesap silinse de uygulama harcamasını korur. Gönderim öncesi atomik rezervasyon yapılır; kesin gönderilmemiş hata iade edilir, gönderim sonrası belirsizlik rezervasyonu korur. Operatör `private.ai_reconcile_unbilled` işlemini yalnız sağlayıcıdan ücret oluşmadığına dair kanıtla kullanabilir; işlemin denetim kaydı vardır.
 
-Model yanıtındaki token sayıları sağlayıcı kullanım bilgisidir; USD karşılığı yapılandırılmış fiyat üzerinden hesaplanır, fatura diye sunulmaz. `.env.example` bütçesi örnektir. Pilot sürümünde otomatik rapor ve ücretli PDF görsel okuma kapalıdır; mevcut metin tabanlı YKS PDF inceleme/önizleme korunur.
+Model yanıtındaki token sayıları sağlayıcı kullanım bilgisidir; USD karşılığı yapılandırılmış fiyat üzerinden hesaplanır, fatura diye sunulmaz. `.env.example` bütçesi örnektir. Pilot sürümünde otomatik rapor kapalıdır.
 
 ## Canlıya geçiş ve geri dönüş
 

@@ -52,7 +52,7 @@ test('sample charts appear by default, toggle off restores real empty data, and 
   const hideExamples = page.getByRole('button', { name: 'Gerçek boş görünümü göster' });
   await expect(hideExamples).toHaveAttribute('aria-pressed', 'true');
   const values = (await page.locator('.daily-card .donut-center strong').allTextContents()).map(value => Number(value.replace('%', '')));
-  expect(values).toHaveLength(3);
+  expect(values).toHaveLength(2);
   expect(values.some(value => value > 0 && value < 100)).toBe(true);
 
   expect((await page.locator('.bar-value').allTextContents()).some(value => value !== '—')).toBe(true);
@@ -101,7 +101,7 @@ test('synthetic HTTP preview shows thick neon rings and correct numeric allocati
   await mockedAppearance(page);
   await page.getByRole('button', {name: 'Hesaplama ayrıntıları'}).click();
   const combined = page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Günlük ilerleme', exact: true }) });
-  await expect(combined.locator('.donut-center strong')).toHaveText('%64');
+  await expect(combined.locator('.donut-center strong')).toHaveCount(0);
   await expect(combined.locator('.ring-legend')).toContainText('Görev katkısı%49');
   await expect(combined.locator('.ring-legend')).toContainText('Süre katkısı%15');
   await expect(combined.locator('.ring-legend')).toContainText('Kalan%36');

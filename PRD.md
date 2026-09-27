@@ -53,13 +53,12 @@ Kalıcı başlangıç/bitiş ve aktif aralıklar yenilemede süreyi yeniden kura
 
 Focus To-Do resmî belgelenmiş API doğrulanmadan bağlanmış gösterilmez. Çekirdek kendi sayacını kullanır; CSV/JSON eşleme ancak gerçek örneğe göre geliştirilecek ayrı import işidir.
 
-## Denemeler, PDF ve istatistikler
+## Denemeler ve istatistikler
 
-Genel TYT, AYT Sayısal ve gerçek soru sayılı branş formatları sürümlenir. Başlangıç şablonu TYT 120; AYT Sayısal matematik 40 + fizik 14 + kimya 13 + biyoloji 13 = 80. AYT kitapçığının tamamı ile sayısal toplam karıştırılmaz. Başlangıç net kuralı doğru − yanlış/4; net, puan ve sıralama ayrı alanlardır. Yalnız net biliniyorsa bilinmeyen doğru/yanlış/boş null kalır. Negatif net mümkündür; negatif soru veya soru sayısını aşan toplam reddedilir. Alt ders ve genel toplam çift sayılmaz.
+Yeni deneme girişinde TYT, AYT Sayısal veya gerçek soru sayılı branş türü seçilir ve toplam net kaydedilir. Tarih varsayılan olarak bugündür, değiştirilebilir. Ad isteğe bağlıdır; boş bırakılırsa kayıt sırasına göre “3. deneme” gibi otomatik verilir. Notlar isteğe bağlıdır. Başlangıç şablonu TYT 120 ve AYT Sayısal 80 sorudur; branşın soru sayısı ayrıca girilir. Toplam net formatın izin verdiği aralıkta doğrulanır, negatif net mümkündür. Eski kayıtlardaki ders, puan, sıralama ve süre verileri korunur.
 
-Grafikler gerçek sonuç noktalarını, ders/branş/toplam gelişimini, haftalık/aylık ortalamaları ve örnek sayılarını gösterir. Tarih/yayın/tür filtreleri, isteğe bağlı hareketli ortalama; eksik dönem boş kalır. Farklı soru sayılarını karşılaştırırken doğruluk ve soru başına süre ayrıca gösterilir. Net farkı “+8 net” şeklindedir; az örnekten kesin gelişim hükmü çıkarılmaz.
+Grafikler gerçek toplam net sonuçlarını, haftalık/aylık ortalamaları ve katkı veren deneme sayılarını gösterir. Tür ve dönem filtreleri vardır; eksik dönem boş kalır. Farklı soru sayılı branş denemelerini karşılaştırırken soru sayısı dikkate alınır. Net farkı “+8 net” şeklindedir; az örnekten kesin gelişim hükmü çıkarılmaz.
 
-PDF: tür/boyut/sayfa sınırı → özel yükleme → metin katmanı → gerekirse ilgili sayfalara görsel işleme → şemalı sonuç + uygulama doğrulaması → kaynakla inceleme/düzeltme → tek transaction ile kayıt. Okunamayan alan null kalır. Birden fazla öğrenci/sınav seçilir. Hash, sonuç parmak izi ve idempotency tekrarları engeller; kaynak/düzeltme geçmişi korunur.
 
 Süre istatistikleri gün/hafta/ay/yıl/özel aralıkta toplam, iki farklı ortalama, en yüksek gün, çalışma/ hedefe ulaşma günleri ve ders/konu/tür dağılımını gösterir. Dinlenme, henüz kapanmamış gün, sıfır çalışma ve eksik kayıt ayrılır. Oturum düzeltmeleri raporları günceller; Calendar süreleri katılmaz.
 
@@ -83,7 +82,7 @@ Yerel günle kesişen, tüm gün/tekrarlı/gece yarısını aşan/iptal edilmiş
 
 Varsayılan koyu lacivert/Çelik Mavisi. Grafit, Mercan/Gül, Okyanus, Aurora, Orman, Bordo, Mürdüm/Krem, Pastel ve Çelik Mavisi ayrı tema aileleridir; tüm renk listeleri tam gereksinimde korunmuştur. CSS tokenları arka plan/kart/metin/kenar/vurgu/grafik/durumları kapsar. Açık/koyu/sistem, az hareket, sade görünüm, hesapla tema eşitleme ve cihaz bazında sistem tercihi gerekir. Tema değişimi süreyi/veriyi etkilemez. Etiket/işaret, klavye, odak, kontrast ve dokunma erişimi sağlanır.
 
-Tek izinli hesap sunucuda doğrulanır; genel kayıt kapalıdır. RLS ve özel depolama sahipliği uygular. Sırlar istemciye/repository'ye/loglara girmez. Girdi doğrulama, rate limit, OAuth state/PKCE, kısa ömürlü dosya bağlantıları ve güvenli token yaşam döngüsü gerekir. PDF/günlük talimat değil veri kabul edilir; SSRF ve prompt injection sınırları uygulanır.
+Tek izinli hesap sunucuda doğrulanır; genel kayıt kapalıdır. RLS ve özel depolama sahipliği uygular. Sırlar istemciye/repository'ye/loglara girmez. Girdi doğrulama, rate limit, OAuth state/PKCE, kısa ömürlü dosya bağlantıları ve güvenli token yaşam döngüsü gerekir. Günlük içeriği talimat değil veri kabul edilir; SSRF ve prompt injection sınırları uygulanır.
 
 PWA manifest/ikon/service worker/kurulum rehberi gerekir. İlk çevrimdışı kapsam: önceden açılmış görevler, kuyruğa alınan tamamlanmalar, korunan sayaç kayıtları. İlk giriş, Google ve AI internet ister. Hassas API yanıtları gelişigüzel cache'lenmez. Çıkışta kişisel yerel veri temizlenir; eşitlenmemiş değişiklik önce uyarılır.
 

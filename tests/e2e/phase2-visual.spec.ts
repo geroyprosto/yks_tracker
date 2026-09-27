@@ -1,6 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
 import { emptyState, type AppState, type Theme } from '../../src/lib/domain/types';
-import type { ImportDocument } from '../../src/lib/exam-import/types';
 
 const now = '2026-09-24T09:00:00.000Z';
 const stamp = '2026-09-24T08:00:00.000Z';
@@ -9,17 +8,6 @@ const themes: Array<{ id: Theme; name: string }> = [
   { id: 'plum', name: 'Mürdüm / Krem' }, { id: 'pastel', name: 'Pastel' },
   { id: 'white', name: 'Beyaz' }, { id: 'black', name: 'Siyah' },
 ];
-const importDocument: ImportDocument = {
-  id: 'visual-pdf-1', original_filename: 'ornek-sonuc.pdf', sha256: 'mock-hash', page_count: 2,
-  extraction_status: 'needs_visual_review', visual_extraction_status: 'provider_not_configured', committed_candidate_indexes: [], created_at: now,
-  candidates: [{ index: 0, label: 'TYT aday sonucu', student_label: 'Örnek öğrenci', format_code: 'TYT',
-    exam_date: '2026-09-24', name: 'Örnek TYT denemesi', publisher: 'Örnek yayın', source_pages: [1, 2],
-    reported_total_net: 52.5, reported_total_source: { source_page: 2, raw: 'Toplam net 52,5', uncertain: false },
-    warnings: ['Matematik neti kaynak PDF ile karşılaştır.'],
-    results: [{ section_key: 'turkce', correct: 30, wrong: 5, blank: 5, source_page: 1, raw: 'Türkçe D30 Y5 B5', uncertain: false },
-      { section_key: 'matematik', correct: 20, wrong: 6, blank: 14, source_page: 2, raw: 'Matematik D20 Y6 B14', uncertain: true }],
-  }],
-};
 function visualState(): AppState {
   const state = { ...emptyState(true), authenticated: true, server_now: now };
   state.settings = { display_name: 'Görsel test', exam_year: 2027, exam_date: null, target_rank: null,
@@ -67,8 +55,8 @@ async function assertNoOverflow(page: Page, context: string) {
   expect.soft(widths.main - widths.mainClient, `${context}: main overflow ${JSON.stringify(widths)}`).toBeLessThanOrEqual(1);
 }
 
-// Intentional visual QA test. All records and PDF drafts are isolated HTTP mocks.
-test('Phase 2 pages and PDF review fit six themes at desktop and mobile widths', async ({ page }) => {
+// Intentional visual QA test. All records are isolated HTTP mocks.
+test('Phase 2 pages fit six themes at desktop and mobile widths', async ({ page }) => {
   test.setTimeout(600_000);
   const errors: string[] = [];
   page.on('pageerror', error => errors.push('page: ' + error.message));
@@ -78,7 +66,6 @@ test('Phase 2 pages and PDF review fit six themes at desktop and mobile widths',
   await page.route('**/api/state', route => route.fulfill({ json: state }));
   await page.route('**/api/analysis', route => route.fulfill({ json: { ok: true, configured: false, scheduler_ready: false, schedule: null, reports: [], limits: { monthly_requests: 0, monthly_usd: 0 }, used: { requests: 0, estimated_cost_usd: 0 } } }));
   await page.route('**/api/calendar/today', route => route.fulfill({ json: { connected: false, date: '2026-09-24', timezone: 'Europe/Istanbul', events: [], refreshedAt: null } }));
-  await page.route('**/api/exam-import/drafts', route => route.fulfill({ json: { documents: [importDocument] } }));
   await page.route('**/api/command', route => route.abort());
   await page.goto('/');
   for (const width of [1440, 360]) {
@@ -88,7 +75,7 @@ test('Phase 2 pages and PDF review fit six themes at desktop and mobile widths',
       await page.getByRole('button', { name: theme.name, exact: true }).click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme.id);
       for (const [pageName, label, heading] of [
-        ['exams', 'Sınav Sonuçları', 'Denemelerini birlikte oku.'],
+        ['exams', 'Sınav Sonuçları', 'Deneme sonuçların'],
         ['stats', 'Çalışma İstatistikleri', 'Odaklanma süresi grafiği'],
         ['journal', 'Günlüğüm', 'Bugünü kendi sözlerinle anlat.'],
       ] as const) {
@@ -97,31 +84,6 @@ test('Phase 2 pages and PDF review fit six themes at desktop and mobile widths',
         await assertNoOverflow(page, `${theme.id}-${width}-${pageName}`);
         await page.screenshot({ path: `artifacts/phase2-qa/${theme.id}-${width}-${pageName}.png`, fullPage: true, animations: 'disabled' });
       }
-      await navigate(page, 'Sınav Sonuçları');
-      await page.getByRole('button', { name: 'PDF yükle' }).click();
-      const modal = page.getByRole('dialog', { name: "PDF'den deneme incele" });
-      await expect(modal).toBeVisible();
-      await expect(modal.getByRole('checkbox', { name: /Taranmış sonuç sayfalarını görsel olarak oku/ })).toHaveCount(0);
-      await expect(modal.getByText('Taranmış sayfalar için ücretli görsel okuma pilotta kapalıdır.',{exact:false})).toBeVisible();
-      await modal.getByRole('button', { name: /ornek-sonuc\.pdf/ }).click();
-      await expect(modal.getByText('Çıkarılan bilgileri kontrol et')).toBeVisible();
-      await expect(modal.getByText('Matematik neti kaynak PDF ile karşılaştır.')).toBeVisible();
-      await assertNoOverflow(page, `${theme.id}-${width}-pdf`);
-      const modalWidth = await modal.evaluate(node => ({ scroll: node.scrollWidth, client: node.clientWidth }));
-      expect.soft(modalWidth.scroll - modalWidth.client, `${theme.id}-${width}-pdf modal overflow`).toBeLessThanOrEqual(1);
-      await page.screenshot({ path: `artifacts/phase2-qa/${theme.id}-${width}-pdf.png`, fullPage: true, animations: 'disabled' });
-      if ((theme.id === 'white' && width === 1440) || (theme.id === 'rose' && width === 360)) {
-        await page.screenshot({ path: `artifacts/phase2-qa/${theme.id}-${width}-pdf-viewport.png`, animations: 'disabled' });
-      }
-      const bounds = await modal.boundingBox();
-      const viewport = page.viewportSize();
-      expect(bounds).not.toBeNull();
-      expect(viewport).not.toBeNull();
-      if (bounds && viewport) {
-        expect.soft(Math.abs(bounds.x + bounds.width / 2 - viewport.width / 2), `${theme.id}-${width}-pdf centered horizontally`).toBeLessThanOrEqual(2);
-        expect.soft(Math.abs(bounds.y + bounds.height / 2 - viewport.height / 2), `${theme.id}-${width}-pdf centered vertically`).toBeLessThanOrEqual(2);
-      }
-      await modal.getByRole('button', { name: 'Pencereyi kapat' }).click();
     }
   }
   expect.soft(errors).toEqual([]);

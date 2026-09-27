@@ -2,6 +2,8 @@
 
 Güncelleme: 26 Eylül 2026. Birim test, yerel PostgreSQL entegrasyonu, tarayıcı incelemesi ve gerçek Supabase/Google/OpenAI/MCP doğrulaması ayrı kanıtlardır.
 
+28 Eylül 2026'da deneme PDF okuma özelliği kaldırıldı. Aşağıdaki OCR ve PDF inceleme ölçümleri yalnız önceki sürümün tarihsel test kaydıdır.
+
 ## 25 Eylül 2026 Aşama 3 yerel doğrulama
 
 | Kontrol | Sonuç |
@@ -63,7 +65,7 @@ Keşif/cron yayını sırasında uygulama kaynak kodu değişmedi; sonraki gerç
 | Canlı Google OAuth ve Calendar API | Kullanıcı uygulamanın izin akışını tamamladı. Bulutta sahip hesabına ait **1** bağlantı, **3** seçilmiş takvim ve dolu `last_success_at` doğrulandı; en az bir sağlayıcı okuması başarılı. Yerel sunucu OAuth env değerleriyle yeniden başlatıldı. |
 | Önceki görsel denetim | Altı tema için 1440 ve 360 px'te Denemelerim, Çalışma İstatistikleri, Günlüğüm ve PDF incelemesi: **48 ekran görüntüsü**, yatay taşma/tarayıcı hatası yok. PDF modalı iki eksende merkezlenmiş olarak ölçüldü. |
 
-Bu OCR kontrolü sırasında YKSim Free Supabase projesinde (`efekpsnejfxiilfkjfar`, Frankfurt) yedi migration, özel PDF bucket/RLS ve tek doğrulanmış sahip kaydı doğrulanmıştı. Sonraki katalog migration'ı ve altı Aşama 3 migration'ıyla canlı toplam 14'e çıktı. Kullanıcının gerçek girişi sonrasında sahip profili ve başlangıç konu kataloğunun oluştuğu doğrulandı. PGlite testleri transaction/RLS mantığını, HTTP mock'lar istemci sözleşmesini doğrular. Bunlar canlı özel PDF yükleme, başka kullanıcı reddi, iki cihaz veya OpenAI görsel çağrısının yerini tutmaz. Google OAuth bağlantısı ve ilk Calendar API okuması ayrıca canlı doğrulandı; izin iptali, yeniden bağlama, token yenileme ve farklı günlerde etkinlik gösterimi test edilmedi. OCR kodu seçili sayfaları yalnız yükleme başına açık izinle gönderir; kullanıcı OPENAI_API_KEY değerini yerel `.env.local` dosyasına eklediğini bildirdi, gerçek OCR sağlayıcı çağrısı henüz doğrulanmadı. [Kurulum rehberi](SETUP.md) ve [OCR notu](PDF_IMPORT_OCR.md) kalan canlı adımları açıklar.
+Bu OCR kontrolü sırasında YKSim Free Supabase projesinde (`efekpsnejfxiilfkjfar`, Frankfurt) yedi migration, özel PDF bucket/RLS ve tek doğrulanmış sahip kaydı doğrulanmıştı. Sonraki katalog migration'ı ve altı Aşama 3 migration'ıyla canlı toplam 14'e çıktı. Kullanıcının gerçek girişi sonrasında sahip profili ve başlangıç konu kataloğunun oluştuğu doğrulandı. PGlite testleri transaction/RLS mantığını, HTTP mock'lar istemci sözleşmesini doğrular. Bunlar canlı özel PDF yükleme, başka kullanıcı reddi, iki cihaz veya OpenAI görsel çağrısının yerini tutmaz. Google OAuth bağlantısı ve ilk Calendar API okuması ayrıca canlı doğrulandı; izin iptali, yeniden bağlama, token yenileme ve farklı günlerde etkinlik gösterimi test edilmedi. O dönemde OCR kodu seçili sayfaları yalnız yükleme başına açık izinle gönderiyordu; kullanıcı OPENAI_API_KEY değerini yerel `.env.local` dosyasına eklediğini bildirdi, gerçek OCR sağlayıcı çağrısı henüz doğrulanmadı. Deneme PDF okuma akışı daha sonra kaldırıldı.
 
 Görseller: [Denemeler masaüstü](../artifacts/phase2-qa/ocean-1440-exams.png), [İstatistikler mobil](../artifacts/phase2-qa/rose-360-stats.png), [ortalanmış PDF masaüstü](../artifacts/phase2-qa/white-1440-pdf-viewport.png), [ortalanmış PDF mobil](../artifacts/phase2-qa/rose-360-pdf-viewport.png).
 
@@ -83,7 +85,7 @@ Aşağıdaki sayılar önceki aşamalarda alınmış tarihsel ölçümlerdir; g�
 | agent-browser ve ekran incelemesi | Kurulum gerektiren gerçek yerel ekran | Ekran yüklendi; etkileşim snapshot'ı doğru, tarayıcı hatası 0. Masaüstü ve 360 px görüntüleri gözle incelendi. |
 | Playwright E2E | Edge; 6 gerçek kurulum/API + 13 HTTP mock | **19/19 geçti**, tamamlayıcı renkler sonrası son tam koşu 11,1 saniye. Gerçek Supabase giriş/yazma testi değildir. |
 | Production build | pnpm build / Next.js 16.3.6 | **Geçti**; tüm uygulama/API yolları production build'e alındı. |
-| Gerçek sağlayıcı/Auth/iki cihaz | Önceki bulut durumu | O tarihte kurulum yoktu; güncel Auth, Google bağlantısı ve proje sonucu yukarıda. İki cihaz ve o tarihte bekleyen OpenAI sağlayıcı testi sonraki canlı dönem raporuyla kısmen tamamlandı; günlük önerisi/PDF OCR ayrı bekliyor. |
+| Gerçek sağlayıcı/Auth/iki cihaz | Önceki bulut durumu | O tarihte kurulum yoktu; güncel Auth, Google bağlantısı ve proje sonucu yukarıda. İki cihaz ve o tarihte bekleyen OpenAI sağlayıcı testi sonraki canlı dönem raporuyla kısmen tamamlandı; günlük önerisi ayrı bekliyor; PDF OCR özelliği daha sonra kaldırıldı. |
 
 ### Soru/test takibi ve analizinin son doğrulaması
 
@@ -173,7 +175,7 @@ Son görseller yalnız tarayıcıya verilen sentetik test kayıtlarını göster
 | 7 | Tema kalır, sayaç/veri sıfırlanmaz | Yerel görünüm kalıcılığı ve HTTP mock ile yenileme/aktif sayaç istemci sözleşmesi geçti. Gerçek hesapla etkin oturum senaryosu ayrıca gerekli. |
 | 8 | Hâkim konuya tekrar düzeyi bozmaz | Yerel PostgreSQL testi geçti; gerçek hesap E2E gerekli. |
 | 9 | Deneme doğrulama/negatif net/alt toplam | Aşama 2 kodu ve yerel DB testleri geçti; canlı deneme kaydı kabulü bekliyor. |
-| 10 | PDF inceleme/düzeltme/kayıt/tekrar | Yerel PDF ve atomik kayıt testleri geçti; özel bucket/RLS kuruldu. Canlı yükleme ve isteğe bağlı OpenAI çağrısı bekliyor. |
+| 10 | PDF inceleme/düzeltme/kayıt/tekrar | Bu senaryo 28 Eylül 2026'da kaldırıldı; önceki yerel testler tarihsel kayıttır. |
 | 11 | Gerçek grafik/filtre/örnek sayısı | Aşama 2 hesaplama ve mock ekran testleri geçti; canlı sonuç verisiyle kabul bekliyor. |
 | 12 | Google yalnız okuma ve scopes | İki salt okunur kapsam kodu ve mock testleri geçti. Uygulama OAuth akışı tamamlandı; sahibi için 3 takvim seçildi ve Calendar API okuması başarılı. Google'ın verdiği izin kapsamlarının bağımsız denetimi ve yeniden bağlama akışı ayrıca yapılmadı. |
 | 13 | Calendar süre/görev üretmez | Takvim akışı ayrı salt okunur; mock testleri geçti. Gerçek Google bağlantısında tekrar doğrulanmalı. |

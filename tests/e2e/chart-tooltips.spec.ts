@@ -48,7 +48,7 @@ test('monthly and detailed chart points reveal contextual data at their edges an
   const tooltip = page.getByRole('tooltip');
   await expect(tooltip).toContainText('81,75 net');
   await expect(tooltip).toContainText('Son TYT denemem');
-  await expect(tooltip).toContainText('Örnek Yayın');
+  await expect(tooltip).toContainText('Toplam net');
   const tooltipBox = (await tooltip.boundingBox())!;
   expect(tooltipBox.x).toBeGreaterThanOrEqual(12);
   expect(tooltipBox.x + tooltipBox.width).toBeLessThanOrEqual(page.viewportSize()!.width - 12);

@@ -82,7 +82,7 @@ function ProgressPlot({exams, format}: {exams: ExamRecord[]; format: Format}) {
           title: formatDay(exam.exam_date, {day: 'numeric', month: 'long', year: 'numeric'}),
           value: `${number.format(exam.total_net!)} net`,
           context: exam.name,
-          note: [formatName[format], exam.publisher].filter(Boolean).join(' · '),
+          note: formatName[format],
         }} tooltip={tooltip}/>)}
     </div>
     {tooltip.tooltip}

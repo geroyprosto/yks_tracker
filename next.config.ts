@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
   // from the signed-in local app on port 3000.
   distDir: process.env.YKSIM_E2E === "1" ? ".next-e2e" : process.env.CLASSROOM_DEV === "1" ? ".next-classroom" : ".next",
   devIndicators: false,
-  serverExternalPackages: ["@napi-rs/canvas", "pdfjs-dist", "@electric-sql/pglite"],
+  serverExternalPackages: ["@electric-sql/pglite"],
 };
 
 export default nextConfig;

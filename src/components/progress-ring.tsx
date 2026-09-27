@@ -148,18 +148,19 @@ export function Donut({ segments, center, caption, label, empty = false }: {
         label={segment.scaledValue >= 13 ? Math.round(segment.scaledValue) + '%' : null}
         entering={hydrated} />)}
     </svg>
-    <div className="donut-center"><strong>{center}</strong><span>{caption}</span></div>
+    <div className="donut-center">{center !== null && <strong>{center}</strong>}<span>{caption}</span></div>
   </div>;
 }
 
-export function Ring({ value, label, detail, segments, color = 0, showLegend = true }: {
-  value: number | null; label: string; detail: string; segments?: RingSegment[]; color?: number; showLegend?: boolean;
+export function Ring({ value, label, detail, segments, color = 0, showLegend = true, showCenterPercentage = true }: {
+  value: number | null; label: string; detail: string; segments?: RingSegment[]; color?: number; showLegend?: boolean; showCenterPercentage?: boolean;
 }) {
   const progress = value === null ? null : Math.min(100, Math.max(0, value));
   const parts = segments ?? (progress === null ? [] : [{ key: 'completed', label: 'Tamamlanan', value: progress, color }]);
   const remaining = progress === null ? null : Math.max(0, 100 - progress);
+  const center = showCenterPercentage ? (value === null ? '—' : <AnimatedPercent value={value} />) : null;
   return <div className="neon-metric">
-    <Donut segments={parts} center={value === null ? '—' : <AnimatedPercent value={value} />}
+    <Donut segments={parts} center={center}
       caption={value === null ? 'HENÜZ PLAN YOK' : 'TAMAMLANDI'}
       label={label + ': ' + (value === null ? 'tanımlı değil' : '%' + percentage(value))} empty={value === null || value === 0} />
     <h3>{label}</h3><p className="metric-detail">{detail}</p>

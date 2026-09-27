@@ -52,7 +52,9 @@ test('monthly progress lives in Exams and Today task actions still raise the rin
   await chart.getByRole('button', {name: 'Tüm analiz'}).click();
   const detailed = page.getByRole('tabpanel', {name: 'Ayrıntılı analiz'});
   await expect(detailed.getByRole('heading', {name: 'Net gelişimi', exact: true})).toBeVisible();
-  await expect(detailed.getByRole('combobox', {name: 'Yayın', exact: true})).toBeVisible();
+  for (const name of ['Tür', 'Dönem', 'Gösterim']) {
+    await expect(detailed.getByRole('combobox', {name, exact: true})).toBeVisible();
+  }
   await page.getByRole('tab', {name: 'Aylık görünüm'}).click();
   await expect(chart.locator('.monthly-exam-summary')).toContainText('52');
   await page.setViewportSize({width: 390, height: 844});

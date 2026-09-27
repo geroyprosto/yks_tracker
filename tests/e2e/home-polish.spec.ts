@@ -74,7 +74,8 @@ test('calculation details open on demand while the summary values stay visible',
   const writes = await openHome(page);
   const card = page.locator('.daily-card');
   const values = card.locator('.donut-center strong');
-  await expect(values).toHaveText(['%50', '%0', '%35']);
+  await expect(values).toHaveText(['%50', '%0']);
+  await expect(card.locator('.neon-metric').last().locator('.donut-center strong')).toHaveCount(0);
   await expect(card.locator('.ring-legend')).toHaveCount(0);
   const details = card.getByRole('button', {name: 'Hesaplama ayrıntıları'});
   await expect(details).toHaveAttribute('aria-expanded', 'false');
@@ -85,7 +86,7 @@ test('calculation details open on demand while the summary values stay visible',
   await expect(close).toHaveAttribute('aria-expanded', 'true');
   await close.click();
   await expect(card.locator('.ring-legend')).toHaveCount(0);
-  await expect(values).toHaveText(['%50', '%0', '%35']);
+  await expect(values).toHaveText(['%50', '%0']);
   expect(writes()).toBe(0);
 });
 

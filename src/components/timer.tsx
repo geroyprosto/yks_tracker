@@ -154,7 +154,7 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
     </div>
 
     <div className="timer-setup-section">
-      {modern?<><CourseSelector state={state} value={selectedCourseId} onChange={setCourseId} disabled={busy}/>{unavailableCourse&&<p role="status" className="notice">Seçili ders artık aktif çalışma alanında değil. Başlamadan önce başka bir ders seç veya ders seçimini kaldır.</p>}</>:<>
+      {modern?<><CourseSelector state={state} value={selectedCourseId} onChange={setCourseId} disabled={busy} initialFocus/>{unavailableCourse&&<p role="status" className="notice">Seçili ders artık aktif çalışma alanında değil. Başlamadan önce başka bir ders seç veya ders seçimini kaldır.</p>}</>:<>
       <span className="timer-setup-label">Ders</span>
       <div className="timer-exam-tabs" role="group" aria-label="Sınav bölümü">
         {(['TYT', 'AYT'] as const).map(item => <button key={item} type="button" className="timer-exam-tab" data-active={exam === item} data-initial-focus={exam === item ? true : undefined} aria-pressed={exam === item} onClick={() => {setExamChoice(item); setCourseChoice(null);}}>{item}</button>)}

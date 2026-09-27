@@ -57,6 +57,7 @@ test('finishing a study timer grows both the time and combined progress rings', 
   const combined = metric(page, 'Günlük ilerleme');
   await expect(time.getByRole('img', { name: 'Net çalışma süresi: %0' })).toBeVisible();
   await expect(combined.getByRole('img', { name: 'Günlük ilerleme: %0' })).toBeVisible();
+  await expect(combined.locator('.donut-center strong')).toHaveCount(0);
   await expect(time.locator('.donut-segment')).toHaveCount(0);
   await expect(combined.locator('.donut-segment')).toHaveCount(0);
 
@@ -79,5 +80,5 @@ test('finishing a study timer grows both the time and combined progress rings', 
   await expect.poll(() => dashLength(page, 'Net çalışma süresi')).toBeGreaterThan(106);
   await expect.poll(() => dashLength(page, 'Günlük ilerleme')).toBeGreaterThan(106);
   await expect(time.locator('.donut-center strong')).toHaveText('%25');
-  await expect(combined.locator('.donut-center strong')).toHaveText('%25');
+  await expect(combined.locator('.donut-center strong')).toHaveCount(0);
 });

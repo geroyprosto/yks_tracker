@@ -34,7 +34,7 @@ export function ExamPlot({points, measure, exams, grouping, sectionLabel}: {
       title: grouping === 'week' ? `${date} haftası` : date,
       value: `${number.format(point.value!)} ${measureLabels[measure]}`,
       context: exam?.name ?? `${point.count} denemenin ${grouping === 'month' ? 'aylık' : 'haftalık'} ortalaması`,
-      note: [sectionLabel, exam?.publisher].filter(Boolean).join(' · '),
+      note: sectionLabel,
     };
   }
 

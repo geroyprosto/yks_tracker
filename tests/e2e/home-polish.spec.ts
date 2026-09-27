@@ -91,6 +91,27 @@ test('calculation details reveal legends for only the task and time rings', asyn
   expect(writes()).toBe(0);
 });
 
+test('empty focus card keeps an accessible timer in the wider desktop layout', async ({page}) => {
+  await page.setViewportSize({width: 1440, height: 900});
+  await openHome(page);
+  const focus = page.locator('.focus-card');
+  for (const text of ['Odak oturumu', 'Odak sayacı', 'Bir süre ayır, odaklan.', 'Bir görev seç veya serbest çalışmaya başla.']) {
+    await expect(focus).not.toContainText(text);
+  }
+  await expect(focus.getByRole('timer')).toHaveAttribute('aria-label', /00:00.*Başlamaya hazır/);
+  await expect(focus.getByRole('button', {name: 'Çalışma sayacını aç'})).toBeVisible();
+
+  const focusBox = await focus.boundingBox();
+  expect(focusBox?.width).toBeGreaterThanOrEqual(360);
+  const rings = page.locator('.daily-card .neon-donut');
+  await expect(rings).toHaveCount(2);
+  for (const ring of await rings.all()) {
+    const box = await ring.boundingBox();
+    expect(box?.width).toBeGreaterThanOrEqual(130);
+    expect(box?.width).toBeLessThanOrEqual(150);
+  }
+});
+
 test('profile initials and greeting use the saved student name with Turkish casing', async ({page}) => {
   await openHome(page);
   await expect(page.locator('.profile-button strong')).toHaveText('ipek ışık');

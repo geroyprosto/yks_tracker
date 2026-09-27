@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { ArrowUpRight, Plus } from 'lucide-react';
 export function Card({title,eyebrow,action,children,className=''}:{title?:string;eyebrow?:string;action?:ReactNode;children:ReactNode;className?:string}){
- return <section className={'card '+className}>{(title||action)&&<header className="card-head"><div>{eyebrow&&<p className="eyebrow">{eyebrow}</p>}{title&&<h2>{title}</h2>}</div>{action}</header>}{children}</section>;
+ return <section className={'card '+className}>{(title||eyebrow||action)&&<header className="card-head"><div>{eyebrow&&<p className="eyebrow">{eyebrow}</p>}{title&&<h2>{title}</h2>}</div>{action}</header>}{children}</section>;
 }
 export function Empty({icon,title,text,action}:{icon?:ReactNode;title:string;text:string;action?:ReactNode}){
  return <div className="empty">{icon&&<div className="empty-icon">{icon}</div>}<h3>{title}</h3><p>{text}</p>{action}</div>;

@@ -15,6 +15,8 @@ import { Exams } from './exams';
 import { Journal } from './journal';
 import { ModalErrorContext } from './modal';
 import { Analysis } from './analysis';
+import { StudentClassroom } from './classroom/student';
+import { Login } from './login';
 
 const navigation=[
  {id:'today',label:'Bugün',icon:LayoutDashboard},
@@ -30,6 +32,7 @@ export type PageId=typeof navigation[number]['id'];
 export function Dashboard(){
  const [state,setState]=useState<AppState|null>(null);
  const [page,setPage]=useState<PageId>('today');
+ useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[page]);
  const [statisticsView,setStatisticsView]=useState<StatisticsView>('study');
  const [linkedDate,setLinkedDate]=useState<string|null>(null);
  const [settingsInitialTab,setSettingsInitialTab]=useState<'appearance'|'plan'|'connections'>('appearance');
@@ -62,6 +65,7 @@ export function Dashboard(){
    try{
      const response=await fetch('/api/state',{cache:'no-store'});
      const body=await response.json();
+     if(body.redirect){window.location.assign(body.redirect);return;}
      if(!response.ok&&response.status!==401)throw new Error(body.error?.message??'Veriler yüklenemedi.');
      installState(body);
      setError('');
@@ -107,7 +111,7 @@ export function Dashboard(){
    }catch(e){await refresh();setError(e instanceof Error?e.message:'İşlem kaydedilemedi.');return false}
    finally{pending.current=false;setBusy(false)}
  };
- const go=(p:PageId,settingsTab?:'connections')=>{if(p==='stats')setStatisticsView('study');if(p==='settings')setSettingsInitialTab(settingsTab??'appearance');setLinkedDate(null);setPage(p);setMobileMenu(false)};
+ const go=(p:PageId,settingsTab?:'plan'|'connections')=>{if(p==='stats')setStatisticsView('study');if(p==='settings')setSettingsInitialTab(settingsTab??'appearance');setLinkedDate(null);setPage(p);setMobileMenu(false)};
  const goFromReport=(p:PageId,date?:string)=>{go(p);if(date&&(p==='journal'||p==='exams'||p==='stats'))setLinkedDate(date)};
  const openPractice=()=>{go('stats');setStatisticsView('practice')};
  const openExamDateSettings=()=>{setSettingsInitialTab('plan');setPage('settings');setMobileMenu(false)};
@@ -127,26 +131,29 @@ export function Dashboard(){
      else document.querySelector<HTMLElement>('.focus-card-expand, .floating-timer button')?.focus({preventScroll:true});
    });
  };
- const title=page==='today'?'Merhaba, '+(state?.settings?.display_name??'Sümeyra')+'.':navigation.find(n=>n.id===page)?.label;
+ const displayName=state?.settings?.display_name?.trim() || 'Öğrenci';
+ const initials=displayName.split(/\s+/).map(part=>Array.from(part)[0]).filter(Boolean).slice(0,2).join('').toLocaleUpperCase('tr-TR');
+ const title=page==='today'?'Merhaba, '+displayName+'.':navigation.find(n=>n.id===page)?.label;
  const descriptions:Record<PageId,string>={today:'Kendi ritminde, hedefe doğru. İşte bugünün çalışma alanı.',tasks:'Planını oluştur, adım adım ilerle.',topics:'Ne öğrendiğini ve bir sonraki adımını gör.',exams:'Sonuçlarını zaman içinde birlikte değerlendirelim.',stats:'Çalışma süreni, çözdüğün soru ve testleri birlikte incele.',journal:'Günün düşüncelerine küçük bir alan.',analysis:'Kayıtlarından anlamlı gözlemlere.',settings:'Çalışma alanını kendine göre düzenle.'};
- if(state?.configured&&!state.authenticated)return <Login onLogin={refresh}/>;
+ if(!state)return <main className="login-page">{error?<div role="alert" className="notice error"><AlertCircle size={18}/><span>{error}</span><button className="button secondary" onClick={()=>void refresh()}>Tekrar dene</button></div>:<p className="loading" role="status">Çalışma alanı yükleniyor…</p>}</main>;
+ if(state.configured&&!state.authenticated)return <Login/>;
  return <ModalErrorContext value={error}><div className="app-shell">
    <a className="skip-link" href="#main">İçeriğe geç</a>
    <aside className={'sidebar '+(mobileMenu?'is-open':'')}>
      <div className="brand"><span className="brand-mark">y</span><span>YKSim<span className="brand-dot">.</span></span><button className="mobile-only icon-button" onClick={e=>{e.preventDefault();setMobileMenu(false)}} aria-label="Menüyü kapat"><X size={20}/></button></div>
      <div className="workspace-label">KİŞİSEL ÇALIŞMA ALANIN</div>
      <nav aria-label="Ana gezinme">{navigation.map(({id,label,icon:Icon})=><button key={id} className={'nav-item '+(page===id?'active':'')} aria-current={page===id?'page':undefined} onClick={()=>go(id)}><Icon size={19}/><span>{label}</span>{page===id&&<span className="nav-dot"/>}</button>)}</nav>
-     <div className="sidebar-bottom"><div className="exam-target"><div className="target-icon"><BookOpen size={20}/></div><div><strong>YKS {state?.settings?.exam_year??2027}</strong><span>Sayısal · senin yolculuğun</span></div></div><button className="profile-button" onClick={()=>go('settings')}><span className="avatar">S</span><span><strong>{state?.settings?.display_name??'Sümeyra'}</strong><small>Kişisel hesap</small></span><Settings2 size={16}/></button></div>
+     <div className="sidebar-bottom"><div className="exam-target"><div className="target-icon"><BookOpen size={20}/></div><div><strong>YKS {state?.settings?.exam_year??2027}</strong><span>Hedefine doğru</span></div></div><button className="profile-button" onClick={()=>go('settings')}><span className="avatar" aria-hidden="true">{initials}</span><span><strong>{displayName}</strong><small>Kişisel hesap</small></span><Settings2 size={16}/></button></div>
    </aside>
    {mobileMenu&&<button className="menu-scrim" aria-label="Menüyü kapat" onClick={()=>setMobileMenu(false)}/>}
    <div className="main-shell">
-     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':busy?'Kaydediliyor…':state?.authenticated?'Hesabına kaydediliyor':'Kurulum bekliyor'}</span></span><span className="avatar small">S</span></div></header>
+     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':busy?'Kaydediliyor…':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
      <main id="main">
+       {state?.authenticated&&<StudentClassroom state={state}/>}
        <div className="page-heading"><div><p className="eyebrow">{page==='today'?(today?formatDay(today):'Bugün'):'YKSim / '+navigation.find(n=>n.id===page)?.label}</p><h1>{title}</h1><p>{descriptions[page]}</p></div>{page==='today'&&<button className="button secondary" onClick={()=>{setPage('tasks');setNewTask(true)}}><ListTodo size={17}/>Günü planla<ArrowUpRight size={16}/></button>}</div>
        {!state?.configured&&<div className="setup-banner"><ShieldCheck size={22}/><div><strong>Kişisel alanın kurulum için hazır.</strong><p>Veritabanı bağlantısı henüz kurulmadı. Kayıtların oluşmadan önce hesabını bağlamalısın.</p></div><button className="text-button" onClick={()=>go('settings')}>Kurulum bilgileri<ChevronRight size={16}/></button></div>}
        {state&&!state.configured&&(page==='today'||page==='stats'||page==='exams')&&<div className="preview-banner" role="status"><ChartNoAxesCombined size={21}/><div><strong>{previewEnabled?'Örnek grafik önizlemesi açık.':'Örnek grafik önizlemesi kapalı.'}</strong><p>{previewEnabled?'Örnek görevler ve grafikler yalnızca önizleme içindir; gerçek kayıtların değişmez.':'Gerçek boş görünümü izliyorsun. İstersen örnek grafikleri aç.'}</p></div><button className="button secondary" aria-pressed={previewEnabled} onClick={()=>{const next=!previewEnabled;setPreviewChoice(next);localStorage.setItem('yksim-chart-preview',String(next))}}>{previewEnabled?'Gerçek boş görünümü göster':'Örnekleri göster'}</button></div>}
        {error&&<div role="alert" className="notice error"><AlertCircle size={18}/><span>{error}</span><button className="icon-button" aria-label="Uyarıyı kapat" onClick={()=>setError('')}><X size={16}/></button></div>}
-       {!state&&<p className="loading" role="status">Çalışma alanı yükleniyor…</p>}
        {todayState&&page==='today'&&<Today state={todayState} preview={previewEnabled} command={command} busy={busy} offset={offset} go={go} openTimer={openTimer} expandTimer={openFocusTimer} addTask={()=>{go('tasks');setNewTask(true)}} openExamDateSettings={openExamDateSettings} openPractice={openPractice}/>}
        {state&&page==='tasks'&&<Tasks state={state} command={command} busy={busy} requestNew={newTask} onNewHandled={()=>setNewTask(false)}/>}
        {state&&page==='topics'&&<Topics state={state} command={command} busy={busy}/>}
@@ -155,15 +162,10 @@ export function Dashboard(){
        {state&&page==='journal'&&<Journal key={linkedDate??'today'} initialDate={linkedDate??undefined} state={state} command={command} busy={busy}/>}
        {state&&page==='analysis'&&<Analysis onOpenDay={date=>goFromReport('stats',date)}/>}
        {state&&page==='stats'&&<StatisticsWorkspace initialDate={linkedDate} state={state} practiceState={previewEnabled&&todayState?todayState:state} command={command} busy={busy} preview={previewEnabled} go={goFromReport} view={statisticsView} onViewChange={setStatisticsView}/>}
-       <footer className="page-footer"><span>Her gün aynı olmak zorunda değil.</span><span>YKSim <span className="subtle">·</span> Kişisel çalışma alanın</span></footer>
+       <footer className="page-footer"><span>Her gün aynı olmak zorunda değil.</span><a href="/classroom">Hesap ve sınıf alanı</a><span>YKSim <span className="subtle">·</span> Kişisel çalışma alanın</span></footer>
      </main>
    </div>
    <nav className="bottom-nav" aria-label="Mobil gezinme">{navigation.slice(0,3).map(({id,label,icon:Icon})=><button key={id} onClick={()=>go(id)} aria-current={page===id?'page':undefined}><Icon size={21}/>{label}</button>)}<button onClick={()=>go('settings')} aria-current={page==='settings'?'page':undefined}><Settings2 size={21}/>Ayarlar</button></nav>
    {state&&<TimerPanel state={state} command={command} busy={busy} offset={offset} expanded={timerOpen} focus={timerFocus} origin={timerOrigin} onFocus={openFocusTimer} onClose={closeTimer}/>}
  </div></ModalErrorContext>
 }
-function Login({onLogin}:{onLogin:()=>Promise<void>}){
- const [error,setError]=useState('');const [busy,setBusy]=useState(false);
- return <main className="login-page"><div className="login-card"><div className="brand"><span className="brand-mark">y</span>YKSim.</div><p className="eyebrow">SANA AİT BİR ALAN</p><h1>Yolculuğuna devam et.</h1><p>Önceden oluşturulmuş kişisel hesabınla giriş yap.</p><form onSubmit={async e=>{e.preventDefault();setBusy(true);setError('');const f=new FormData(e.currentTarget);try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(Object.fromEntries(f))});const data=await r.json();if(!r.ok)throw new Error(data.error?.message??'Giriş yapılamadı.');await onLogin()}catch(e){setError(e instanceof Error?e.message:'Bağlantı kurulamadı.')}finally{setBusy(false)}}}><label>E-posta<input required type="email" name="email" autoComplete="username"/></label><label>Parola<input required type="password" name="password" autoComplete="current-password"/></label>{error&&<p role="alert" className="error-text">{error}</p>}<button className="button primary wide" disabled={busy}>{busy?'Giriş yapılıyor…':'Giriş yap'}<ArrowUpRight size={18}/></button></form><p className="footnote"><ShieldCheck size={15}/>Yalnızca izin verilen hesap erişebilir.</p></div></main>
-}
-

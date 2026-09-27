@@ -1,0 +1,175 @@
+/* Quiet supporting surfaces keep the progress rings and focus dial in view. */
+.sidebar .nav-item.active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--sidebar-background));
+  color: var(--primary);
+  border-color: transparent;
+  box-shadow: none;
+}
+.sidebar .nav-item.active::before, .sidebar .nav-item.active::after { display: none; }
+.sidebar .nav-item.active .nav-dot { background: var(--primary); box-shadow: none; }
+.sidebar .nav-item { font-size: 13px; }
+.bottom-nav > button[aria-current=page] { background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary); box-shadow: none; }
+.sidebar .profile-button > span:nth-child(2) { min-width: 0; }
+.sidebar .profile-button strong { overflow-wrap: anywhere; }
+.sidebar .avatar { flex: none; font-size: 12px; }
+.topbar { height: 64px; background: var(--background); }
+.page-heading h1 { font-size: clamp(25px, 2.4vw, 32px); }
+.page-heading > div > p:last-child { font-size: 13px; line-height: 1.6; }
+.card .soft-copy, .card .empty p { font-size: 13px; line-height: 1.7; }
+.card .footnote, .form-grid small, .setting-row p, .task-meta, .task-tags,
+.task-description > p, .topic-details, .session-row small { font-size: 12px; line-height: 1.6; }
+.form-grid > label, .three-fields > label, .week-targets > label { font-size: 12px; }
+.card .text-button, .button.small { font-size: 12px; min-height: 36px; }
+.card-bottom > span { font-size: 11px; }
+.card .empty { padding-block: 28px; }
+
+.overview-grid { grid-template-columns: minmax(0, 1fr) 290px; gap: 20px; align-items: stretch; }
+.daily-card { border-top: 1px solid var(--border); padding: 24px; }
+.daily-card .card-head { margin-bottom: 24px; }
+.daily-card .neon-metrics { padding: 0 0 24px; gap: 18px; align-content: center; }
+.daily-card .neon-metric { display: block; }
+.daily-card .neon-metric + .neon-metric::before { display: none; }
+.daily-card .neon-donut { width: min(160px, 100%); margin: 0 auto 12px; }
+.daily-card .donut-glow { opacity: .25; }
+.daily-card .donut-center strong { font-size: clamp(22px, 2.2vw, 28px); }
+.daily-card .donut-center span { display: none; }
+.daily-card .neon-metric h3 { font-size: 12px; line-height: 1.5; margin-bottom: 4px; }
+.daily-card .metric-detail { min-height: 32px; font-size: 11px; line-height: 1.5; margin: 0; }
+.daily-card .ring-legend { margin-top: 14px; }
+.daily-card .card-bottom { flex-wrap: wrap; padding-top: 12px; gap: 4px 16px; }
+.daily-breakdown { padding-bottom: 16px; }
+.daily-breakdown .plan-ratio { margin: 0 0 7px; flex-wrap: wrap; font-size: 11px; }
+.daily-breakdown .footnote { font-size: 11px; }
+
+.overview-grid .focus-card.gradient-card {
+  --focus-dial-size: 184px;
+  min-height: 380px;
+  padding: 22px 20px 56px;
+  border-color: color-mix(in srgb, var(--feature-glow) 28%, var(--border));
+  box-shadow: none;
+}
+.overview-grid .focus-card.gradient-card::before { opacity: .55; }
+.overview-grid .focus-card .card-head { margin-bottom: 6px; }
+.overview-grid .focus-card-scene { display: flex; flex-direction: column; }
+.overview-grid .focus-dial { margin: 3px auto 12px; }
+.overview-grid .focus-dial-face { gap: 4px; }
+.overview-grid .focus-dial-face > svg, .overview-grid .focus-dial-face small { display: none; }
+.overview-grid .focus-dial-face strong { font-size: 36px; }
+.overview-grid .focus-dial-face strong.is-long { font-size: 25px; }
+.overview-grid .focus-card-copy { min-height: 0; text-align: center; }
+.overview-grid .focus-card-copy h3 { font-size: 14px; }
+.overview-grid .focus-card-copy p { font-size: 11px; }
+.overview-grid .focus-card-actions { margin-top: 14px; }
+.overview-grid .focus-card-expand { min-height: 32px; padding: 6px 9px; bottom: 12px; }
+
+.today-primary-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; }
+.today-primary-grid .column { gap: 20px; }
+.today-task-filters { display: flex; gap: 4px; flex-wrap: wrap; margin: -8px 0 16px; }
+.today-task-filters button {
+  display: inline-flex; align-items: center; gap: 7px; min-height: 36px;
+  padding: 7px 10px; border: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px;
+}
+.today-task-filters button[aria-pressed=true] { background: var(--surface-raised); color: var(--foreground); }
+.today-task-filters button:hover { color: var(--primary); }
+.today-task-filters span { font-size: 11px; font-variant-numeric: tabular-nums; }
+.today-filter-empty { padding: 24px 0 32px; color: var(--muted); font-size: 13px; }
+.tasks-summary-card .task-line { padding-block: 14px; gap: 12px; }
+.tasks-summary-card .task-line > div { min-width: 0; }
+.tasks-summary-card .task-line strong { font-size: 13px; overflow-wrap: anywhere; }
+.tasks-summary-card .task-line small { font-size: 11px; }
+.tasks-summary-card .check-button { width: 28px; height: 28px; flex: none; }
+.tasks-summary-card .empty { padding: 18px 12px 28px; }
+.tasks-summary-card .empty-icon { display: none; }
+.today-rhythm-card { min-height: 280px; }
+.today-rhythm-card .card-head { margin-bottom: 14px; }
+.today-rhythm-card .chart-summary strong { color: var(--foreground); font-size: 26px; }
+.today-rhythm-card .chart-summary span { color: var(--muted); font-size: 12px; }
+.today-rhythm-card .week-chart { min-height: 132px; gap: 12px; }
+.today-rhythm-card .day-bar { min-width: 0; background: transparent; border: 0; padding: 0 2px; color: var(--muted); font-size: 11px; border-radius: 5px; }
+.today-rhythm-card .bar-track { display: flex; align-items: flex-end; height: 90px; width: 100%; background: color-mix(in srgb, var(--surface-raised) 65%, transparent); border-radius: 5px; overflow: hidden; }
+.today-rhythm-card .bar-track > span { display: block; width: 100%; min-height: 0; background: color-mix(in srgb, var(--primary) 65%, var(--surface-raised)); border-radius: 5px; }
+.today-rhythm-card .current .bar-track > span { background: var(--primary); }
+.today-rhythm-card .day-bar[data-tooltip-active] .bar-track { outline: 1px solid var(--primary); }
+.today-rhythm-card .bar-value { color: var(--muted); font-size: 10px; }
+.today-rhythm-card .footnote { font-size: 11px; padding-top: 14px; }
+.today-practice-card > .card { min-height: 0; }
+.today-practice-card .insight-card {
+  --foreground: inherit; --muted: inherit; --primary: inherit; --border: inherit;
+  --surface: inherit; --surface-raised: inherit;
+  color: var(--foreground); background: var(--surface); border-color: var(--border); box-shadow: var(--shadow);
+}
+.today-practice-card .insight-card::after { display: none; }
+.today-practice-card .card-head h2, .today-practice-card .practice-overview-totals strong,
+.today-practice-card .practice-overview-subject > div:first-child span,
+.today-practice-card .practice-overview-subject strong { color: var(--foreground); }
+.today-practice-card .practice-overview-totals > div { padding: 7px 0; border: 0; background: transparent; }
+.today-practice-card .practice-overview-totals span, .today-practice-card .practice-overview-more,
+.today-practice-card .practice-overview-empty { color: var(--muted); font-size: 12px; }
+.today-practice-card .practice-overview-subject > div:first-child { font-size: 12px; }
+.today-practice-card .practice-overview-subject strong { font-size: 10px; }
+.today-practice-card .practice-overview-track { background: var(--surface-raised); }
+.today-practice-card .practice-overview-track > span { background: var(--primary); box-shadow: none; }
+.today-practice-card .practice-overview-link { background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding-top: 12px; color: var(--primary); font-size: 12px; justify-content: flex-start; }
+.today-primary-grid .journal-preview-card { min-height: 0; }
+.today-primary-grid .journal-preview-body { display: grid; gap: 12px; }
+.today-primary-grid .journal-preview-body .text-button { justify-self: start; }
+
+.today-primary-grid .calendar-program-card {
+  --foreground: inherit; --muted: inherit; --primary: inherit; --border: inherit;
+  min-height: 0; padding: 23px; color: var(--foreground); background: var(--surface);
+  border-color: var(--border); box-shadow: var(--shadow);
+}
+.today-primary-grid .calendar-program-card::before, .today-primary-grid .calendar-program-card::after { display: none; }
+.today-primary-grid .calendar-program-card .connection-empty { border: 0; background: transparent; padding: 8px 0 16px; }
+.today-primary-grid .calendar-program-card .connection-empty p { font-size: 12px; }
+.today-primary-grid .calendar-program-card .calendar-logo { background: var(--surface-raised); border-color: var(--border); color: var(--primary); box-shadow: none; }
+.today-primary-grid .calendar-empty { border: 0; background: var(--surface-raised); }
+.today-primary-grid .calendar-error { color: var(--danger); }
+.today-primary-grid .calendar-event-time { color: var(--foreground); }
+
+.today-primary-grid .yks-countdown-card {
+  --yks-ink: var(--feature-end); --yks-depth: var(--feature-base); --yks-floor: var(--feature-end);
+  --yks-light: var(--feature-glow); --yks-rim: var(--feature-glow);
+  min-height: 285px; border-radius: 16px; padding: 23px; box-shadow: none;
+  border-color: color-mix(in srgb, var(--feature-glow) 25%, transparent);
+  background: linear-gradient(155deg, var(--feature-base), var(--feature-end));
+}
+.today-primary-grid .yks-countdown-card::before, .today-primary-grid .countdown-grid::before { display: none; }
+.today-primary-grid .yks-countdown-card h2 { font-size: 18px; letter-spacing: -.2px; }
+.today-primary-grid .countdown-value { height: 60px; font-size: clamp(23px, 2.4vw, 32px); box-shadow: none; text-shadow: none; }
+.today-primary-grid .countdown-unit:not(:last-child)::after { top: 15px; text-shadow: none; }
+.today-primary-grid .countdown-meta { flex-wrap: wrap; margin-top: 20px; gap: 7px; }
+.today-primary-grid .countdown-meta span { font-size: 10px; }
+
+@media (max-width: 1150px) and (min-width: 761px) {
+  .overview-grid { grid-template-columns: minmax(0, 1fr); }
+  .overview-grid .focus-card.gradient-card { min-height: 230px; padding: 22px 24px; }
+  .overview-grid .focus-card-scene { display: grid; grid-template-columns: minmax(0, 1fr) 190px; column-gap: 24px; }
+  .overview-grid .focus-dial { grid-column: 2; grid-row: 1 / 3; margin: 0; }
+  .overview-grid .focus-card-copy { grid-column: 1; text-align: left; }
+  .overview-grid .focus-card-actions { grid-column: 1; max-width: 330px; }
+  .overview-grid .focus-card-expand { right: 225px; bottom: 12px; }
+  .today-primary-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 760px) {
+  .overview-grid, .today-primary-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .today-primary-grid .column { gap: 16px; }
+  .daily-card { padding: 20px 16px; }
+  .daily-card .card-head { gap: 8px; margin-bottom: 20px; }
+  .daily-card .card-head h2 { font-size: 15px; }
+  .daily-card .neon-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding-bottom: 20px; }
+  .daily-card .neon-metric { text-align: center; padding: 0; border: 0; }
+  .daily-card .neon-donut { width: 100%; max-width: 150px; margin-bottom: 9px; }
+  .daily-card .donut-center { padding: 20px; }
+  .daily-card .donut-center strong { font-size: clamp(18px, 5vw, 25px); letter-spacing: -.6px; }
+  .daily-card .neon-metric h3 { font-size: 11px; min-height: 32px; }
+  .daily-card .metric-detail { font-size: 10px; min-height: 30px; }
+  .daily-card .ring-legend li { flex-wrap: wrap; font-size: 10px; }
+  .daily-card .ring-legend b { font-size: 10px; }
+  .daily-card .card-bottom .text-button { font-size: 11px; }
+  .overview-grid .focus-card.gradient-card { min-height: 0; padding-bottom: 56px; }
+  .overview-grid .focus-card-actions { max-width: 360px; }
+  .page-heading > .button { align-self: flex-start; }
+  .today-primary-grid .calendar-program-card, .today-primary-grid .yks-countdown-card { padding: 20px; }
+  .today-primary-grid .countdown-value { font-size: 27px; }
+}

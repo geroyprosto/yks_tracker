@@ -1,4 +1,4 @@
-import { requireOwner } from "@/lib/server/auth";
+import { requireAiStudyUser } from "@/lib/server/classroom";
 import { uploadImportDocument } from "@/lib/server/exam-import";
 import { ApiError, errorResponse, json, sameOrigin } from "@/lib/server/http";
 import { MAX_PDF_BYTES } from "@/lib/exam-import/extract";
@@ -51,7 +51,7 @@ export function visualConsent(form:FormData):boolean {
 export async function POST(request:Request){
  try{
   sameOrigin(request);
-  const client=await requireOwner();
+  const client=await requireAiStudyUser();
   const form=await boundedMultipartForm(request);
   const files=form.getAll("file");
   if(files.length!==1 || !(files[0] instanceof File))

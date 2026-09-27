@@ -55,11 +55,11 @@ export function GoogleCalendarSettings({ authenticated }: { authenticated: boole
   const selected = new Set(selection);
   const changed = JSON.stringify([...selection].sort()) !== JSON.stringify([...status.selectedCalendarIds].sort());
   return <Card className="ambient-card google-calendar-settings" title="Google Takvim" action={<CalendarDays size={20}/> }>
-    <p className="soft-copy">Bugünün programını yalnızca oku. Takvimde değişiklik yapılmaz; etkinlik süresi çalışma kaydına eklenmez.</p>
+    <p className="soft-copy">Bugünün programını yalnızca oku. Takvimde değişiklik yapılmaz; etkinlik süresi çalışma kaydına eklenmez. <a href="/privacy">Google verilerinin nasıl kullanıldığını oku.</a></p>
     {loading && <p className="calendar-message" role="status">Bağlantı durumu yükleniyor…</p>}
     {error && <div className="calendar-message calendar-error" role="alert">{error} <button className="text-button" type="button" onClick={() => void load()}>Tekrar dene</button></div>}
     {notice && <p className="calendar-message" role="status">{notice}</p>}
-    {!status.configured && !loading && !error && <p className="calendar-message">Google OAuth kurulumu henüz tamamlanmadı. Kurulum adımları için README’ye bak.</p>}
+    {!status.configured && !loading && !error && <p className="calendar-message">Google Takvim bağlantısı şu anda kullanılamıyor.</p>}
     {status.configured && !status.connected && !loading && !error && <form method="post" action="/api/calendar/connect">
       <button className="button primary" disabled={!authenticated || busy} type="submit"><ShieldCheck size={16}/>Google Takvim’i bağla</button>
     </form>}

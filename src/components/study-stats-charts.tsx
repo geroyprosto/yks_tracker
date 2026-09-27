@@ -4,6 +4,7 @@ import type {StudyChartBucket} from '@/lib/study-statistics-buckets';
 import {summarizeStudyChartBuckets} from '@/lib/study-statistics-buckets';
 import {duration, formatDay} from '@/lib/ui';
 import {Card} from './primitives';
+import {useChartTooltip} from './chart-tooltip';
 
 type Props = {
   buckets: StudyChartBucket[];
@@ -30,6 +31,7 @@ function bucketTitle(bucket: StudyChartBucket) {
 }
 
 function Bars({buckets, kind, selectedDate, onSelectBucket}: Props & {kind: 'time' | 'tasks'}) {
+  const tooltip = useChartTooltip();
   const values = buckets.map(bucket => kind === 'time' ? bucket.totalSeconds : bucket.completedTaskCount);
   const rawMax = Math.max(0, ...values);
   const max = kind === 'time' ? timeScaleMax(rawMax) : Math.max(4, Math.ceil(rawMax / 4) * 4);
@@ -47,15 +49,16 @@ function Bars({buckets, kind, selectedDate, onSelectBucket}: Props & {kind: 'tim
           '. ' + (bucket.start === bucket.end ? 'Gün ayrıntılarını aç' : 'Dönemi yakından incele');
         const label = bucket.granularity === 'week' ? formatDay(bucket.start, {day: 'numeric', month: 'short'}) : bucket.label;
         return <button key={bucket.key} type="button" className={'stats-bar' + (selectedDate === bucket.start && bucket.start === bucket.end ? ' is-selected' : '')}
-          aria-label={description} aria-pressed={selectedDate === bucket.start && bucket.start === bucket.end} onClick={() => onSelectBucket(bucket)}>
+          {...tooltip.triggerProps(bucket.key, {title: date, value: text, context: kind === 'tasks' ? `${bucket.taskCount} planlanan görev` : 'Toplam odaklanma süresi', note: bucket.start === bucket.end ? 'Gün ayrıntıları için seç' : 'Dönemi yakından incelemek için seç'})}
+          aria-label={description} aria-pressed={selectedDate === bucket.start && bucket.start === bucket.end} onClick={() => {tooltip.close(); onSelectBucket(bucket);}}>
           <span className="stats-bar-track">
             {value > 0 ? <i className="stats-bar-fill" style={{height: Math.max(1, 100 * value / max) + '%'}}/> : <i className="stats-bar-zero"/>}
           </span>
           <span className="stats-bar-label">{index % labelStep === 0 || index === buckets.length - 1 ? label : ''}</span>
-          <span className="stats-bar-tooltip" aria-hidden="true"><small>{date}</small><strong>{text}</strong>{kind === 'tasks' && <small>{bucket.taskCount} planlanan</small>}</span>
         </button>;
       })}
     </div>
+    {tooltip.tooltip}
   </div>;
 }
 
@@ -72,7 +75,7 @@ export function StudyStatsCharts({buckets, selectedDate, onSelectBucket}: Props)
         <div><span>Ortalama / {unit}</span><strong>{duration(Math.round(summary.averageBucketSeconds))}</strong></div>
         <div><span>En iyi {unit}</span><strong>{summary.bestBucket?.totalSeconds ? duration(summary.bestBucket.totalSeconds) : '—'}</strong></div>
       </div>
-      <Bars buckets={buckets} kind="time" selectedDate={selectedDate} onSelectBucket={onSelectBucket}/>
+      <Bars key={buckets.map(bucket => bucket.key).join('|')} buckets={buckets} kind="time" selectedDate={selectedDate} onSelectBucket={onSelectBucket}/>
       <div className="study-chart-footer"><span>Bir sütuna dokunarak ayrıntısını incele.</span>
         <details className="study-calculation"><summary>Ortalama nasıl hesaplanır?</summary><p>Kaydedilen toplam süre, grafikteki {buckets.length} {unit} sayısına bölünür. Henüz tamamlanmayan dönem de dahildir. Süre kaydı olmayan aralıklar, çalışmadığın anlamına gelmez.</p></details>
       </div>
@@ -83,7 +86,7 @@ export function StudyStatsCharts({buckets, selectedDate, onSelectBucket}: Props)
         <div><span>Ortalama / {unit}</span><strong>{number.format(summary.averageCompletedTasks)}</strong></div>
         <div><span>En iyi {unit}</span><strong>{taskBest?.completedTaskCount ?? 0}</strong></div>
       </div>
-      <Bars buckets={buckets} kind="tasks" selectedDate={selectedDate} onSelectBucket={onSelectBucket}/>
+      <Bars key={buckets.map(bucket => bucket.key).join('|')} buckets={buckets} kind="tasks" selectedDate={selectedDate} onSelectBucket={onSelectBucket}/>
       <p className="study-chart-footer">Tamamlanan görevler planlandıkları tarihe göre gösterilir.</p>
     </Card>
   </div>;

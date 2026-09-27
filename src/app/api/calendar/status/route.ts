@@ -1,5 +1,5 @@
 import { errorResponse, json } from '@/lib/server/http';
-import { calendarOwnerId, getCalendarConnection, getGoogleConfiguration,
+import { calendarUserId, getCalendarConnection, getGoogleConfiguration,
   markCalendarSuccess } from '@/lib/server/google-calendar-store';
 import { listGoogleCalendars, refreshCalendarAccess } from '@/lib/server/google-calendar';
 import type { CalendarStatus } from '@/lib/google-calendar';
@@ -10,7 +10,7 @@ export async function GET() {
     configured: false, connected: false, calendars: [], selectedCalendarIds: [], lastSuccessAt: null,
   } satisfies CalendarStatus);
   try {
-    const userId = await calendarOwnerId();
+    const userId = await calendarUserId();
     const connection = await getCalendarConnection(userId);
     if (!connection) return json({
       configured: true, connected: false, calendars: [], selectedCalendarIds: [], lastSuccessAt: null,

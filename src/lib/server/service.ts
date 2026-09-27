@@ -4,6 +4,20 @@ import { emptyState, type AppState } from "../domain/types";
 import { ApiError } from "./http";
 export function databaseError(error:{message:string;code?:string}):never{
  const known:Record<string,[number,string]>={
+  ACCESS_DENIED:[403,"Bu işlem için yetkiniz bulunmuyor."],
+  ACCOUNT_REQUIRED:[403,"Önce başvurunuzu tamamlayın."],
+  APPROVAL_REQUIRED:[403,"Yönetici onayınız bekleniyor veya erişiminiz durduruldu."],
+  ADMIN_REQUIRED:[403,"Bu işlem yalnızca yönetici tarafından yapılabilir."],
+  TEACHER_REQUIRED:[403,"Bu işlem için onaylı öğretmen hesabı gerekir."],
+  STUDENT_REQUIRED:[403,"Bu işlem için onaylı öğrenci hesabı gerekir."],
+  EMAIL_UNVERIFIED:[403,"Önce e-posta adresinizi doğrulayın."],
+  EMAIL_VERIFICATION_REQUIRED:[403,"Önce e-posta adresinizi doğrulayın."],
+  AUTH_REQUIRED:[401,"Devam etmek için giriş yapın."],
+  INVITE_INVALID:[410,"Davet iptal edilmiş veya süresi dolmuş."],
+  ALERT_LOCKED:[409,"Bu ekranın beş dakikalık süresi henüz dolmadı."],
+  ROLE_CHANGE_FORBIDDEN:[409,"Mevcut hesabınızın rolü bu başvuruyla değiştirilemez."],
+  PENDING_APPLICATION_EXISTS:[409,"Zaten değerlendirme bekleyen bir başvurunuz var."],
+  INVALID_INVITE:[410,"Davet iptal edilmiş veya süresi dolmuş."],
   CONFLICT:[409,"Kayıt başka bir cihazda değişti. Güncel verileri alıp tekrar deneyin."],
   ACTIVE_SESSION:[409,"Zaten açık bir çalışma oturumu var. Önce onu bitirin."],
   CONFIRM_DURATION:[422,"Uzun süreli oturumun gerçek çalışma süresini doğrulayın."],

@@ -1,11 +1,11 @@
 import { ApiError, errorResponse, json, readJson, sameOrigin } from '@/lib/server/http';
-import { calendarOwnerId, getCalendarConnection, updateCalendarSelection } from '@/lib/server/google-calendar-store';
+import { calendarUserId, getCalendarConnection, updateCalendarSelection } from '@/lib/server/google-calendar-store';
 import { listGoogleCalendars, refreshCalendarAccess } from '@/lib/server/google-calendar';
 
 export async function POST(request: Request) {
   try {
     sameOrigin(request);
-    const userId = await calendarOwnerId();
+    const userId = await calendarUserId();
     const connection = await getCalendarConnection(userId);
     if (!connection) throw new ApiError(409, 'CALENDAR_NOT_CONNECTED', 'Önce Google Takvim bağlantısını kurun.');
     const body = await readJson(request, 8192);

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { AppState } from '@/lib/domain/types';
 import { analysisAdmin, dueAnalysisWindow, generateScheduledAnalysis } from '@/lib/server/analysis';
 import { schedulerReady } from '@/lib/server/analysis-provider';
-import { errorResponse, json } from '@/lib/server/http';
+import { ApiError, errorResponse, json } from '@/lib/server/http';
 import { localDate } from '@/lib/ui';
 
 export const dynamic='force-dynamic';
@@ -26,6 +26,7 @@ export async function GET(request:Request){
     for(const row of schedules.data??[]){
       if(!row.start_date){skipped++;continue;}
       const source=await admin.rpc('analysis_source_state',{p_user_id:row.user_id});
+      if(source.error?.message.includes('STUDENT_REQUIRED')){skipped++;continue;}
       if(source.error||!source.data){failed++;continue;}
       const timezone=(source.data as AppState).settings?.timezone??'Europe/Istanbul';
       const window=dueAnalysisWindow(row.start_date,localDate(new Date(),timezone));
@@ -35,7 +36,7 @@ export async function GET(request:Request){
       if(prior.error){failed++;continue;}
       if(prior.data?.length){skipped++;continue;}
       try{await generateScheduledAnalysis(admin,row.user_id,window.start,window.end,requestId(row.user_id,window.start,window.end));completed++;}
-      catch{failed++;}
+      catch(error){if(error instanceof ApiError&&error.code==='STUDENT_REQUIRED')skipped++;else failed++;}
     }
     return json({ok:failed===0,completed,skipped,failed},failed?503:200);
   }catch(error){return errorResponse(error);}

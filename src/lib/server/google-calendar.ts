@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { ApiError } from './http';
 import { decryptRefreshToken, getGoogleConfiguration, requireGoogleConfiguration,
   type StoredCalendarConnection } from './google-calendar-store';
@@ -23,6 +23,12 @@ export function newOAuthTransaction() {
   const verifier = randomBytes(32).toString('base64url');
   const challenge = createHash('sha256').update(verifier).digest('base64url');
   return { state, verifier, challenge };
+}
+
+export function matchingCalendarUser(startedFor: string | undefined, currentUser: string): boolean {
+  if (!startedFor) return false;
+  const a = Buffer.from(startedFor); const b = Buffer.from(currentUser);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
 export function authorizationUrl(state: string, challenge: string): URL {

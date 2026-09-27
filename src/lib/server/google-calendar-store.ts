@@ -1,7 +1,8 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { ApiError } from './http';
-import { getConfiguration, requireOwner } from './auth';
+import { getConfiguration } from './auth';
+import { classroomContext } from './classroom';
 
 export type StoredCalendarConnection = {
   user_id: string; refresh_token_ciphertext: string; selected_calendar_ids: string[];
@@ -44,11 +45,12 @@ function calendarDb() {
   });
 }
 
-export async function calendarOwnerId(): Promise<string> {
-  const client = await requireOwner();
-  const { data, error } = await client.auth.getUser();
-  if (error || !data.user) throw new ApiError(401, 'SIGN_IN_REQUIRED', 'Devam etmek için giriş yapın.');
-  return data.user.id;
+export async function calendarUserId(): Promise<string> {
+  const { user, account, demo } = await classroomContext();
+  if (demo) throw new ApiError(403, 'DEMO_INTEGRATION_DISABLED', 'Bu harici entegrasyon demo ortamında kullanılamaz.');
+  if (!account || account.status !== 'approved')
+    throw new ApiError(403, 'APPROVAL_REQUIRED', 'Google Takvim bağlantısı için onaylı bir hesap gerekir.');
+  return user.id;
 }
 
 export function encryptRefreshToken(token: string, key: Buffer): string {

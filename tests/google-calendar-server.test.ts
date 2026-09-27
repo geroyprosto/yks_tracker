@@ -4,7 +4,7 @@ import test from 'node:test';
 import { ApiError } from '../src/lib/server/http';
 import { decryptRefreshToken, encryptRefreshToken } from '../src/lib/server/google-calendar-store';
 import { authorizationUrl, exchangeAuthorizationCode, GOOGLE_SCOPES, listGoogleCalendars,
-  listTodayEvents, newOAuthTransaction } from '../src/lib/server/google-calendar';
+  listTodayEvents, matchingCalendarUser, newOAuthTransaction } from '../src/lib/server/google-calendar';
 
 function setConfig() {
   process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://example.supabase.co';
@@ -29,6 +29,13 @@ test('OAuth uses a random state, S256 PKCE, offline access and only two read sco
   assert.equal(url.searchParams.get('access_type'), 'offline');
   assert.deepEqual(url.searchParams.get('scope')?.split(' '), [...GOOGLE_SCOPES]);
   assert.ok(!url.searchParams.get('scope')?.includes('calendar.events '));
+});
+
+test('OAuth callback only accepts the application user who started the connection', () => {
+  const startedFor = 'c0f2b4bd-d842-4f6a-b7e7-7a96dce602e1';
+  assert.equal(matchingCalendarUser(startedFor, startedFor), true);
+  assert.equal(matchingCalendarUser(startedFor, 'e2ae6471-9572-440e-a261-89c61111bf4a'), false);
+  assert.equal(matchingCalendarUser(undefined, startedFor), false);
 });
 
 test('refresh token encryption authenticates ciphertext and rejects the wrong key', () => {

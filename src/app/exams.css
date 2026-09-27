@@ -16,11 +16,12 @@
 .exam-chart-summary strong { color: #fff; font-size: 25px; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .exam-chart-summary small { color: #d9d4df; font-size: 9px; }
 .exam-plot-scroll { overflow-x: auto; border: 1px solid #ffffff25; border-radius: 11px; background: linear-gradient(155deg,#ffffff08,#ffffff03); }
-.exam-plot { display: block; max-width: none; overflow: visible; }
+.exam-plot-canvas { position: relative; width: 100%; }
+.exam-plot { display: block; width: 100%; height: auto; max-width: none; overflow: visible; }
 .exam-zero-line { stroke: #ffffff3d; stroke-dasharray: 4 5; }
 .exam-plot-dot { fill: var(--feature-glow); stroke: #fff; stroke-width: 2; filter: drop-shadow(0 0 5px var(--feature-glow)); }
 .exam-plot-value { fill: #fff; font-size: 10px; font-weight: 700; }
-.exam-plot-date { fill: #dfdbe5; font-size: 9px; }
+.exam-plot-date { fill: #dfdbe5; font-size: 10px; }
 .exam-chart-note { margin: 10px 0 13px; color: #e0dce6; font-size: 10px; line-height: 1.5; }
 .exam-point-table { display: grid; grid-template-columns: 1fr auto auto; gap: 0; max-height: 228px; overflow-y: auto; border: 1px solid #ffffff23; border-radius: 9px; color: #eeeaf0; font-size: 10px; }
 .exam-point-table > span { position: sticky; top: 0; z-index: 1; padding: 8px 10px; background: color-mix(in srgb,var(--feature-end) 50%,#19171e); color: #f1eaf2; font-weight: 700; }

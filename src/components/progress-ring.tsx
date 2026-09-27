@@ -152,8 +152,8 @@ export function Donut({ segments, center, caption, label, empty = false }: {
   </div>;
 }
 
-export function Ring({ value, label, detail, segments, color = 0 }: {
-  value: number | null; label: string; detail: string; segments?: RingSegment[]; color?: number;
+export function Ring({ value, label, detail, segments, color = 0, showLegend = true }: {
+  value: number | null; label: string; detail: string; segments?: RingSegment[]; color?: number; showLegend?: boolean;
 }) {
   const progress = value === null ? null : Math.min(100, Math.max(0, value));
   const parts = segments ?? (progress === null ? [] : [{ key: 'completed', label: 'Tamamlanan', value: progress, color }]);
@@ -163,11 +163,11 @@ export function Ring({ value, label, detail, segments, color = 0 }: {
       caption={value === null ? 'HENÜZ PLAN YOK' : 'TAMAMLANDI'}
       label={label + ': ' + (value === null ? 'tanımlı değil' : '%' + percentage(value))} empty={value === null || value === 0} />
     <h3>{label}</h3><p className="metric-detail">{detail}</p>
-    <ul className="ring-legend">
+    {showLegend && <ul className="ring-legend">
       {parts.map(part => <li key={part.key}><span className="legend-dot" style={{ '--legend-color': 'var(--ring-' + (part.color + 1) + ')' } as CSSProperties} /><span>{part.label}</span><b>%{percentage(part.value)}</b></li>)}
       {remaining !== null && <li className="remaining"><span className="legend-dot" /><span>Kalan</span><b>%{percentage(remaining)}</b></li>}
       {progress === null && <li className="remaining"><span className="legend-dot" /><span>Plan ekleyince hesaplanır</span></li>}
-    </ul>
+    </ul>}
     {value !== null && value > 100 && <span className="goal-excess">Hedefin %{percentage(value - 100)} üzerinde</span>}
   </div>;
 }

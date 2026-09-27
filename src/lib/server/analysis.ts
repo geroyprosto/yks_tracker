@@ -60,6 +60,7 @@ export async function setAnalysisSchedule(client:SupabaseClient,enabled:boolean,
   const userId=await ownerId(client);
   const {error}=await analysisAdmin().rpc('analysis_schedule_set_for_owner',
     {p_user_id:userId,p_enabled:enabled,p_start_date:startDate});
+  if(error?.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
   if(error)throw databaseSetupError();
 }
 function validateSources(days:string[],result:{observations:Array<{source_days:string[]}>}){
@@ -80,6 +81,7 @@ export async function generateAnalysisForState(options:{owner:string;state:AppSt
     p_reserved_cost_usd:reservation};
   const claim=await analysisAdmin().rpc('analysis_report_claim_for_owner',{p_user_id:options.owner,...params});
   if(claim.error){
+    if(claim.error.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
     if(claim.error.message==='AI_LIMIT_REACHED')throw new ApiError(429,'ANALYSIS_BUDGET','Bu ayki AI rapor sınırına ulaşıldı.');
     throw databaseSetupError();
   }
@@ -108,6 +110,7 @@ export async function generateManualAnalysis(client:SupabaseClient,start:string,
 }
 export async function generateScheduledAnalysis(admin:SupabaseClient,owner:string,start:string,end:string,requestId:string){
   const {data,error}=await admin.rpc('analysis_source_state',{p_user_id:owner});
+  if(error?.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
   if(error||!data)throw databaseSetupError();
   const state={...(data as AppState),configured:true,authenticated:true,server_now:new Date().toISOString()};
   return generateAnalysisForState({owner,state,start,end,requestId});

@@ -133,7 +133,8 @@
     linear-gradient(145deg, #ffffff0a, #ffffff04);
 }
 .monthly-exam-plot-scroll { width: 100%; overflow-x: auto; scrollbar-width: thin; }
-.monthly-exam-plot { display: block; width: 100%; height: auto; max-height: 345px; }
+.monthly-exam-plot-wrap { position: relative; width: 100%; }
+.monthly-exam-plot { display: block; width: 100%; height: auto; }
 .monthly-exam-plot-desktop { min-width: 500px; }
 .monthly-exam-plot-mobile { display: none; }
 .monthly-exam-gridline { stroke: #ffffff1f; stroke-width: 1; }

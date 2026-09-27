@@ -4,15 +4,16 @@ import {useId, useMemo, useState} from 'react';
 import {ArrowUpRight, ChevronLeft, ChevronRight} from 'lucide-react';
 import type {ExamFormatCode, ExamRecord} from '@/lib/domain/types';
 import {monthlyExamSeries, type MonthlyExamPoint} from '@/lib/monthly-exam-series';
-import {localDate} from '@/lib/ui';
+import {formatDay, localDate} from '@/lib/ui';
 import {Card} from './primitives';
+import {ChartPoint, useChartTooltip, type ChartDetail} from './chart-tooltip';
 
 const formats: {code: ExamFormatCode; label: string}[] = [
   {code: 'TYT', label: 'TYT'},
   {code: 'AYT_SAYISAL', label: 'AYT sayısal'},
   {code: 'BRANCH', label: 'Branş'},
 ];
-const netNumber = new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 1});
+const netNumber = new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 2});
 
 function monthName(month: string) {
   return new Intl.DateTimeFormat('tr-TR', {month: 'long', year: 'numeric', timeZone: 'UTC'})
@@ -42,8 +43,9 @@ function bounds(points: MonthlyExamPoint[]) {
   return {min, max, ticks};
 }
 
-function PlotSvg({points, month, compact}: {points: MonthlyExamPoint[]; month: string; compact: boolean}) {
+function PlotSvg({points, month, compact, details}: {points: MonthlyExamPoint[]; month: string; compact: boolean; details: Map<string, ChartDetail>}) {
   const id = useId().replaceAll(':', '');
+  const tooltip = useChartTooltip();
   const {min, max, ticks} = bounds(points);
   const days = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0)).getUTCDate();
   const left = compact ? 42 : 55, right = compact ? 304 : 650, top = 26, bottom = 197;
@@ -55,7 +57,9 @@ function PlotSvg({points, month, compact}: {points: MonthlyExamPoint[]; month: s
   const lastX = points.length ? x(Number(points[points.length - 1].date.slice(-2))) : left;
   const area = points.length > 1 ? `${line} L ${lastX} ${y(0)} L ${firstX} ${y(0)} Z` : '';
 
-  return <svg className={`monthly-exam-plot ${compact ? 'monthly-exam-plot-mobile' : 'monthly-exam-plot-desktop'}`} viewBox={`0 0 ${compact ? 328 : 684} 246`} role="img" aria-labelledby={`${id}-title ${id}-description`}>
+  const width = compact ? 328 : 684;
+  return <div className={`monthly-exam-plot-wrap ${compact ? 'monthly-exam-plot-mobile' : 'monthly-exam-plot-desktop'}`} role="group" aria-label="Günlük net ayrıntıları">
+      <svg className="monthly-exam-plot" viewBox={`0 0 ${width} 246`} role="img" aria-labelledby={`${id}-title ${id}-description`}>
         <title id={`${id}-title`}>{monthName(month)} net gelişimi</title>
         <desc id={`${id}-description`}>{points.length ? `${points.length} kayıt günü; yatay eksen ayın günü, dikey eksen net.` : 'Bu seçimde çizilecek net sonucu yok.'}</desc>
         <defs>
@@ -86,17 +90,31 @@ function PlotSvg({points, month, compact}: {points: MonthlyExamPoint[]; month: s
           return <g key={point.date}>
             <circle cx={cx} cy={cy} r="8" className="monthly-exam-point-halo"/>
             <circle cx={cx} cy={cy} r="4.5" className="monthly-exam-point"/>
-            <title>{`${Number(point.date.slice(-2))} ${monthName(month)}: ${netNumber.format(point.net)} net${point.count > 1 ? `, ${point.count} deneme ortalaması` : ''}`}</title>
           </g>;
         })}
-      </svg>;
+      </svg>
+      {points.map(point => <ChartPoint key={point.date} pointKey={point.date}
+        x={x(Number(point.date.slice(-2))) / width * 100} y={y(point.net) / 246 * 100}
+        detail={details.get(point.date)!} tooltip={tooltip}/>)}
+      {tooltip.tooltip}
+    </div>;
 }
 
-function MonthlyPlot({points, month}: {points: MonthlyExamPoint[]; month: string}) {
+function MonthlyPlot({points, month, exams, format}: {points: MonthlyExamPoint[]; month: string; exams: ExamRecord[]; format: ExamFormatCode}) {
+  const matchingExams = exams.filter(exam => exam.format_code === format && exam.exam_date.startsWith(`${month}-`) && exam.total_net !== null);
+  const details = new Map(points.map(point => {
+    const dayExams = matchingExams.filter(exam => exam.exam_date === point.date);
+    return [point.date, {
+      title: formatDay(point.date, {day: 'numeric', month: 'long', year: 'numeric'}),
+      value: `${netNumber.format(point.net)} net`,
+      context: dayExams.map(exam => exam.name).join(' · '),
+      note: `${formats.find(item => item.code === format)?.label} · ${point.count > 1 ? `${point.count} denemenin günlük ortalaması` : '1 deneme'}`,
+    }];
+  }));
   return <div className="monthly-exam-plot-frame">
     <div className="monthly-exam-plot-scroll">
-      <PlotSvg points={points} month={month} compact={false}/>
-      <PlotSvg points={points} month={month} compact={true}/>
+      <PlotSvg points={points} month={month} compact={false} details={details}/>
+      <PlotSvg points={points} month={month} compact={true} details={details}/>
     </div>
     {!points.length && <div className="monthly-exam-empty"><strong>Bu ay henüz net sonucu yok</strong><span>İlk denemeni kaydettiğinde gelişim çizgisi burada oluşacak.</span></div>}
     <table className="sr-only"><caption>{monthName(month)} günlük net sonuçları</caption><thead><tr><th scope="col">Tarih</th><th scope="col">Ortalama net</th><th scope="col">Deneme sayısı</th></tr></thead><tbody>{points.map(point => <tr key={point.date}><td>{point.date}</td><td>{netNumber.format(point.net)}</td><td>{point.count}</td></tr>)}</tbody></table>
@@ -129,7 +147,7 @@ export function MonthlyExamChart({exams, preview, onOpen}: {exams: ExamRecord[];
       <div><span>İlk sonuca göre</span><strong className={change === null ? '' : change >= 0 ? 'is-positive' : 'is-negative'}>{change === null ? '—' : `${change > 0 ? '+' : ''}${netNumber.format(change)}`}</strong></div>
       <div><span>Bu ay</span><strong>{resultCount} <small>deneme</small></strong></div>
     </div>
-    <MonthlyPlot points={points} month={month}/>
-    <p className="monthly-exam-note">Her nokta kayıtlı bir günün net ortalamasıdır. Boş günler sıfır sayılmaz.{unplottedCount ? ` Toplam neti olmayan ${unplottedCount} kayıt çizilmedi.` : ''}{format === 'BRANCH' ? ' Farklı soru sayılı branş denemelerini ayrı değerlendir.' : ''}</p>
+    <MonthlyPlot key={`${month}-${format}`} points={points} month={month} exams={exams} format={format}/>
+    <p className="monthly-exam-note">Ayrıntı için bir noktaya gel veya dokun. Her nokta bir günün net ortalamasıdır; boş günler sıfır sayılmaz.{unplottedCount ? ` Toplam neti olmayan ${unplottedCount} kayıt çizilmedi.` : ''}{format === 'BRANCH' ? ' Farklı soru sayılı branş denemelerini ayrı değerlendir.' : ''}</p>
   </Card>;
 }

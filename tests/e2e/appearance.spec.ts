@@ -20,7 +20,7 @@ async function mockedAppearance(page: Page) {
   await page.route('**/api/state', route => route.fulfill({ json: state }));
   await page.route('**/api/command', () => { throw new Error('Appearance checks must not write any records'); });
   await page.goto('/');
-  await expect(page.getByRole('img', { name: 'Görev ilerlemesi: %70', exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Görevler: %70', exact: true })).toBeVisible();
   await expect(page.getByText('Örnek grafik önizlemesi açık.')).toHaveCount(0);
 }
 async function navigate(page: Page, label: string) {
@@ -99,7 +99,8 @@ test('synthetic HTTP preview shows thick neon rings and correct numeric allocati
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await mockedAppearance(page);
-  const combined = page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Günlük plan ilerlemesi', exact: true }) });
+  await page.getByRole('button', {name: 'Hesaplama ayrıntıları'}).click();
+  const combined = page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Günlük ilerleme', exact: true }) });
   await expect(combined.locator('.donut-center strong')).toHaveText('%64');
   await expect(combined.locator('.ring-legend')).toContainText('Görev katkısı%49');
   await expect(combined.locator('.ring-legend')).toContainText('Süre katkısı%15');
@@ -271,8 +272,9 @@ test('YKS countdown labels its preview, ticks live, opens date settings, and cle
   await expect(page.locator('input[name="exam_date"]')).toBeVisible();
   await navigate(page, 'Bugün');
   await page.getByRole('button', { name: 'Gerçek boş görünümü göster' }).click();
-  await expect(countdown.locator('.countdown-meta')).not.toContainText('Örnek tarih');
+  await expect(countdown.getByRole('heading', {name: 'Sınava kalan zaman'})).toBeVisible();
   await expect(countdown.locator('.countdown-value')).toHaveText(['--', '--', '--', '--']);
+  await expect(countdown.getByRole('button', {name: 'Sınav tarihini ayarla'})).toBeVisible();
   await page.setViewportSize({ width: 360, height: 800 });
   await noOverflow(page);
   await countdown.screenshot({ path: 'artifacts/yks-countdown-no-date-mobile.png', animations: 'disabled' });

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:demo": "node scripts/classroom-demo-dev.mjs",
+    "test:classroom": "playwright test --config playwright.classroom.config.ts",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

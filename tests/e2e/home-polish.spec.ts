@@ -1,0 +1,122 @@
+import {expect, test, type Page} from '@playwright/test';
+import {emptyState, type AppState} from '../../src/lib/domain/types';
+
+const day = '2026-09-24';
+const now = day + 'T09:00:00.000Z';
+
+function homeState(progress = [0, .5, 1]): AppState {
+  const state: AppState = {...emptyState(true), authenticated: true, server_now: now};
+  state.settings = {
+    display_name: 'ipek ışık', exam_year: 2027, exam_date: null, target_rank: null,
+    timezone: 'Europe/Istanbul', daily_target_minutes: 180, task_share: .7,
+    difficulty_factors: {easy: 1, medium: 1.25, hard: 1.5}, weekday_targets: Array(7).fill(180),
+    theme: 'ocean', appearance: 'dark', reduced_motion: true, simple_view: false, revision: 1,
+  };
+  state.tasks = progress.map((value, index) => ({
+    id: `home-task-${index}`, title: ['Matematik tekrarı', 'Türkçe çalışması', 'Fizik soruları'][index],
+    plan_date: day, exam: 'TYT', subject: ['Matematik', 'Türkçe', 'Fizik'][index], topic_id: null,
+    resource: '', completion_criteria: '', planned_minutes: 40, difficulty: 'easy', progress: value,
+    weight_override: null, priority: 'normal', position: index, notes: '', study_type: 'Tekrar',
+    steps: [], revision: 1, created_at: now, updated_at: now,
+  }));
+  return state;
+}
+
+async function openHome(page: Page, state = homeState()) {
+  let writes = 0;
+  await page.clock.setFixedTime(new Date(now));
+  await page.route('**/api/state', route => route.fulfill({json: state}));
+  await page.route('**/api/calendar/today', route => route.fulfill({json: {
+    connected: false, date: day, timezone: 'Europe/Istanbul', events: [], refreshedAt: null,
+  }}));
+  await page.route('**/api/analysis', route => route.fulfill({json: {reports: []}}));
+  await page.route('**/api/classroom/session', route => route.fulfill({json: {account: null}}));
+  await page.route('**/api/command', async route => {
+    writes++;
+    await route.abort();
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', {name: 'Merhaba, ipek ışık.', exact: true})).toBeVisible();
+  return () => writes;
+}
+
+test('home task filters show pending, completed, and all tasks without changing records', async ({page}) => {
+  const writes = await openHome(page);
+  const card = page.locator('.tasks-summary-card');
+  const filters = card.getByRole('group', {name: 'Bugünün görevlerini filtrele'});
+  const titles = card.locator('.task-line strong');
+  await expect(titles).toHaveText(['Matematik tekrarı', 'Türkçe çalışması', 'Fizik soruları']);
+
+  await filters.getByRole('button', {name: /^Bekleyen/}).click();
+  await expect(filters.getByRole('button', {name: /^Bekleyen/})).toHaveAttribute('aria-pressed', 'true');
+  await expect(titles).toHaveText(['Matematik tekrarı', 'Türkçe çalışması']);
+
+  await filters.getByRole('button', {name: /^Tamamlanan/}).click();
+  await expect(titles).toHaveText(['Fizik soruları']);
+  await filters.getByRole('button', {name: /^Tümü/}).click();
+  await expect(titles).toHaveCount(3);
+  expect(writes()).toBe(0);
+});
+
+test('home task filters explain an empty completed view and return to the plan', async ({page}) => {
+  const writes = await openHome(page, homeState([0, .5]));
+  const card = page.locator('.tasks-summary-card');
+  const filters = card.getByRole('group', {name: 'Bugünün görevlerini filtrele'});
+  await filters.getByRole('button', {name: /^Tamamlanan/}).click();
+  await expect(card.getByText('Tamamladığın görevler burada görünecek.')).toBeVisible();
+  await expect(card.locator('.task-line')).toHaveCount(0);
+  await filters.getByRole('button', {name: /^Tümü/}).click();
+  await expect(card.locator('.task-line')).toHaveCount(2);
+  expect(writes()).toBe(0);
+});
+
+test('calculation details open on demand while the summary values stay visible', async ({page}) => {
+  const writes = await openHome(page);
+  const card = page.locator('.daily-card');
+  const values = card.locator('.donut-center strong');
+  await expect(values).toHaveText(['%50', '%0', '%35']);
+  await expect(card.locator('.ring-legend')).toHaveCount(0);
+  const details = card.getByRole('button', {name: 'Hesaplama ayrıntıları'});
+  await expect(details).toHaveAttribute('aria-expanded', 'false');
+  await details.click();
+  await expect(card.getByText('Hedef ağırlıkları')).toBeVisible();
+  await expect(card.locator('.ring-legend')).toHaveCount(3);
+  const close = card.getByRole('button', {name: 'Ayrıntıları gizle'});
+  await expect(close).toHaveAttribute('aria-expanded', 'true');
+  await close.click();
+  await expect(card.locator('.ring-legend')).toHaveCount(0);
+  await expect(values).toHaveText(['%50', '%0', '%35']);
+  expect(writes()).toBe(0);
+});
+
+test('profile initials and greeting use the saved student name with Turkish casing', async ({page}) => {
+  await openHome(page);
+  await expect(page.locator('.profile-button strong')).toHaveText('ipek ışık');
+  await expect(page.locator('.avatar')).toHaveText(['İI', 'İI']);
+});
+
+test('an unset exam date keeps the countdown card and opens plan settings', async ({page}) => {
+  const writes = await openHome(page);
+  const countdown = page.locator('.yks-countdown-card');
+  await expect(countdown.getByRole('heading', {name: 'Sınava kalan zaman'})).toBeVisible();
+  await expect(countdown.locator('.countdown-value')).toHaveText(['--', '--', '--', '--']);
+  await expect(countdown.getByRole('timer')).toBeVisible();
+  await countdown.getByRole('button', {name: 'Sınav tarihini ayarla'}).click();
+  await expect(page.getByRole('button', {name: 'Plan ve hedefler', exact: true})).toHaveClass(/active/);
+  await expect(page.locator('input[name="exam_date"]')).toBeVisible();
+  expect(writes()).toBe(0);
+});
+
+test('editing the daily goal without a current plan opens plan settings', async ({page}) => {
+  const state = homeState();
+  state.day_plans = [{
+    id: 'past-plan', plan_date: '2026-09-23', version: 1, target_minutes: 120, task_share: .7,
+    difficulty_factors: {easy: 1, medium: 1.25, hard: 1.5}, snapshot: [], changed_at: now,
+  }];
+  const writes = await openHome(page, state);
+  await page.locator('.daily-card').getByRole('button', {name: 'Hedefi düzenle'}).click();
+  await expect(page.getByRole('button', {name: 'Plan ve hedefler', exact: true})).toHaveClass(/active/);
+  await expect(page.getByLabel('Varsayılan günlük hedef (dk)', {exact: false})).toHaveValue('180');
+  await expect(page.getByRole('dialog', {name: 'Bugünün süre hedefi'})).toHaveCount(0);
+  expect(writes()).toBe(0);
+});

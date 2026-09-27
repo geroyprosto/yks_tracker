@@ -1,0 +1,49 @@
+.tooltip {
+  position: fixed;
+  z-index: 1500;
+  display: grid;
+  gap: 5px;
+  width: max-content;
+  min-width: min(172px, calc(100vw - 24px));
+  max-width: min(286px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  padding: 13px 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised, var(--surface));
+  color: var(--foreground);
+  box-shadow: 0 8px 28px #0003, 0 1px 4px #0001;
+  text-align: left;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+.title { font-size: 12px; font-weight: 650; }
+.value { color: var(--primary); font-size: 23px; font-weight: 650; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.context { color: var(--foreground); font-size: 12px; }
+.note { color: var(--muted); font-size: 11px; }
+.point {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.point::after {
+  content: '';
+  width: 19px;
+  height: 19px;
+  border: 1.5px solid transparent;
+  border-radius: 50%;
+}
+.point:hover::after, .point[data-tooltip-active]::after { border-color: color-mix(in srgb, var(--feature-glow) 75%, white); background: color-mix(in srgb, var(--feature-glow) 10%, transparent); }
+.point:focus-visible { outline: 2px solid var(--feature-glow); outline-offset: 1px; }
+@media (pointer: coarse) { .point { width: 44px; height: 44px; } }

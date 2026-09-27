@@ -54,9 +54,9 @@ test('finishing a study timer grows both the time and combined progress rings', 
 
   await page.goto('/');
   const time = metric(page, 'Net çalışma süresi');
-  const combined = metric(page, 'Günlük plan ilerlemesi');
+  const combined = metric(page, 'Günlük ilerleme');
   await expect(time.getByRole('img', { name: 'Net çalışma süresi: %0' })).toBeVisible();
-  await expect(combined.getByRole('img', { name: 'Günlük plan ilerlemesi: %0' })).toBeVisible();
+  await expect(combined.getByRole('img', { name: 'Günlük ilerleme: %0' })).toBeVisible();
   await expect(time.locator('.donut-segment')).toHaveCount(0);
   await expect(combined.locator('.donut-segment')).toHaveCount(0);
 
@@ -66,18 +66,18 @@ test('finishing a study timer grows both the time and combined progress rings', 
   await dialog.getByRole('button', { name: 'Bitir ve kaydet', exact: true }).click();
 
   await expect(time.getByRole('img', { name: 'Net çalışma süresi: %25' })).toBeVisible();
-  await expect(combined.getByRole('img', { name: 'Günlük plan ilerlemesi: %25' })).toBeVisible();
+  await expect(combined.getByRole('img', { name: 'Günlük ilerleme: %25' })).toBeVisible();
   await expect(time.locator('.donut-segment')).toHaveCount(1);
   await expect(combined.locator('.donut-segment')).toHaveCount(1);
   await page.waitForTimeout(150);
   const timeMiddle = await dashLength(page, 'Net çalışma süresi');
-  const combinedMiddle = await dashLength(page, 'Günlük plan ilerlemesi');
+  const combinedMiddle = await dashLength(page, 'Günlük ilerleme');
   expect(timeMiddle).toBeGreaterThan(5);
   expect(timeMiddle).toBeLessThan(100);
   expect(combinedMiddle).toBeGreaterThan(5);
   expect(combinedMiddle).toBeLessThan(100);
   await expect.poll(() => dashLength(page, 'Net çalışma süresi')).toBeGreaterThan(106);
-  await expect.poll(() => dashLength(page, 'Günlük plan ilerlemesi')).toBeGreaterThan(106);
+  await expect.poll(() => dashLength(page, 'Günlük ilerleme')).toBeGreaterThan(106);
   await expect(time.locator('.donut-center strong')).toHaveText('%25');
   await expect(combined.locator('.donut-center strong')).toHaveText('%25');
 });

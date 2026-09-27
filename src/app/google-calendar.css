@@ -1,4 +1,4 @@
-/* The existing ambient-card palette supplies all six themes. */
+/* Calendar colors follow the active theme and each event's Google color. */
 .calendar-program-card .card-head { margin-bottom: 12px; }
 .calendar-program-card .calendar-refresh { color: var(--primary); }
 .calendar-program-card .connection-empty { margin-bottom: 0; }
@@ -14,13 +14,14 @@
 .calendar-event { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: 12px; align-items: start; padding: 10px 11px;
   --calendar-event-source: var(--feature-glow);
   background: linear-gradient(105deg,
-    color-mix(in srgb, var(--calendar-event-source) 24%, var(--feature-end)),
-    color-mix(in srgb, var(--calendar-event-source) 10%, var(--feature-end)));
-  border: 1px solid color-mix(in srgb, var(--calendar-event-source) 35%, #ffffff30);
-  border-left: 3px solid color-mix(in srgb, var(--calendar-event-source) 82%, white);
-  border-radius: 9px; box-shadow: inset 0 1px 0 #ffffff0b; }
-.calendar-event:hover { border-color: color-mix(in srgb, var(--calendar-event-source) 60%, #ffffff42); }
-.calendar-event-time { color: color-mix(in srgb, var(--calendar-event-source) 35%, white); font-weight: 700; font-variant-numeric: tabular-nums; font-size: .74rem; padding-top: 2px; white-space: nowrap; }
+    color-mix(in srgb, var(--calendar-event-source) 25%, var(--surface)),
+    color-mix(in srgb, var(--calendar-event-source) 12%, var(--surface)));
+  border: 1px solid color-mix(in srgb, var(--calendar-event-source) 35%, var(--border));
+  border-left: 3px solid color-mix(in srgb, var(--calendar-event-source) 82%, var(--foreground));
+  border-radius: 9px; box-shadow: inset 0 1px 0 color-mix(in srgb, var(--foreground) 4%, transparent); }
+.calendar-event:hover { border-color: color-mix(in srgb, var(--calendar-event-source) 55%, var(--border));
+  border-left-color: color-mix(in srgb, var(--calendar-event-source) 82%, var(--foreground)); }
+.calendar-event-time { color: var(--foreground); font-weight: 700; font-variant-numeric: tabular-nums; font-size: .74rem; padding-top: 2px; white-space: nowrap; }
 .calendar-event-detail { min-width: 0; display: grid; gap: 4px; }
 .calendar-event-detail strong { font-size: .82rem; line-height: 1.35; overflow-wrap: anywhere; }
 .calendar-event-detail a { color: inherit; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
@@ -41,3 +42,16 @@
   .calendar-event { grid-template-columns: 68px minmax(0, 1fr); gap: 7px; padding: 9px 7px; }
   .calendar-event-time { font-size: .69rem; }
 }
+.calendar-page { width: min(100% - 32px, 680px); min-height: 100dvh; margin: 0 auto; padding: 36px 0 72px; }
+.calendar-page-heading { display: grid; gap: 11px; margin-bottom: 26px; }
+.calendar-page-heading .text-button { justify-self: start; }
+.calendar-page-heading p { color: var(--muted); }
+@media (max-width: 390px) { .calendar-page { width: min(100% - 24px, 680px); padding-top: 24px; } }
+.public-info { width: min(100% - 32px, 760px); min-height: 100dvh; margin: 0 auto; padding: 36px 0 72px; display: grid; align-content: start; gap: 17px; }
+.public-info h1 { max-width: 650px; }
+.public-info h2 { font-size: 17px; margin-bottom: 7px; }
+.public-info p { color: var(--muted); line-height: 1.7; }
+.public-info section { display: grid; gap: 10px; padding: 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.public-info a:not(.text-button) { color: var(--primary); text-decoration: underline; }
+.public-info nav { display: flex; flex-wrap: wrap; gap: 12px 22px; padding-top: 10px; }
+.public-info code { overflow-wrap: anywhere; }

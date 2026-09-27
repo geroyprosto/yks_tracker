@@ -18,6 +18,7 @@ export function YksCountdown({ examDate, preview, examYear, onSetDate }: Props) 
   const [clock, setClock] = useState<Clock | null>(null);
 
   useEffect(() => {
+    if (!examDate && !preview) return;
     // The first server and client render both show placeholders; the browser
     // supplies its current instant only after hydration to avoid a time mismatch.
     const sampleDate = addCalendarDays(localDate(), 180) ?? '';
@@ -28,7 +29,7 @@ export function YksCountdown({ examDate, preview, examYear, onSetDate }: Props) 
       window.cancelAnimationFrame(animation);
       window.clearInterval(interval);
     };
-  }, []);
+  }, [examDate, preview]);
 
   const sample = !examDate && preview;
   const targetDate = examDate || (sample ? clock?.sampleDate : null);

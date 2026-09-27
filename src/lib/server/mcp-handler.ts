@@ -3,6 +3,8 @@ import { fromSupabaseUrl, withOAuthProtectedResource } from "@supabase/server";
 import { authenticateMcpRequest, getMcpConfiguration } from "./mcp-auth";
 import { createStudyMcpServer } from "./mcp-tools";
 import { addToolSecurityMetadata } from "./mcp-security-metadata";
+import { mcpTransportDiagnostic } from "./mcp-diagnostics";
+import { readMcpBody } from "./mcp-request-body";
 
 export async function handleMcpRequest(request: Request): Promise<Response> {
   const config = getMcpConfiguration();
@@ -29,18 +31,21 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
     const authorized = await authenticateMcpRequest(innerRequest, config);
     if (authorized instanceof Response) return authorized;
 
-    let toolListRequest = false;
+    let rpcBody: unknown;
     if (innerRequest.method === "POST") {
-      try {
-        const body = await innerRequest.clone().json() as { method?: unknown };
-        toolListRequest = body.method === "tools/list";
-      } catch { /* The MCP handler validates the request body. */ }
+      const parsed = await readMcpBody(innerRequest);
+      if (parsed instanceof Response) return parsed;
+      rpcBody = parsed.parsedBody;
     }
+    const toolListRequest = rpcBody !== null && typeof rpcBody === "object" &&
+      !Array.isArray(rpcBody) && "method" in rpcBody && rpcBody.method === "tools/list";
     const handler = createMcpHandler(
       () => createStudyMcpServer(authorized.client, authorized.userId, config.appUrl),
       { responseMode: "json" },
     );
-    const rawResponse = await handler.fetch(innerRequest);
+    const rawResponse = await handler.fetch(innerRequest, innerRequest.method === "POST" ? { parsedBody: rpcBody } : undefined);
+    const diagnostic = await mcpTransportDiagnostic(innerRequest, rpcBody, rawResponse);
+    if (diagnostic) console.warn("MCP_TRANSPORT_REJECTED", JSON.stringify(diagnostic));
     const response = toolListRequest ? await addToolSecurityMetadata(rawResponse) : rawResponse;
     response.headers.set("Cache-Control", "no-store");
     return response;

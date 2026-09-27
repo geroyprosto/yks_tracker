@@ -2,12 +2,13 @@
 import {useMemo,useState} from 'react';
 import {ArrowUpRight,ChartNoAxesCombined,FileUp,PenLine,Plus,Trash2} from 'lucide-react';
 import type {AppState,ExamFormat,ExamRecord} from '@/lib/domain/types';
-import {examRange,examSeries,type ExamGrouping,type ExamMeasure,type ExamPeriod,type ExamPoint} from '@/lib/exam-analysis';
+import {examRange,examSeries,type ExamGrouping,type ExamMeasure,type ExamPeriod} from '@/lib/exam-analysis';
 import {formatDay,localDate,type CommandFn} from '@/lib/ui';
 import {Card,Empty} from './primitives';
 import {Modal} from './modal';
 import {PdfExamImport} from './pdf-exam-import';
 import {MonthlyExamChart} from './monthly-exam-chart';
+import {ExamPlot} from './exam-plot';
 import styles from './exams-analysis.module.css';
 
 type RowDraft={mode:'counts'|'net';correct:string;wrong:string;blank:string;net:string};
@@ -68,7 +69,7 @@ export function Exams({state,command,busy,onImported,preview=false,initialDate}:
     </div>
     {period==='custom'&&<div className="exam-dates"><label>Başlangıç<input type="date" value={customStart} onChange={event=>setCustomStart(event.target.value)}/></label><label>Bitiş<input type="date" value={customEnd} onChange={event=>setCustomEnd(event.target.value)}/></label></div>}
     <div className="exam-chart-summary"><div><span>Son kayıt</span><strong>{latest?.value===null||latest?.value===undefined?'—':tr(latest.value)}</strong><small>{measure==='net'?'net':measure==='accuracy'?'doğruluk %':'sn / soru'}</small></div><div><span>Karşılaştırma</span><strong>{latest?.value===null||latest?.value===undefined||previous?.value===null||previous?.value===undefined?'—':`${latest.value-previous.value>=0?'+':''}${tr(latest.value-previous.value)}`}</strong><small>{measure==='net'?'net farkı':'önceki kayda göre'}</small></div><div><span>Veri sayısı</span><strong>{filtered.length}</strong><small>deneme</small></div></div>
-    {valid.length?<><ExamPlot points={points} measure={measure}/><p className="exam-chart-note">{grouping==='exam'?'Her nokta bir deneme.':'Boş dönemler sıfır olarak çizilmez; n ilgili dönemin deneme sayısıdır.'} {format==='BRANCH'&&measure==='net'?'Branş soru sayıları farklıysa doğruluk oranını da karşılaştır.':''}</p><div className="exam-point-table"><span>Dönem / tarih</span><span>{measure==='net'?'Net':measure==='accuracy'?'Doğruluk':'Sn / soru'}</span><span>Örnek</span>{points.map(point=><div className="exam-point-row" key={point.key}><span>{point.label}</span><strong>{point.value===null?'—':tr(point.value)}</strong><span>{point.count?`n=${point.count}`:'veri yok'}</span></div>)}</div></>:<Empty icon={<ChartNoAxesCombined/>} title="Bu seçimde sonuç yok" text="İlk denemeni eklediğinde gerçek net grafiğin burada oluşacak."/>}
+    {valid.length?<><ExamPlot key={[format,publisher,sectionKey,measure,grouping,start,end].join('|')} points={points} measure={measure} exams={filtered} grouping={grouping} sectionLabel={sectionKey==='total'?'Toplam sonuç':sectionOptions.find(item=>item.key===sectionKey)?.label??sectionKey}/><p className="exam-chart-note">Ayrıntı için bir noktaya gel veya dokun. {grouping==='exam'?'Her nokta bir deneme.':'Boş dönemler sıfır olarak çizilmez; n ilgili dönemin deneme sayısıdır.'} {format==='BRANCH'&&measure==='net'?'Branş soru sayıları farklıysa doğruluk oranını da karşılaştır.':''}</p><div className="exam-point-table"><span>Dönem / tarih</span><span>{measure==='net'?'Net':measure==='accuracy'?'Doğruluk':'Sn / soru'}</span><span>Örnek</span>{points.map(point=><div className="exam-point-row" key={point.key}><span>{point.label}</span><strong>{point.value===null?'—':tr(point.value)}</strong><span>{point.count?`n=${point.count}`:'veri yok'}</span></div>)}</div></>:<Empty icon={<ChartNoAxesCombined/>} title="Bu seçimde sonuç yok" text="İlk denemeni eklediğinde gerçek net grafiğin burada oluşacak."/>}
     <p className="footnote">Az sayıdaki veya farklı zorluktaki denemeler kesin gelişim yargısı vermez. Farklı soru sayıları için doğruluk oranını ve soru başına süreyi ayrıca incele.</p>
    </Card>
     </div>
@@ -82,13 +83,6 @@ export function Exams({state,command,busy,onImported,preview=false,initialDate}:
   {editing!==undefined&&<ExamEditor key={editing?.id??'new'} record={editing} formats={formats} busy={busy} onClose={()=>setEditing(undefined)} onSave={async(type,payload)=>{if(await command(type,payload))setEditing(undefined)}}/>}
   {deleting&&<Modal title="Denemeyi sil" onClose={()=>setDeleting(null)}><div className="exam-delete-dialog"><p><strong>{deleting.name}</strong> kaydı ve grafiklerdeki sonucu silinecek.</p><div className="form-actions"><button className="button secondary" onClick={()=>setDeleting(null)}>Vazgeç</button><button className="button primary" disabled={busy} onClick={async()=>{if(await command('exam.delete',{id:deleting.id,expected_revision:deleting.revision}))setDeleting(null)}}>Kaydı sil</button></div></div></Modal>}
  </div>
-}
-
-function ExamPlot({points,measure}:{points:ExamPoint[];measure:ExamMeasure}){
- const width=Math.max(420,points.length*76+56);const values=points.flatMap(point=>point.value===null?[]:[point.value]);const min=Math.min(0,...values),max=Math.max(0,...values);const span=Math.max(1,max-min);
- const x=(i:number)=>36+i*(width-72)/Math.max(1,points.length-1);const y=(value:number)=>128-(value-min)/span*94;
- const segments:string[]=[];let current='';points.forEach((point,i)=>{if(point.value===null){if(current)segments.push(current);current='';return}current+=`${current?' L':'M'} ${x(i)} ${y(point.value)}`});if(current)segments.push(current);
- return <div className="exam-plot-scroll"><svg className="exam-plot" width={width} height="172" viewBox={`0 0 ${width} 172`} role="img" aria-label={`${points.length} dönemlik ${measure==='net'?'net':measure==='accuracy'?'doğruluk':'hız'} grafiği`}><defs><linearGradient id="exam-line-gradient" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stopColor="var(--feature-mid)"/><stop offset="1" stopColor="var(--feature-glow)"/></linearGradient></defs><line x1="22" x2={width-22} y1={y(0)} y2={y(0)} className="exam-zero-line"/>{segments.map((path,i)=><path key={i} d={path} fill="none" stroke="url(#exam-line-gradient)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"/>)}{points.map((point,i)=><g key={point.key}>{point.value!==null&&<><circle cx={x(i)} cy={y(point.value)} r="6" className="exam-plot-dot"/><text x={x(i)} y={Math.max(15,y(point.value)-12)} textAnchor="middle" className="exam-plot-value">{tr(point.value)}</text></>}<text x={x(i)} y="159" textAnchor="middle" className="exam-plot-date">{point.label}</text></g>)}</svg></div>;
 }
 
 function ExamEditor({record,formats,busy,onClose,onSave}:{record:ExamRecord|null;formats:ExamFormat[];busy:boolean;onClose:()=>void;onSave:(type:string,payload:Record<string,unknown>)=>Promise<void>}){

@@ -4,7 +4,8 @@ import { OAuthConsent } from "@/components/oauth-consent";
 export const metadata: Metadata = {
   title: "Bağlantı izni · YKSim",
   robots: { index: false, follow: false },
-  referrer: "no-referrer",
+  // Native consent POSTs need their same-origin Origin header; external redirects receive no referrer.
+  referrer: "same-origin",
 };
 
 export default async function ConsentPage({ searchParams }: {

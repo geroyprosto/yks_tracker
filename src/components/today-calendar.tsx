@@ -52,7 +52,7 @@ export function TodayCalendar({ authenticated, onOpenSettings }: { authenticated
       window.removeEventListener('offline', wentOffline); document.removeEventListener('visibilitychange', foreground); clearInterval(interval); };
   }, [load]);
   const hasEvents = data.events.length > 0;
-  return <Card className="ambient-card program-card calendar-program-card" title="Bugünün programı" action={<button
+  return <Card className="program-card calendar-program-card" title="Bugünün programı" action={<button
     className="calendar-refresh icon-button" type="button" onClick={() => void load(true)} disabled={loading || !authenticated}
     title="Takvimi yenile" aria-label="Takvimi yenile"><RefreshCw size={18}/></button>}>
     {offline && <p className="calendar-message" role="status">{data.refreshedAt ? 'Çevrimdışısın. Son görülen program gösteriliyor; yenilemek için internete bağlan.' : 'Çevrimdışısın. Takvimi görmek için internete bağlan.'}</p>}

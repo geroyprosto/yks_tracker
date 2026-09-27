@@ -4,9 +4,9 @@ export const themes=[
  {id:'rose',accents:["#ff6c99","#63dfaa"],pair:'Pembe + adaçayı yeşili',name:'Mercan / Gül',colors:['#590D22','#800F2F','#A4133C','#C9184A','#FF4D6D','#FF758F','#FF8FA3','#FFB3C1','#FFCCD5','#FFF0F3']},
  {id:'ocean',accents:["#40d7f6","#ff967d"],pair:'Turkuaz + mercan',name:'Okyanus',colors:['#03045E','#023E8A','#0077B6','#0096C7','#00B4D8','#48CAE4','#90E0EF','#ADE8F4','#CAF0F8']},
  {id:'plum',accents:["#d6a0f0","#e6cf8e"],pair:'Leylak + yumuşak altın',name:'Mürdüm / Krem',colors:['#190019','#2B124C','#522B5B','#854F6C','#DFB6B2','#FBE4D8']},
- {id:'pastel',accents:["#bd86f2","#82d5b3"],pair:'Lavanta + nane yeşili',name:'Pastel',colors:['#F4E7FB','#F2D0DC','#F6BCBA','#E3AADD','#C8A8E9','#C3C7F4']},
- {id:'white',name:'Beyaz',colors:['#FFFFFF','#F4F5F7','#E4E7EC','#C6CBD3','#657184','#202733'],accents:['#66b9ef','#f5b58c'],pair:'Beyaz zemin · mavi + kayısı'},
- {id:'black',name:'Siyah',colors:['#101214','#191C20','#272B31','#454C56','#A8B0BC','#F3F5F8'],accents:['#87cdeb','#ecb991'],pair:'Siyah zemin · turkuaz + kayısı'},
+ {id:'pastel',accents:["#F6BCBA","#C8A8E9"],pair:'Şeftali + lavanta',name:'Pastel',colors:['#F6BCBA','#F2D0DC','#F4E7FB','#E3AADD','#C8A8E9','#C3C7F4']},
+ {id:'white',name:'Beyaz',colors:['#FFFFFF','#F4F5F7','#E4E7EC','#85CCBD','#F5B58C','#202733'],accents:['#85ccbd','#f5b58c'],pair:'Beyaz zemin · adaçayı + kayısı'},
+ {id:'black',name:'Siyah',colors:['#101214','#191C20','#272B31','#ECB991','#92D3B9','#F3F5F8'],accents:['#ecb991','#92d3b9'],pair:'Siyah zemin · kehribar + adaçayı'},
 ];
 // Keep previously saved palettes readable after their removal from the picker.
 export function normalizeTheme(value:string){

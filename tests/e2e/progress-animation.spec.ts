@@ -29,13 +29,13 @@ async function taskProgressPage(page: Page, initialProgress = .2) {
     await route.fulfill({ json: { ok: true, state } });
   });
   await page.goto('/');
-  const ring = page.getByRole('img', { name: 'Görev ilerlemesi: %' + Math.round(initialProgress * 100) });
+  const ring = page.getByRole('img', { name: 'Görevler: %' + Math.round(initialProgress * 100) });
   await expect(ring).toBeVisible();
-  return page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Görev ilerlemesi' }) });
+  return page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Görevler' }) });
 }
 
 async function dashLength(page: Page) {
-  return page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Görev ilerlemesi' }) })
+  return page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Görevler' }) })
     .locator('.donut-segment').evaluate(node => parseFloat(getComputedStyle(node).strokeDasharray));
 }
 
@@ -43,7 +43,7 @@ test('completing a task visibly grows the ring through intermediate frames', asy
   const metric = await taskProgressPage(page);
   const before = await dashLength(page);
   await page.getByRole('button', { name: 'Sentetik ilerleme görevi görevini tamamla' }).click();
-  await expect(metric.getByRole('img', { name: 'Görev ilerlemesi: %100' })).toBeVisible();
+  await expect(metric.getByRole('img', { name: 'Görevler: %100' })).toBeVisible();
   await page.waitForTimeout(150);
   const middle = await dashLength(page);
   const center = await metric.locator('.donut-center strong').textContent();
@@ -59,7 +59,7 @@ test('reduced motion jumps to the completed state without a ring transition', as
   const metric = await taskProgressPage(page);
   await page.evaluate(() => { document.documentElement.dataset.reduced = 'true'; });
   await page.getByRole('button', { name: 'Sentetik ilerleme görevi görevini tamamla' }).click();
-  await expect(metric.getByRole('img', { name: 'Görev ilerlemesi: %100' })).toBeVisible();
+  await expect(metric.getByRole('img', { name: 'Görevler: %100' })).toBeVisible();
   await expect.poll(() => dashLength(page)).toBeGreaterThan(438);
   await expect(metric.locator('.donut-segment')).toHaveCSS('transition-duration', '0s');
   await expect(metric.locator('.donut-center strong')).toHaveText('%100');
@@ -69,7 +69,7 @@ test('an initially empty ring grows when the first task is completed and does no
   const metric = await taskProgressPage(page, 0);
   await expect(metric.locator('.donut-segment')).toHaveCount(0);
   await page.getByRole('button', { name: 'Sentetik ilerleme görevi görevini tamamla' }).click();
-  await expect(metric.getByRole('img', { name: 'Görev ilerlemesi: %100' })).toBeVisible();
+  await expect(metric.getByRole('img', { name: 'Görevler: %100' })).toBeVisible();
   await expect(metric.locator('.donut-segment')).toHaveCount(1);
   await page.waitForTimeout(150);
   const middle = await dashLength(page);

@@ -110,13 +110,13 @@ test('RLS permits only owner reads; direct writes and non-owner RPC are denied',
   await asOwner();
 });
 
-test('service report source includes date-only study entries and keeps its owner gate', async () => {
+test('service report source includes date-only study entries and keeps its approved-account gate', async () => {
   await assert.rejects(() => db.query('select public.analysis_source_state($1::uuid)', [OWNER]), /permission denied/);
   await asService();
   try {
     const result = await db.query<{value: {manual_study_entries: Array<{subject: string; duration_seconds: number}>}}>(
       'select public.analysis_source_state($1::uuid) as value', [OWNER]);
     assert.equal(result.rows[0].value.manual_study_entries.some(entry => entry.subject === 'TYT Fizik' && entry.duration_seconds === 3000), true);
-    await assert.rejects(() => db.query('select public.analysis_source_state($1::uuid)', [OTHER]), /OWNER_REQUIRED/);
+    await assert.rejects(() => db.query('select public.analysis_source_state($1::uuid)', [OTHER]), /STUDENT_REQUIRED/);
   } finally { await asOwner(); }
 });

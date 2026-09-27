@@ -1,5 +1,5 @@
 /* Thick, segmented progress indicators; values remain the existing domain results. */
-.neon-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:4px 0 28px;flex:1;align-items:start}
+.neon-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding:4px 0 28px;flex:1;align-items:start}
 .neon-metric{min-width:0;text-align:center;position:relative}
 .neon-metric+.neon-metric::before{content:"";position:absolute;left:-10px;top:24px;bottom:4px;width:1px;background:linear-gradient(transparent,var(--border),transparent)}
 .neon-donut{width:min(180px,100%);aspect-ratio:1;position:relative;margin:0 auto 12px;isolation:isolate}
@@ -27,9 +27,6 @@
 .legend-dot{display:block;width:7px;height:7px;border-radius:3px;flex-shrink:0;background:var(--legend-color);box-shadow:0 0 7px color-mix(in srgb,var(--legend-color) 40%,transparent)}
 .remaining .legend-dot{background:var(--ring-track);border:1px solid var(--muted);box-shadow:none}
 .goal-excess{display:block;color:var(--primary);font-size:10px;margin-top:10px}
-.plan-ratio{display:flex;gap:12px;align-items:center;font-size:10px;color:var(--muted);margin-top:15px}
-.plan-ratio>span{display:flex;align-items:center;gap:6px}
-.plan-ratio b{font-weight:600;color:var(--foreground)}
 .distribution-content{display:flex;align-items:center;gap:24px}
 .distribution-content>.neon-donut{width:176px;flex-shrink:0;margin:0}
 .distribution-content .donut-center strong{font-size:22px;letter-spacing:-.5px}
@@ -90,7 +87,6 @@ body{background:var(--background)}
  .ring-legend li{font-size:9px;gap:5px}.ring-legend b{font-size:10px}
  .neon-metric .goal-excess{grid-column:2;font-size:9px}
  .donut-center strong{font-size:27px}.donut-center span{font-size:7px}
- .plan-ratio{flex-wrap:wrap;gap:8px;font-size:9px}
  .distribution-content{gap:17px}.distribution-content>.neon-donut{width:138px}
  .distribution-content .donut-center strong{font-size:18px}.distribution-content .donut-center span{font-size:6px}
  .distribution-legend{gap:12px}.distribution-legend li{gap:7px}

@@ -70,18 +70,19 @@ test('home task filters explain an empty completed view and return to the plan',
   expect(writes()).toBe(0);
 });
 
-test('calculation details open on demand while the summary values stay visible', async ({page}) => {
+test('calculation details reveal legends for only the task and time rings', async ({page}) => {
   const writes = await openHome(page);
   const card = page.locator('.daily-card');
   const values = card.locator('.donut-center strong');
   await expect(values).toHaveText(['%50', '%0']);
-  await expect(card.locator('.neon-metric').last().locator('.donut-center strong')).toHaveCount(0);
+  await expect(card.locator('.neon-metric')).toHaveCount(2);
+  await expect(card.getByRole('heading', {name: 'Günlük ilerleme', exact: true})).toHaveCount(0);
   await expect(card.locator('.ring-legend')).toHaveCount(0);
   const details = card.getByRole('button', {name: 'Hesaplama ayrıntıları'});
   await expect(details).toHaveAttribute('aria-expanded', 'false');
   await details.click();
-  await expect(card.getByText('Hedef ağırlıkları')).toBeVisible();
-  await expect(card.locator('.ring-legend')).toHaveCount(3);
+  await expect(card.getByText('Hedef ağırlıkları')).toHaveCount(0);
+  await expect(card.locator('.ring-legend')).toHaveCount(2);
   const close = card.getByRole('button', {name: 'Ayrıntıları gizle'});
   await expect(close).toHaveAttribute('aria-expanded', 'true');
   await close.click();

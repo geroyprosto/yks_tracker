@@ -95,16 +95,23 @@ test('sample charts appear by default, toggle off restores real empty data, and 
   expect(commandRequests).toBe(0);
 });
 
-test('synthetic HTTP preview shows thick neon rings and correct numeric allocation', async ({ page }) => {
+test('synthetic HTTP preview shows two thick neon rings with accessible values and legends', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   await mockedAppearance(page);
   await page.getByRole('button', {name: 'Hesaplama ayrıntıları'}).click();
-  const combined = page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Günlük ilerleme', exact: true }) });
-  await expect(combined.locator('.donut-center strong')).toHaveCount(0);
-  await expect(combined.locator('.ring-legend')).toContainText('Görev katkısı%49');
-  await expect(combined.locator('.ring-legend')).toContainText('Süre katkısı%15');
-  await expect(combined.locator('.ring-legend')).toContainText('Kalan%36');
+  const dailyCard = page.locator('.daily-card');
+  await expect(dailyCard.locator('.neon-metric')).toHaveCount(2);
+  await expect(dailyCard.getByRole('img', {name: 'Görevler: %70', exact: true})).toBeVisible();
+  await expect(dailyCard.getByRole('img', {name: 'Net çalışma süresi: %50', exact: true})).toBeVisible();
+  await expect(dailyCard.getByRole('heading', {name: 'Günlük ilerleme', exact: true})).toHaveCount(0);
+  await expect(dailyCard.getByText('Hedef ağırlıkları')).toHaveCount(0);
+  const legends = dailyCard.locator('.ring-legend');
+  await expect(legends).toHaveCount(2);
+  await expect(legends.nth(0)).toContainText('Tamamlanan%70');
+  await expect(legends.nth(0)).toContainText('Kalan%30');
+  await expect(legends.nth(1)).toContainText('Tamamlanan%50');
+  await expect(legends.nth(1)).toContainText('Kalan%50');
 
   await expect(page.locator('.donut-segment').first()).toHaveCSS('stroke-width', '28px');
   await expect(page.locator('.donut-center strong').first()).toHaveCSS('text-shadow', 'none');

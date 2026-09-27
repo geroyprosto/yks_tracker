@@ -3,8 +3,7 @@
 import {useEffect, useState, type CSSProperties} from 'react';
 import {ArrowUpRight, Check, ChevronRight, ListTodo, Maximize2, NotebookPen, Pause, Play, Sparkles, Timer} from 'lucide-react';
 import type {AppState} from '@/lib/domain/types';
-import {combinedSegments} from '@/lib/progress-breakdown';
-import {combinedProgress, taskProgress, timeProgress} from '@/lib/progress';
+import {taskProgress, timeProgress} from '@/lib/progress';
 import {secondsByDay, sessionSeconds} from '@/lib/timing';
 import {clockText, duration, formatDay, localDate, type CommandFn} from '@/lib/ui';
 import {useChartTooltip} from './chart-tooltip';
@@ -80,8 +79,6 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
   const totals = secondsByDay(state, state.settings?.timezone ?? 'Europe/Istanbul', Date.parse(state.server_now));
   const seconds = totals[today] ?? 0;
   const time = timeProgress(seconds, target);
-  const combined = combinedProgress(progress, time, plan?.task_share ?? state.settings?.task_share ?? .7);
-  const taskShare = plan?.task_share ?? state.settings?.task_share ?? .7;
   const completed = tasks.filter(task => task.progress === 1).length;
   const visibleTasks = tasks.filter(task => taskFilter === 'all' || (taskFilter === 'completed' ? task.progress === 1 : task.progress !== 1));
   const days = Array.from({length: 7}, (_, index) => {
@@ -101,8 +98,10 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
 
     <div className="overview-grid">
       <Card className="daily-card" title="Bugün ne kadar ilerledin?" eyebrow="GÜNLÜK ÖZET" action={<span className="pill">{completed} / {tasks.length} görev</span>}>
-        <div className="neon-metrics" id="daily-progress-details"><Ring value={progress} showLegend={showBreakdown} label="Görevler" detail={tasks.length ? completed + ' / ' + tasks.length + ' tamamlandı' : 'İlk görevini ekle'}/><Ring value={time} showLegend={showBreakdown} color={1} label="Net çalışma süresi" detail={duration(seconds) + ' / ' + duration(target * 60)}/><Ring value={combined} showLegend={showBreakdown} showCenterPercentage={false} segments={combinedSegments(progress, time, taskShare)} label="Günlük ilerleme" detail={progress === null ? 'Süre hedefine göre' : 'Görev + çalışma süresi'}/></div>
-        {showBreakdown && <div className="daily-breakdown"><div className="plan-ratio"><span>Hedef ağırlıkları</span><span><i className="legend-dot" style={{background: 'var(--ring-1)'}}/><b>%{Math.round(taskShare * 100)}</b> görev</span><span><i className="legend-dot" style={{background: 'var(--ring-2)'}}/><b>%{Math.round((1 - taskShare) * 100)}</b> süre</span></div><p className="footnote">{progress === null || time === null ? 'Yalnız tanımlı hedeflerin ağırlığı hesaba katılır.' : 'Halkadaki bölümler günlük ilerlemene katkıyı gösterir.'}</p></div>}
+        <div className="neon-metrics" id="daily-progress-details">
+          <Ring value={progress} showLegend={showBreakdown} label="Görevler" detail={tasks.length ? completed + ' / ' + tasks.length + ' tamamlandı' : 'İlk görevini ekle'}/>
+          <Ring value={time} showLegend={showBreakdown} color={1} label="Net çalışma süresi" detail={duration(seconds) + ' / ' + duration(target * 60)}/>
+        </div>
         <div className="card-bottom"><button type="button" className="text-button" aria-expanded={showBreakdown} aria-controls="daily-progress-details" onClick={() => setShowBreakdown(value => !value)}>{showBreakdown ? 'Ayrıntıları gizle' : 'Hesaplama ayrıntıları'}<ChevronRight size={15}/></button><button className="text-button" disabled={preview} onClick={() => plan ? setEditTarget(true) : go('settings', 'plan')}>Hedefi düzenle<ChevronRight size={15}/></button></div>
       </Card>
       {((modules?.timer??true)||activeSession)&&<Card className="focus-card gradient-card" title="Odak oturumu" eyebrow="ÇALIŞMA ZAMANI">

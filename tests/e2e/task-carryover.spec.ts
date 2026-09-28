@@ -50,6 +50,34 @@ test('task form saves on the creation day and preserves values removed from the 
   for (const field of ['plan_date', 'resource', 'progress', 'weight_override']) expect(commands[1].payload).not.toHaveProperty(field);
 });
 
+test('task can be deleted from its edit dialog after confirmation', async ({page}) => {
+  await page.clock.setFixedTime(new Date('2026-09-28T09:00:00.000Z'));
+  const state = {...emptyState(true), authenticated: true};
+  state.tasks = [task('delete-me', 'Silinecek görev', monday, 0), task('keep-me', 'Kalacak görev', monday, 0, 1)];
+  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  await page.route('**/api/command', route => {
+    const command = route.request().postDataJSON();
+    commands.push(command);
+    if (command.type === 'task.delete') state.tasks = state.tasks.filter(item => item.id !== command.payload.id);
+    return route.fulfill({json: {ok: true, state}});
+  });
+  await openTasks(page, state);
+
+  await page.getByRole('button', {name: 'Silinecek görev düzenle'}).click();
+  await page.getByRole('dialog', {name: 'Görevi düzenle'}).getByRole('button', {name: 'Sil', exact: true}).click();
+  const confirmation = page.getByRole('dialog', {name: 'Görevi sil'});
+  await expect(confirmation).toContainText('Silinecek görev');
+  await confirmation.getByRole('button', {name: 'Vazgeç'}).click();
+  expect(commands).toHaveLength(0);
+  await expect(page.locator('.task-item h3')).toHaveText(['Silinecek görev', 'Kalacak görev']);
+
+  await page.getByRole('button', {name: 'Silinecek görev düzenle'}).click();
+  await page.getByRole('dialog', {name: 'Görevi düzenle'}).getByRole('button', {name: 'Sil', exact: true}).click();
+  await page.getByRole('dialog', {name: 'Görevi sil'}).getByRole('button', {name: 'Görevi sil'}).click();
+  await expect(page.locator('.task-item h3')).toHaveText(['Kalacak görev']);
+  expect(commands).toMatchObject([{type: 'task.delete', payload: {id: 'delete-me', expected_revision: 1}}]);
+});
+
 test('today shows unfinished earlier tasks without moving them into today', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};

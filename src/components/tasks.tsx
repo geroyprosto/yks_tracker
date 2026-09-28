@@ -1,13 +1,13 @@
 'use client';
 import {useState} from 'react';
-import {Check,Clock3,ListTodo,MoreHorizontal,Play,Plus,ArrowUp,ArrowDown} from 'lucide-react';
+import {Check,Clock3,ListTodo,MoreHorizontal,Play,Plus,ArrowUp,ArrowDown,Trash2} from 'lucide-react';
 import type {AppState,Task} from '@/lib/domain/types';
 import {formatDay,localDate,studyTypes,type CommandFn} from '@/lib/ui';
 import {Card,Empty,AddButton} from './primitives';
 import {Modal} from './modal';
 import {CourseSelector} from './course-selector';
 export function Tasks({state,command,busy,requestNew,onNewHandled}:{state:AppState;command:CommandFn;busy:boolean;requestNew:boolean;onNewHandled:()=>void}){
- const [selectedDate,setSelectedDate]=useState<string|null>(null);const [filter,setFilter]=useState('all');const [draft,setDraft]=useState<Task|null|false>(false);
+ const [selectedDate,setSelectedDate]=useState<string|null>(null);const [filter,setFilter]=useState('all');const [draft,setDraft]=useState<Task|null|false>(false);const [deleting,setDeleting]=useState<Task|null>(null);
  const today=localDate(new Date(),state.settings?.timezone);const date=selectedDate??today;
  const dailyTasks=state.tasks.filter(t=>t.plan_date===date);
  const overdueTasks=date===today&&filter!=='done'?state.tasks.filter(t=>t.plan_date<today&&t.progress<1).sort((a,b)=>a.plan_date.localeCompare(b.plan_date)||a.position-b.position):[];
@@ -23,10 +23,11 @@ export function Tasks({state,command,busy,requestNew,onNewHandled}:{state:AppSta
  </article>)}</div>}
  </Card>
  <p className="footnote">Görev tamamlamak konunun öğrenme düzeyini değiştirmez. Alt adımlar varsa her adım eşit pay alır.</p>
- {(requestNew||draft!==false)&&<Modal title={draft?'Görevi düzenle':'Yeni görev'} onClose={close}><TaskForm key={draft?draft.id:'new'} state={state} task={draft||null} busy={busy} onClose={close} onSave={async payload=>{if(await command(draft?'task.update':'task.create',draft?{...payload,id:draft.id,expected_revision:draft.revision}:payload)){if(!draft)setSelectedDate(null);close()}}}/></Modal>}
+ {(requestNew||draft!==false)&&!deleting&&<Modal title={draft?'Görevi düzenle':'Yeni görev'} onClose={close}><TaskForm key={draft?draft.id:'new'} state={state} task={draft||null} busy={busy} onClose={close} onDelete={()=>{if(draft){setDeleting(draft);setDraft(false)}}} onSave={async payload=>{if(await command(draft?'task.update':'task.create',draft?{...payload,id:draft.id,expected_revision:draft.revision}:payload)){if(!draft)setSelectedDate(null);close()}}}/></Modal>}
+ {deleting&&<Modal title="Görevi sil" onClose={()=>setDeleting(null)}><p className="task-delete-confirm"><strong>{deleting.title}</strong> görevi planından silinecek. Kaydedilmiş çalışma süreleri korunacak.</p><div className="form-actions"><button type="button" className="button secondary" onClick={()=>setDeleting(null)}>Vazgeç</button><button type="button" className="button primary" disabled={busy} onClick={async()=>{if(await command('task.delete',{id:deleting.id,expected_revision:deleting.revision}))setDeleting(null)}}><Trash2 size={16}/>Görevi sil</button></div></Modal>}
  </>;
 }
-function TaskForm({state,task,busy,onSave,onClose}:{state:AppState;task:Task|null;busy:boolean;onSave:(payload:Record<string,unknown>)=>Promise<void>;onClose:()=>void}){
+function TaskForm({state,task,busy,onSave,onClose,onDelete}:{state:AppState;task:Task|null;busy:boolean;onSave:(payload:Record<string,unknown>)=>Promise<void>;onClose:()=>void;onDelete:()=>void}){
  const [topic,setTopic]=useState(task?.topic_id??'');
  const [courseId,setCourseId]=useState(task?.course_id??'');
  const [contextChanged,setContextChanged]=useState(false);
@@ -41,7 +42,7 @@ function TaskForm({state,task,busy,onSave,onClose}:{state:AppState;task:Task|nul
  {task&&<fieldset className="span-2"><legend>Alt adımlar</legend>{steps.map((step,i)=><div className="step-edit" key={step.id}><input aria-label={(i+1)+'. alt adım'} required value={step.title} onChange={e=>setSteps(steps.map(s=>s.id===step.id?{...s,title:e.target.value}:s))}/><button type="button" className="text-button" onClick={()=>setSteps(steps.filter(s=>s.id!==step.id))}>Kaldır</button></div>)}<button type="button" className="text-button" onClick={()=>setSteps([...steps,{id:crypto.randomUUID(),title:'',completed:false}])}><Plus size={15}/>Alt adım ekle</button></fieldset>}
  {task&&<label className="span-2">Notlar<textarea name="notes" rows={3} defaultValue={task.notes}/></label>}
  {!state.authenticated&&<p className="notice span-2">Görevlerini kaydetmek için hesabınla giriş yap.</p>}
- <div className="form-actions span-2"><button className="button secondary" type="button" onClick={onClose}>Vazgeç</button><button className="button primary" disabled={busy||!state.authenticated}>{busy?'Kaydediliyor…':'Görevi kaydet'}</button></div>
+ <div className="form-actions span-2">{task&&<button className="text-button task-delete-trigger" type="button" disabled={busy||!state.authenticated} onClick={onDelete}><Trash2 size={15}/>Sil</button>}<button className="button secondary" type="button" onClick={onClose}>Vazgeç</button><button className="button primary" disabled={busy||!state.authenticated}>{busy?'Kaydediliyor…':'Görevi kaydet'}</button></div>
  </form>
 }
 

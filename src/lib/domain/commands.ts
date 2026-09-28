@@ -79,6 +79,7 @@ export const commandSchema=z.discriminatedUnion("type",[
  z.object({...envelope,type:z.literal("task.create"),payload:taskFields}),
  z.object({...envelope,type:z.literal("task.update"),payload:taskFields.partial().extend({id,expected_revision:revision}).strict()}),
  z.object({...envelope,type:z.literal("task.move"),payload:z.object({id,expected_revision:revision,direction:z.enum(["up","down"])}).strict()}),
+ z.object({...envelope,type:z.literal("task.delete"),payload:z.object({id,expected_revision:revision}).strict()}),
  z.object({...envelope,type:z.literal("topic.create"),payload:topicFields}),
  z.object({...envelope,type:z.literal("topic.update"),payload:topicFields.partial().extend({id,expected_revision:revision}).strict()}),
  z.object({...envelope,type:z.literal("practice.create"),payload:practiceCreate}),

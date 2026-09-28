@@ -60,6 +60,70 @@ test("partial task edits preserve other fields and stale revisions are rejected"
  await assert.rejects(()=>command("task.update",{id:created.id,expected_revision:1,progress:1}),/CONFLICT/);
  await assert.rejects(()=>command("task.update",{id:created.id,expected_revision:2,user_id:OTHER}),/INVALID_INPUT/);
 });
+test("task deletion preserves study time, refreshes its plan, and replays only once",async()=>{
+ const day="2026-10-10";
+ const created=await command("task.create",{title:"Silinecek görev",plan_date:day,subject:"Matematik"});
+ const started=await command("timer.start",{task_id:created.id,title:"Göreve bağlı çalışma",subject:"Matematik"});
+ await ageActive(45);
+ const active=(await state()).sessions.find(session=>session.id===started.id)!;
+ await command("timer.finish",{id:active.id,expected_revision:active.revision});
+ const before=await state();
+ const priorPlans=before.day_plans.filter(plan=>plan.plan_date===day);
+ const finished=before.sessions.find(session=>session.id===started.id)!;
+ const intervals=before.intervals.filter(interval=>interval.session_id===started.id);
+ assert.equal(finished.task_id,created.id);
+ assert.ok(finished.accumulated_seconds>=45);
+ const payload={id:created.id,expected_revision:1};
+ const parsed=commandSchema.parse({request_id:randomUUID(),type:"task.delete",payload});
+ const requestId=randomUUID();
+ const deleted=await command(parsed.type,parsed.payload,requestId);
+ const after=await state();
+ assert.equal(after.tasks.some(task=>task.id===created.id),false);
+ assert.equal(after.sessions.find(session=>session.id===started.id)?.task_id,null);
+ assert.equal(after.sessions.find(session=>session.id===started.id)?.accumulated_seconds,finished.accumulated_seconds);
+ assert.deepEqual(after.intervals.filter(interval=>interval.session_id===started.id),intervals);
+ const plans=after.day_plans.filter(plan=>plan.plan_date===day);
+ assert.equal(plans.length,priorPlans.length+1);
+ assert.equal(plans[0].snapshot.some(task=>task.id===created.id),false);
+ assert.equal(plans[1].snapshot.some(task=>task.id===created.id),true);
+ const audit=await db.query<{action:string;old_value:{title:string};new_value:unknown}>("select action,old_value,new_value from public.audit_log where entity='task' and entity_id=$1 and action='task.delete'",[created.id]);
+ assert.equal(audit.rows.length,1);
+ assert.equal(audit.rows[0].old_value.title,"Silinecek görev");
+ assert.equal(audit.rows[0].new_value,null);
+ const replay=await command("task.delete",payload,requestId);
+ assert.equal(replay.id,deleted.id);
+ assert.equal(replay.replayed,true);
+ assert.equal((await state()).day_plans.filter(plan=>plan.plan_date===day).length,plans.length);
+});
+test("task deletion rejects stale revisions, unknown tasks, and another owner",async()=>{
+ const created=await command("task.create",{title:"Korunan görev",plan_date:"2026-10-11"});
+ await command("task.update",{id:created.id,expected_revision:1,title:"Güncel görev"});
+ await assert.rejects(()=>command("task.delete",{id:created.id,expected_revision:1}),/CONFLICT/);
+ await assert.rejects(()=>command("task.delete",{id:randomUUID(),expected_revision:1}),/NOT_FOUND/);
+ await assert.rejects(()=>command("task.delete",{id:created.id,expected_revision:2,user_id:OTHER}),/INVALID_INPUT/);
+ try{
+  await db.exec(`select set_config('request.jwt.claim.sub','${OTHER}',false)`);
+  await assert.rejects(()=>command("task.delete",{id:created.id,expected_revision:2}),/OWNER_REQUIRED/);
+ }finally{await asOwner();}
+ assert.equal((await state()).tasks.find(task=>task.id===created.id)?.title,"Güncel görev");
+});
+test("an active study session continues after its task is deleted",async()=>{
+ const created=await command("task.create",{title:"Aktif görev",plan_date:"2026-10-12",subject:"Fizik"});
+ const started=await command("timer.start",{task_id:created.id,title:"Fizik çalışması",subject:"Fizik"});
+ const before=(await state()).sessions.find(session=>session.id===started.id)!;
+ await command("task.delete",{id:created.id,expected_revision:1});
+ const detached=(await state()).sessions.find(session=>session.id===started.id)!;
+ assert.equal(detached.status,"running");
+ assert.equal(detached.task_id,null);
+ assert.equal(detached.title,"Fizik çalışması");
+ assert.equal(detached.subject,"Fizik");
+ assert.equal(detached.revision,before.revision+1);
+ await ageActive(30);
+ await command("timer.finish",{id:started.id,expected_revision:detached.revision});
+ const finished=(await state()).sessions.find(session=>session.id===started.id)!;
+ assert.equal(finished.status,"finished");
+ assert.ok(finished.accumulated_seconds>=30);
+});
 test("substeps use equal shares and do not add duplicate workload",async()=>{
  const created=await command("task.create",{title:"Adımlar",plan_date:"2026-09-23",planned_minutes:100,progress:1,steps:[{id:randomUUID(),title:"Bir",completed:true},{id:randomUUID(),title:"İki",completed:false}]});
  const task=(await state()).tasks.find(t=>t.id===created.id)!;assert.equal(task.progress,.5);assert.equal(task.planned_minutes,100);

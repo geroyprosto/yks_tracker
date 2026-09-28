@@ -13,3 +13,5 @@
 
 .sidebar{overflow-y:auto}.connection-empty p,.empty p,.soft-copy{font-size:12px}
 .modal-error{padding:12px 14px;border:1px solid var(--danger);border-radius:8px;color:var(--danger);font-size:12px;margin-bottom:18px}
+.task-delete-trigger{margin-right:auto;color:var(--danger)}
+.task-delete-confirm{margin-bottom:18px}

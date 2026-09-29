@@ -92,3 +92,45 @@
 .reportSection h4{font-size:14px;margin:0 0 10px}
 .reportSection p{margin:8px 0;line-height:1.6}
 @media(max-width:600px){.fiveCards{grid-template-columns:1fr}}
+.reportInsights{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;gap:12px;min-width:0}
+.insightCard{display:flex;flex-direction:column;gap:9px;min-width:0;padding:15px;border:1px solid var(--border);border-radius:12px;background:var(--surface);overflow-wrap:anywhere}
+.insightTop{display:flex;align-items:center;gap:8px;min-width:0;color:var(--primary)}
+.insightTop h4{flex:1;min-width:0;margin:0;color:var(--foreground);font-size:12px;font-weight:700;line-height:1.3}
+.insightNumber{display:grid;place-items:center;flex:none;width:24px;height:24px;border:1px solid color-mix(in srgb,var(--primary) 28%,var(--border));border-radius:6px;background:color-mix(in srgb,var(--primary) 9%,var(--surface));font-size:9px;font-weight:800;font-variant-numeric:tabular-nums}
+.insightTop svg{flex:none}
+.insightHeadline{font-size:14px;line-height:1.4}
+.insightText{color:var(--muted);font-size:12px;line-height:1.65;white-space:pre-wrap}
+.reportChart{display:grid;gap:9px;min-width:0;min-height:90px;margin:auto 0 0;padding:11px;border:1px solid var(--border);border-radius:9px;background:var(--surface-raised)}
+.reportChart figcaption{color:var(--muted);font-size:11px;font-weight:700;line-height:1.3}
+.chartUnavailable{align-self:center;color:var(--muted);font-size:11px;line-height:1.5}
+.metricBars{display:grid;align-content:center;gap:9px}
+.metricBar{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(42px,.9fr) auto;align-items:center;gap:8px;min-width:0;font-size:11px}
+.metricBar>span{min-width:0;color:var(--muted);line-height:1.3}
+.metricBar strong{white-space:nowrap;font-size:11px;font-variant-numeric:tabular-nums}
+.metricTrack{height:7px;overflow:hidden;border-radius:99px;background:color-mix(in srgb,var(--primary) 12%,var(--surface))}
+.metricTrack span{display:block;height:100%;border-radius:inherit;background:var(--primary)}
+.singleMetric{display:grid;align-content:center;gap:9px}
+.singleMetric>strong{font-size:15px;font-variant-numeric:tabular-nums}
+.singleMetric>strong span{color:var(--muted);font-size:12px;font-weight:500}
+.dailyChart{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));align-items:end;gap:4px;min-height:67px}
+.dayColumn{display:grid;justify-items:center;align-items:end;gap:3px;min-width:0;color:var(--muted);font-size:10px;font-variant-numeric:tabular-nums}
+.dayValue,.dayLabel{overflow:hidden;max-width:100%;text-overflow:ellipsis;white-space:nowrap}
+.dayTrack{display:flex;align-items:flex-end;width:min(100%,23px);height:39px;border-radius:4px;background:color-mix(in srgb,var(--primary) 10%,var(--surface))}
+.dayTrack span{width:100%;border-radius:4px;background:var(--primary)}
+.monthChart{display:grid;gap:6px;align-content:center}
+.monthTrack{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px}
+.monthTrack span{height:13px;border-radius:3px;background:color-mix(in srgb,var(--primary) 12%,var(--surface))}
+.monthTrack .monthActive{background:var(--primary)}
+.monthLabels{display:flex;align-items:center;justify-content:space-between;gap:7px;color:var(--muted);font-size:10px}
+.monthLabels strong{color:var(--foreground);font-size:11px;font-weight:700}
+.phaseLabel{color:var(--muted);font-size:11px;line-height:1.4}
+.guidanceSources{display:grid;gap:6px;padding-top:9px;border-top:1px solid var(--border)}
+.guidanceSources>strong{font-size:11px}
+.guidanceSources>div{display:flex;flex-wrap:wrap;gap:5px}
+.guidanceSources a{display:inline-flex;align-items:center;gap:3px;max-width:100%;padding:4px 7px;border:1px solid var(--border);border-radius:6px;color:var(--primary);font-size:11px;line-height:1.35;text-decoration:none}
+.guidanceSources a:hover{border-color:var(--primary)}
+.guidanceSources a:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.guidanceSources a svg{flex:none}
+.guidanceSources small{color:var(--muted);font-size:10px}
+@media(max-width:700px){.reportInsights{grid-template-columns:1fr}}
+@media(max-width:520px){.insightCard{padding:13px}.reportChart{min-height:82px}}

@@ -1,10 +1,40 @@
 'use client';
 
 import {useEffect, useRef, useState} from 'react';
-import {AlertCircle, ArrowRight, Check, CircleHelp, FileText, RefreshCw, Sparkles} from 'lucide-react';
-import {REPORT_HEADINGS,type StructuredReport} from '@/lib/ai-report';
+import {AlertCircle, ArrowRight, BookOpen, CalendarDays, Check, CircleHelp, Compass, FileText, Lightbulb, NotebookPen, RefreshCw, Sparkles, TrendingUp} from 'lucide-react';
+import {REPORT_HEADINGS} from '@/lib/ai-report';
 import {formatDay, localDate} from '@/lib/ui';
 import styles from './analysis.module.css';
+
+type InsightKey = 'topics' | 'regularity' | 'journal' | 'wins' | 'improvements' | 'timing';
+type InsightEntry = {headline: string; text: string; evidence_ids: string[]; course_id: string | null};
+type InsightReport = {schema_version: 3} & Record<InsightKey, InsightEntry>;
+type LegacyReport = {
+  schema_version: 2;
+  overview: string;
+  study_observations: {text: string}[];
+  result_observations: {text: string}[];
+  next_actions: {text: string}[];
+  limitations: string[];
+};
+type ReportMetrics = {
+  topics?: {completed?: number; progressed?: number};
+  regularity?: {days?: {date: string; seconds: number | null; status: string}[]};
+  journal?: {shared_day_count?: number};
+  wins?: {current?: {observed_days?: number; study_seconds?: number}; previous?: {observed_days?: number; study_seconds?: number}};
+  improvements?: {task_done?: number; task_count?: number};
+  timing?: {month?: number; phase?: string; as_of?: string};
+};
+type ReportSummary = {
+  source_days?: string[];
+  data_days?: number;
+  missing_days?: number;
+  record_count?: number;
+  structured_report?: unknown;
+  report_metrics?: ReportMetrics;
+  guidance_sources?: {title: string; url: string}[];
+  guidance_as_of?: string;
+};
 
 type Report = {
   id: string;
@@ -16,7 +46,7 @@ type Report = {
   stale: boolean;
   error_message?: string | null;
   usage?: {input_tokens: number; output_tokens: number; estimated_cost_usd: number | null};
-  summary?: {source_days?: string[]; data_days?: number; missing_days?: number;record_count?:number;structured_report?:StructuredReport};
+  summary?: ReportSummary;
 };
 
 type AnalysisResponse = {
@@ -81,10 +111,146 @@ function ReportText({body, sourceDays, onOpenDay}: {body: string; sourceDays: st
   })}</div>;
 }
 
-function ReportCards({report}:{report:StructuredReport}) {
+const insightKeys: InsightKey[] = ['topics', 'regularity', 'journal', 'wins', 'improvements', 'timing'];
+const insightIcons = [BookOpen, CalendarDays, NotebookPen, TrendingUp, Lightbulb, Compass];
+const legacyHeadings = ['Genel Durum', 'Çalışma Düzeni', 'Sınav Sonuçları ve Dersler', 'Önümüzdeki 7 Gün İçin Adımlar', 'Verinin Sınırları'];
+const phaseLabels: Record<string, string> = {
+  'sinav-tarihi-belirsiz': 'Sınav tarihi belirtilmemiş',
+  'temel-ve-duzen': 'Temel ve düzen',
+  'konu-ve-ilk-denemeler': 'Konu çalışması ve ilk denemeler',
+  'deneme-ve-hedefli-tekrar': 'Deneme ve hedefli tekrar',
+  'sinav-provalari': 'Sınav provaları',
+  'son-hafta': 'Son hafta',
+};
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isInsightReport(value: unknown): value is InsightReport {
+  return isObject(value) && value.schema_version === 3 && insightKeys.every(key => {
+    const item = value[key];
+    return isObject(item) && typeof item.headline === 'string' && typeof item.text === 'string'
+      && Array.isArray(item.evidence_ids) && (typeof item.course_id === 'string' || item.course_id === null);
+  });
+}
+
+function isLegacyReport(value: unknown): value is LegacyReport {
+  return isObject(value) && value.schema_version === 2 && typeof value.overview === 'string'
+    && ['study_observations', 'result_observations', 'next_actions'].every(key =>
+      Array.isArray(value[key]) && value[key].every((item: unknown) => isObject(item) && typeof item.text === 'string'))
+    && Array.isArray(value.limitations) && value.limitations.every((item: unknown) => typeof item === 'string');
+}
+
+function isCount(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function chartWidth(value: number, maximum: number) {
+  return `${maximum > 0 ? Math.max(0, Math.min(100, value / maximum * 100)) : 0}%`;
+}
+
+function minutesLabel(seconds: number) {
+  return new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 1}).format(seconds / 60);
+}
+
+function dayChartLabel(day: {seconds: number | null; status: string}) {
+  if (day.status === 'rest') return 'Dinlenme günü';
+  if (day.seconds !== null) return `${minutesLabel(day.seconds)} dakika`;
+  if (day.status === 'ongoing') return 'Gün devam ediyor';
+  return 'Çalışma süresi kaydı yok';
+}
+
+function ChartUnavailable() {
+  return <p className={styles.chartUnavailable}>Grafik için yeterli kayıt yok.</p>;
+}
+
+function MetricBar({label, value, maximum, displayValue}: {label: string; value: number; maximum: number; displayValue?: string}) {
+  return <div className={styles.metricBar}>
+    <span>{label}</span><div className={styles.metricTrack} aria-hidden="true"><span style={{width: chartWidth(value, maximum)}}/></div>
+    <strong>{displayValue ?? new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 1}).format(value)}</strong>
+  </div>;
+}
+
+function ReportChart({kind, metrics, startDate, endDate}: {kind: InsightKey; metrics?: ReportMetrics; startDate: string; endDate: string}) {
+  const periodDays = isDate(startDate) && isDate(endDate) ? (Date.parse(endDate) - Date.parse(startDate)) / 86400000 + 1 : 0;
+  const content = (() => {
+    if (kind === 'topics') {
+      const value = metrics?.topics;
+      if (!isCount(value?.completed) || !isCount(value?.progressed)) return <ChartUnavailable/>;
+      const maximum = Math.max(value.completed, value.progressed);
+      return <div className={styles.metricBars}>
+        <MetricBar label="Tamamlanan" value={value.completed} maximum={maximum}/>
+        <MetricBar label="İlerleyen (bitenler dahil)" value={value.progressed} maximum={maximum}/>
+      </div>;
+    }
+    if (kind === 'regularity') {
+      const days = metrics?.regularity?.days;
+      if (!Array.isArray(days) || days.length === 0 || !days.every(day =>
+        isObject(day) && typeof day.date === 'string' && isDate(day.date)
+        && typeof day.status === 'string' && (day.seconds === null || isCount(day.seconds)))) return <ChartUnavailable/>;
+      const maximum = Math.max(...days.map(day => day.seconds ?? 0));
+      return <div className={styles.dailyChart}>{days.map(day => <div className={styles.dayColumn} key={day.date} role="group" aria-label={`${dateLabel(day.date)}: ${dayChartLabel(day)}`} title={`${dateLabel(day.date)}: ${dayChartLabel(day)}`}>
+        <span className={styles.dayValue} aria-hidden="true">{day.status === 'rest' ? 'Din.' : day.seconds === null ? '—' : minutesLabel(day.seconds)}</span>
+        <span className={styles.dayTrack} aria-hidden="true"><span style={{height: chartWidth(day.seconds ?? 0, maximum)}}/></span>
+        <span className={styles.dayLabel} aria-hidden="true">{new Intl.DateTimeFormat('tr-TR', {weekday: 'short', timeZone: 'UTC'}).format(new Date(`${day.date}T12:00:00Z`))}</span>
+      </div>)}</div>;
+    }
+    if (kind === 'journal') {
+      const count = metrics?.journal?.shared_day_count;
+      if (!isCount(count) || periodDays <= 0) return <ChartUnavailable/>;
+      return <div className={styles.singleMetric}><strong>{count} <span>/ {periodDays} gün</span></strong><div className={styles.metricTrack} aria-hidden="true"><span style={{width: chartWidth(count, periodDays)}}/></div></div>;
+    }
+    if (kind === 'wins') {
+      const current = metrics?.wins?.current, previous = metrics?.wins?.previous;
+      if (!isCount(current?.study_seconds) || !isCount(previous?.study_seconds) || !isCount(current?.observed_days) || !isCount(previous?.observed_days)
+        || current.observed_days === 0 || previous.observed_days === 0) return <ChartUnavailable/>;
+      const maximum = Math.max(current.study_seconds, previous.study_seconds);
+      return <div className={styles.metricBars}>
+        <MetricBar label={`Bu dönem · ${current.observed_days} kayıtlı gün`} value={current.study_seconds} maximum={maximum} displayValue={`${minutesLabel(current.study_seconds)} dk`}/>
+        <MetricBar label={`Önceki dönem · ${previous.observed_days} kayıtlı gün`} value={previous.study_seconds} maximum={maximum} displayValue={`${minutesLabel(previous.study_seconds)} dk`}/>
+      </div>;
+    }
+    if (kind === 'improvements') {
+      const value = metrics?.improvements;
+      if (!isCount(value?.task_done) || !isCount(value?.task_count) || value.task_count === 0) return <ChartUnavailable/>;
+      return <div className={styles.singleMetric}><strong>{value.task_done} <span>/ {value.task_count} görev</span></strong><div className={styles.metricTrack} aria-hidden="true"><span style={{width: chartWidth(value.task_done, value.task_count)}}/></div></div>;
+    }
+    const timing = metrics?.timing;
+    if (!isCount(timing?.month) || !Number.isInteger(timing.month) || timing.month < 1 || timing.month > 12) return <ChartUnavailable/>;
+    return <div className={styles.monthChart}>
+      <div className={styles.monthTrack} aria-hidden="true">{Array.from({length: 12}, (_, index) => <span key={index} className={index + 1 === timing.month ? styles.monthActive : undefined}/>)}</div>
+      <div className={styles.monthLabels}><span>Ocak</span><strong>{new Intl.DateTimeFormat('tr-TR', {month: 'long', timeZone: 'UTC'}).format(new Date(Date.UTC(2026, timing.month - 1, 1)))}</strong><span>Aralık</span></div>
+      {timing.phase && <p className={styles.phaseLabel}>{phaseLabels[timing.phase] ?? timing.phase}</p>}
+    </div>;
+  })();
+  const captions: Record<InsightKey, string> = {
+    topics: 'Konu kayıtları', regularity: 'Son günlerde çalışma · dakika', journal: 'Analize paylaşılan günlük günleri',
+    wins: 'Kayıtlı çalışma süresi', improvements: 'Tamamlanan görevler', timing: 'Önerinin hazırlandığı ay',
+  };
+  return <figure className={styles.reportChart} data-testid={`report-chart-${kind}`}><figcaption>{captions[kind]}</figcaption>{content}</figure>;
+}
+
+function ReportInsights({report, summary, startDate, endDate}: {report: InsightReport; summary?: ReportSummary; startDate: string; endDate: string}) {
+  const sources = (Array.isArray(summary?.guidance_sources) ? summary.guidance_sources : [])
+    .filter(source => source && typeof source.title === 'string' && typeof source.url === 'string' && /^https:\/\//i.test(source.url));
+  return <div className={styles.reportInsights}>{insightKeys.map((key, index) => {
+    const Icon = insightIcons[index];
+    const item = report[key];
+    return <section key={key} className={styles.insightCard} data-testid={`report-insight-${key}`}>
+      <div className={styles.insightTop}><span className={styles.insightNumber}>{String(index + 1).padStart(2, '0')}</span><h4>{REPORT_HEADINGS[index]}</h4><Icon size={17} aria-hidden="true"/></div>
+      <strong className={styles.insightHeadline}>{item.headline}</strong>
+      <p className={styles.insightText}>{item.text}</p>
+      <ReportChart kind={key} metrics={summary?.report_metrics} startDate={startDate} endDate={endDate}/>
+      {key === 'timing' && sources.length > 0 && <div className={styles.guidanceSources}><strong>Dayanaklar</strong><div>{sources.map(source => <a key={source.url} href={source.url} target="_blank" rel="noopener noreferrer">{source.title}<ArrowRight size={12} aria-hidden="true"/></a>)}</div>{summary?.guidance_as_of && isDate(summary.guidance_as_of) && <small>Öneri tarihi: {dateLabel(summary.guidance_as_of)}</small>}</div>}
+    </section>;
+  })}</div>;
+}
+
+function LegacyReportCards({report}:{report:LegacyReport}) {
   const sections=[[report.overview],report.study_observations.map(x=>x.text),report.result_observations.map(x=>x.text),report.next_actions.map(x=>x.text),report.limitations];
-  return <div className={styles.fiveCards}>{sections.map((items,index)=><section key={REPORT_HEADINGS[index]} className={styles.reportSection}>
-    <h4>{REPORT_HEADINGS[index]}</h4>{items.length?items.map((text,i)=><p key={i}>{text}</p>):<p>Bu başlık için yeterli kayıt yok.</p>}
+  return <div className={styles.fiveCards}>{sections.map((items,index)=><section key={legacyHeadings[index]} className={styles.reportSection}>
+    <h4>{legacyHeadings[index]}</h4>{items.length?items.map((text,i)=><p key={i}>{text}</p>):<p>Bu başlık için yeterli kayıt yok.</p>}
   </section>)}</div>;
 }
 
@@ -198,7 +364,7 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
       <div className={styles.actionGrid}>
         <section className={styles.actionCard} aria-labelledby="manual-report-title">
           <div className={styles.sectionHeader}><span className={styles.sectionIcon}><FileText size={19} aria-hidden="true"/></span><div><p className={styles.eyebrow}>İSTEĞE BAĞLI</p><h3 id="manual-report-title">Dönem raporu</h3></div></div>
-          <p className={styles.cardDescription}>İncelemek istediğin tarih aralığını seç. Yeni analiz isteği API kullanımı doğurabilir.</p>
+          <p className={styles.cardDescription}>İncelemek istediğin tarih aralığını seç. Altı başlık tek raporda hazırlanır; yeni analiz isteği API kullanımı doğurabilir.</p>
           <form className={styles.dateForm} onSubmit={event => {event.preventDefault(); if (rangeValid) void submit({action: 'report', start_date: startDate, end_date: endDate});}}>
             <label>Rapor dönemi<select value={Math.round((Date.parse(endDate)-Date.parse(startDate))/86400000)+1} onChange={event=>{setEndDate(day);setStartDate(shiftDate(day,1-Number(event.target.value)));}}>{[7,14,30].map(days=><option key={days} value={days}>Son {days} gün</option>)}</select></label>
             <label>Başlangıç<input type="date" value={startDate} max={endDate || day} onChange={event => setStartDate(event.target.value)} required/></label>
@@ -221,7 +387,11 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
               {report.status === 'uncertain' && <p className={styles.failedText}>Son isteğin sonucu doğrulanamadı. Yeni ücretli istek gönderilmez; destek için işlem durumunu kontrol et.</p>}
               {(report.status === 'running' || report.status === 'pending') && <p className={styles.runningText}>Rapor sunucuda hazırlanıyor. Bir süre sonra yenile.</p>}
               {typeof report.summary?.record_count==='number'&&<p>Hesaplanan kayıt sayısı: {report.summary.record_count}</p>}
-              {report.status==='completed'&&(report.summary?.structured_report?<ReportCards report={report.summary.structured_report}/>:report.body&&<ReportText body={report.body} sourceDays={report.summary?.source_days??[]} onOpenDay={onOpenDay}/>)}
+              {report.status === 'completed' && (isInsightReport(report.summary?.structured_report)
+                ? <ReportInsights report={report.summary.structured_report} summary={report.summary} startDate={report.start_date} endDate={report.end_date}/>
+                : isLegacyReport(report.summary?.structured_report)
+                  ? <LegacyReportCards report={report.summary.structured_report}/>
+                  : report.body && <ReportText body={report.body} sourceDays={report.summary?.source_days ?? []} onOpenDay={onOpenDay}/>)}
               {Boolean(report.summary?.source_days?.length) && <div className={styles.sourceDays}><strong>Kaynak günler</strong><div>{report.summary?.source_days?.map(sourceDay => <button key={sourceDay} type="button" onClick={() => onOpenDay(sourceDay)}>{dateLabel(sourceDay)} <ArrowRight size={12} aria-hidden="true"/></button>)}</div></div>}
               {report.usage && <p className={styles.reportUsage}>API kullanımı: {report.usage.input_tokens.toLocaleString('tr-TR')} giriş + {report.usage.output_tokens.toLocaleString('tr-TR')} çıkış tokenı{report.usage.estimated_cost_usd !== null ? ` · yaklaşık ${usd(report.usage.estimated_cost_usd)}` : ' · maliyet hesaplanamadı'}</p>}
             </div>

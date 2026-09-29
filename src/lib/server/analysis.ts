@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { AppState } from '../domain/types';
-import { buildAnalysisSnapshot, buildStudentAnalysisSnapshot } from '../analysis-snapshot';
+import { buildAnalysisSnapshot, buildSixInsightSnapshot, buildStudentAnalysisSnapshot } from '../analysis-snapshot';
+import { GUIDANCE_SOURCES, REPORT_SCHEMA_VERSION } from '../ai-report';
 import { localDate } from '../ui';
 import { getState } from './service';
 import { getConfiguration } from './auth';
@@ -38,9 +39,13 @@ export async function getAnalysisStatus(client:SupabaseClient){
   const hashes=new Map<string,string>();
   if(current.length){
     const state=await getState(client);
-    for(const row of current){const key=row.start_date+'/'+row.end_date+'/'+(row.summary?.schema_version??1);
+    for(const row of current){const version=row.summary?.schema_version??1;
+      const asOf=version===3&&typeof row.summary?.guidance_as_of==='string'?row.summary.guidance_as_of:'';
+      const key=row.start_date+'/'+row.end_date+'/'+version+'/'+asOf;
       if(!hashes.has(key)){
-        try{hashes.set(key,(row.summary?.schema_version===2?buildStudentAnalysisSnapshot:buildAnalysisSnapshot)(state,row.start_date,row.end_date).sourceHash);}catch{hashes.set(key,'');}
+        try{hashes.set(key,version===3?buildSixInsightSnapshot(state,row.start_date,row.end_date,asOf||undefined).sourceHash
+          :version===2?buildStudentAnalysisSnapshot(state,row.start_date,row.end_date).sourceHash
+          :buildAnalysisSnapshot(state,row.start_date,row.end_date).sourceHash);}catch{hashes.set(key,'');}
       }
     }
   }
@@ -48,7 +53,8 @@ export async function getAnalysisStatus(client:SupabaseClient){
   return {ok:true,configured:Boolean(config&&analysisServiceConfigured()&&(usage.data as UsageRow)?.enabled),model:process.env.OPENAI_MODEL?.trim()||null,
     scheduler_ready:schedulerReady(),schedule:settings.data as ScheduleRow,
     reports:rows.map(row=>({id:row.id,start_date:row.start_date,end_date:row.end_date,status:row.status,body:row.body,
-      created_at:row.created_at,stale:row.status==='completed'&&hashes.get(row.start_date+'/'+row.end_date+'/'+(row.summary?.schema_version??1))!==row.source_hash,
+      created_at:row.created_at,stale:row.status==='completed'&&hashes.get(row.start_date+'/'+row.end_date+'/'+(row.summary?.schema_version??1)+'/'+
+        (row.summary?.schema_version===3&&typeof row.summary?.guidance_as_of==='string'?row.summary.guidance_as_of:''))!==row.source_hash,
       error_message:row.error_message,summary:row.summary,usage:row.usage})),
     resets_at:(usage.data as UsageRow)?.resets_at??null,
     limits:{monthly_requests:4,
@@ -67,7 +73,7 @@ export async function generateAnalysisForState(options:{owner:string;state:AppSt
 }){
   const config=getAnalysisProviderConfig();
   if(!config)throw new ApiError(503,'ANALYSIS_SETUP_REQUIRED','OpenAI API anahtarı, model ve maliyet sınırları henüz kurulmadı.');
-  const {snapshot,sourceHash}=buildStudentAnalysisSnapshot(options.state,options.start,options.end);
+  const {snapshot,sourceHash}=buildSixInsightSnapshot(options.state,options.start,options.end);
   if(snapshot.summary.data_days===0)throw new ApiError(400,'ANALYSIS_NO_DATA','Bu aralıkta değerlendirilecek kayıt yok. AI hakkı kullanılmadı.');
   const prompt=providerPayload(snapshot);
   const reservation=reservedCostUsd(config,prompt);
@@ -90,7 +96,9 @@ export async function generateAnalysisForState(options:{owner:string;state:AppSt
     const marked=await admin.rpc('ai_mark_sent',{p_user_id:options.owner,p_kind:'report',p_id:value.report.id,p_request_id:options.requestId});
     if(marked.error)throw databaseSetupError();
     const generated=await requestAnalysis(config,prompt);
-    const summary={...snapshot.summary,schema_version:2,structured_report:generated.analysis,evidence:snapshot.evidence};
+    const summary={...snapshot.summary,schema_version:REPORT_SCHEMA_VERSION,structured_report:generated.analysis,
+      evidence:snapshot.evidence,report_metrics:snapshot.report_metrics,guidance_as_of:snapshot.timing_guidance.as_of,
+      guidance_sources:snapshot.education.yks_goal===false?[]:GUIDANCE_SOURCES.map(source=>({title:source.title,url:source.url}))};
     const result=await admin.rpc('analysis_report_finalize',{p_user_id:options.owner,p_report_id:value.report.id,
       p_request_id:options.requestId,p_body:formatAnalysis(generated.analysis),p_summary:summary,
       p_usage:generated.usage,p_actual_cost_usd:generated.cost});

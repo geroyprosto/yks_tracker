@@ -1,39 +1,42 @@
 import {z} from 'zod';
 
-export const REPORT_SCHEMA_VERSION = 2;
-export const REPORT_HEADINGS = ['Genel Durum', 'Çalışma Düzeni', 'Sınav Sonuçları ve Dersler', 'Önümüzdeki 7 Gün İçin Adımlar', 'Verinin Sınırları'] as const;
+export const REPORT_SCHEMA_VERSION = 3;
+export const REPORT_KEYS = ['topics','regularity','journal','wins','improvements','timing'] as const;
+export const REPORT_HEADINGS = ['Konu İlerlemesi','Çalışma Düzeni','Günlükten Notlar','Bu Haftanın Güçlü Yanları','İyileştirilecekler','Döneme Göre Yol Haritası'] as const;
+export const GUIDANCE_SOURCES = [
+  {title:'MEB · YKS hazırlık programları',url:'https://seben.meb.gov.tr/www/yks039ye-hazirlik-programlari-yks039ye-nasil-hazirlanmaliyim/icerik/503',principle:'Programı okul saatlerine ve günlük rutine göre uyarlamak gerekir.'},
+  {title:'MEB · 2026-2027 MEBİ deneme takvimi',url:'https://www.meb.gov.tr/mebi-2026-2027-yks-ve-lgs-deneme-takvimi-belli-oldu/haber/41943/tr',principle:'Yıl boyunca aralıklı denemeler ve sonuçlardan konu eksiklerini belirleyip planı bireysel ihtiyaçlara göre düzenleme önerilir.'},
+  {title:'Özyeğin Üniversitesi · YKS hazırlık stratejileri (2025)',url:'https://aday.ozyegin.edu.tr/yksye-nasil-hazirlanilir-2025-icin-etkili-stratejiler/',principle:'Ekim-Kasım temel ve düzen; Aralık-Ocak konu kapanışı ve TYT/AYT deneme dengesi; sonraki aylarda deneme analizi artabilir. Bunlar örnek takvimdir.'},
+  {title:'ODİS · Planlı çalışma ve deneme sistemi',url:'https://odisegitim.com/egitim-rehberi-yazilarimiz/kadikoyde-yks-hazirlik-planli-calisma-ve-deneme-odakli-sistem/',principle:'Haftalık plan okul temposunu ve deneme günlerini hesaba katmalı; TYT/AYT dengesi ile deneme analizi öğrenciye göre ayarlanmalı.'},
+] as const;
 export const countWords = (text: string) => text.trim().split(/\s+/u).filter(Boolean).length;
 const shortText = (words: number) => z.string().trim().min(1).max(words * 30).refine(text => countWords(text) <= words, 'Metin kelime sınırını aşıyor.');
-const item = (words: number) => z.object({text: shortText(words), evidence_ids: z.array(z.string().max(100)).max(4), course_id: z.string().max(100).nullable()}).strict();
+const reportCardSchema = z.object({headline:shortText(8),text:shortText(45),evidence_ids:z.array(z.string().max(100)).max(4),course_id:z.string().max(100).nullable()}).strict();
 export const reportSchema = z.object({
-  schema_version: z.literal(REPORT_SCHEMA_VERSION), overview: shortText(35),
-  study_observations: z.array(item(25)).max(2), result_observations: z.array(item(25)).min(1).max(2),
-  next_actions: z.array(item(20)).max(3), limitations: z.array(shortText(25)).max(2),
+  schema_version:z.literal(REPORT_SCHEMA_VERSION),
+  topics:reportCardSchema,regularity:reportCardSchema,journal:reportCardSchema,
+  wins:reportCardSchema,improvements:reportCardSchema,timing:reportCardSchema,
 }).strict();
 export type StructuredReport = z.infer<typeof reportSchema>;
 export function reportTexts(report: StructuredReport) {
-  return [report.overview, ...report.study_observations.map(x => x.text), ...report.result_observations.map(x => x.text), ...report.next_actions.map(x => x.text), ...report.limitations];
+  return REPORT_KEYS.flatMap(key=>[report[key].headline,report[key].text]);
 }
 export function validateStructuredReport(value: unknown, evidenceIds: readonly string[], courseIds: readonly string[]): StructuredReport {
   const parsed = reportSchema.parse(value);
   const evidence = new Set(evidenceIds), courses = new Set(courseIds);
-  for (const item of [...parsed.study_observations, ...parsed.result_observations, ...parsed.next_actions]) {
-    if (item.evidence_ids.some(id => !evidence.has(id)) || (item.course_id !== null && !courses.has(item.course_id))) throw new Error('İzin verilmeyen rapor kaynağı veya ders.');
+  for (const key of REPORT_KEYS) {
+    const card=parsed[key];
+    if (card.evidence_ids.some(id => !evidence.has(id)) || (card.course_id !== null && !courses.has(card.course_id))) throw new Error('İzin verilmeyen rapor kaynağı veya ders.');
   }
-  const texts = reportTexts(parsed);
-  if (countWords(texts.join(' ')) > 250) throw new Error('Rapor 250 kelimeyi aşıyor.');
-  const normalized = texts.map(text => text.toLocaleLowerCase('tr-TR').replace(/[\p{P}\p{S}]/gu, '').trim());
-  if (new Set(normalized).size !== normalized.length) throw new Error('Raporda yinelenen metin var.');
+  if (countWords(reportTexts(parsed).join(' ')) > 300) throw new Error('Rapor 300 kelimeyi aşıyor.');
   return parsed;
 }
-const jsonItem = {type: 'object', additionalProperties: false, required: ['text','evidence_ids','course_id'], properties: {
-  text: {type:'string'}, evidence_ids: {type:'array',maxItems:4,items:{type:'string'}}, course_id:{type:['string','null']},
+const jsonItem = {type: 'object', additionalProperties: false, required: ['headline','text','evidence_ids','course_id'], properties: {
+  headline:{type:'string'},text: {type:'string'}, evidence_ids: {type:'array',maxItems:4,items:{type:'string'}}, course_id:{type:['string','null']},
 }};
 export const reportJsonSchema = {type:'object',additionalProperties:false,
-  required:['schema_version','overview','study_observations','result_observations','next_actions','limitations'],
-  properties:{schema_version:{type:'integer',enum:[REPORT_SCHEMA_VERSION]},overview:{type:'string'},
-    study_observations:{type:'array',maxItems:2,items:jsonItem},result_observations:{type:'array',minItems:1,maxItems:2,items:jsonItem},
-    next_actions:{type:'array',maxItems:3,items:jsonItem},limitations:{type:'array',maxItems:2,items:{type:'string'}}}};
+  required:['schema_version',...REPORT_KEYS],
+  properties:{schema_version:{type:'integer',enum:[REPORT_SCHEMA_VERSION]},...Object.fromEntries(REPORT_KEYS.map(key=>[key,jsonItem]))}};
 
 export function istanbulBillingMonth(at: Date) {
   const parts = new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Istanbul',year:'numeric',month:'2-digit'}).formatToParts(at);

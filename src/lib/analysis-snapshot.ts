@@ -3,7 +3,7 @@ import type { AppState, JournalEntry, Task } from './domain/types';
 import { taskCompletion } from './progress';
 import { buildStudyReport } from './study-report';
 import { localDate } from './ui';
-import {REPORT_SCHEMA_VERSION} from './ai-report';
+import {GUIDANCE_SOURCES,REPORT_SCHEMA_VERSION} from './ai-report';
 import {secondsByDay} from './timing';
 
 const DAY=/^\d{4}-\d{2}-\d{2}$/;
@@ -116,9 +116,87 @@ export function buildStudentAnalysisSnapshot(state:AppState,start:string,end:str
     +selectedSessions.length+selected.length
     +state.practice_entries.filter(row=>row.practice_date>=start&&row.practice_date<=end).length
     +(state.manual_study_entries??[]).filter(row=>row.study_date>=start&&row.study_date<=end).length;
-  const snapshot={schema_version:REPORT_SCHEMA_VERSION,period:base.snapshot.period,
+  const snapshot={schema_version:2,period:base.snapshot.period,
     education:profile?{level:profile.education_level,grade:profile.grade,department:profile.department,university_year:profile.university_year,yks_goal:profile.yks_goal,active_term_id:profile.active_term_id}:{level:'graduate',yks_goal:true},
     courses,results,evidence,course_study:courseStudy,summary:{...base.snapshot.summary,subjects:undefined,source_days:sourceDays,data_days:sourceDays.length,
       record_count:recordCount,course_result_count:selected.length,omitted_result_count:selected.length-results.length},days:base.snapshot.days};
+  return {snapshot,sourceHash:createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')};
+}
+
+function shiftDay(day:string,amount:number){
+  const value=new Date(`${day}T12:00:00Z`);value.setUTCDate(value.getUTCDate()+amount);return value.toISOString().slice(0,10);
+}
+function preparationPhase(daysUntilExam:number|null,month:number){
+  if(daysUntilExam===null){
+    if(month>=9&&month<=11)return 'Takvime göre temel ve düzen (örnek)';
+    if(month===12||month===1)return 'Takvime göre konu ve ilk denemeler (örnek)';
+    if(month>=2&&month<=3)return 'Takvime göre deneme ve hedefli tekrar (örnek)';
+    if(month>=4&&month<=6)return 'Takvime göre sınav provası (örnek)';
+    return 'Temel ve çalışma düzeni (örnek)';
+  }
+  if(daysUntilExam>180)return 'Temel ve düzen';
+  if(daysUntilExam>90)return 'Konu ve ilk denemeler';
+  if(daysUntilExam>30)return 'Deneme ve hedefli tekrar';
+  if(daysUntilExam>7)return 'Sınav provaları';
+  return 'Son hafta';
+}
+
+/** New six-card input. The v2 builder above remains stable for saved report hashes. */
+export function buildSixInsightSnapshot(state:AppState,start:string,end:string,guidanceAsOf?:string){
+  const base=buildStudentAnalysisSnapshot(state,start,end);
+  const timezone=state.settings?.timezone??'Europe/Istanbul';
+  const asOf=guidanceAsOf??localDate(Date.parse(state.server_now),timezone);
+  if(!DAY.test(asOf)||Number.isNaN(Date.parse(`${asOf}T12:00:00Z`)))throw new Error('Geçerli rehberlik tarihi gerekli.');
+  const periodDays=Math.round((Date.parse(`${end}T12:00:00Z`)-Date.parse(`${start}T12:00:00Z`))/86400000)+1;
+  const priorStart=shiftDay(start,-periodDays),priorEnd=shiftDay(start,-1);
+  const previous=buildStudyReport(state,{start:priorStart,end:priorEnd},Date.parse(state.server_now));
+  const current=base.snapshot.days;
+  const observed=(days:typeof current)=>days.filter(day=>day.status==='worked'||day.status==='zero').length;
+  const priorObserved=previous.days.filter(day=>day.status==='worked'||day.status==='zero').length;
+  const topicById=new Map(state.topics.map(topic=>[topic.id,topic]));
+  const changes=new Map<string,{id:string;exam:'TYT'|'AYT';subject:string;name:string;from_mastery:number;to_mastery:number;last_changed_at:string;date:string}>();
+  const history=[...state.topic_history].filter(row=>{
+    const date=localDate(Date.parse(row.changed_at),timezone);
+    return date>=start&&date<=end&&topicById.has(row.topic_id)&&row.old_mastery!==row.new_mastery;
+  }).sort((a,b)=>a.changed_at.localeCompare(b.changed_at));
+  for(const row of history){
+    const topic=topicById.get(row.topic_id)!;
+    const date=localDate(Date.parse(row.changed_at),timezone);
+    const previousChange=changes.get(row.topic_id);
+    changes.set(row.topic_id,{id:row.topic_id,exam:topic.exam,subject:topic.subject,name:topic.name,
+      from_mastery:previousChange?.from_mastery??row.old_mastery,to_mastery:row.new_mastery,last_changed_at:row.changed_at,date});
+  }
+  const allProgress=[...changes.values()].sort((a,b)=>b.last_changed_at.localeCompare(a.last_changed_at));
+  const completed=allProgress.filter(topic=>topic.from_mastery<2&&topic.to_mastery>=2).length;
+  const progressed=allProgress.filter(topic=>topic.to_mastery>topic.from_mastery).length;
+  const topicProgress=allProgress.slice(0,40);
+  const topicDays=allProgress.map(row=>row.date);
+  const sourceDays=[...new Set([...base.snapshot.summary.source_days,...topicDays])].sort();
+  const evidence=[...base.snapshot.evidence,...sourceDays.filter(date=>!base.snapshot.summary.source_days.includes(date)).map(date=>({id:`day:${date}`,date})),
+    ...previous.days.filter(day=>day.seconds>0||day.status==='zero').map(day=>({id:`day:${day.date}`,date:day.date}))];
+  const examDate=state.settings?.exam_date??null;
+  const daysUntilExam=examDate&&DAY.test(examDate)&&examDate>=asOf
+    ?Math.round((Date.parse(`${examDate}T12:00:00Z`)-Date.parse(`${asOf}T12:00:00Z`))/86400000):null;
+  const yksGoal=base.snapshot.education.yks_goal!==false;
+  const phase=yksGoal?preparationPhase(daysUntilExam,Number(asOf.slice(5,7))):'Ders planı ve düzen';
+  const sharedDayCount=current.filter(day=>day.journal!==null).length;
+  const currentStudySeconds=current.reduce((sum,day)=>sum+day.seconds,0);
+  const reportMetrics={
+    topics:{completed,progressed},
+    regularity:{days:current.slice(-7).map(day=>({date:day.date,seconds:day.seconds>0||day.status==='zero'?day.seconds:null,status:day.status}))},
+    journal:{shared_day_count:sharedDayCount},
+    wins:{current:{observed_days:observed(current),study_seconds:currentStudySeconds},previous:{observed_days:priorObserved,study_seconds:previous.totalSeconds}},
+    improvements:{task_done:state.tasks.filter(task=>task.plan_date>=start&&task.plan_date<=end&&taskCompletion(task)===1).length,
+      task_count:state.tasks.filter(task=>task.plan_date>=start&&task.plan_date<=end).length},
+    timing:{month:Number(asOf.slice(5,7)),phase,as_of:asOf},
+  };
+  const snapshot={...base.snapshot,schema_version:REPORT_SCHEMA_VERSION,
+    summary:{...base.snapshot.summary,source_days:sourceDays,data_days:sourceDays.length},evidence,
+    topic_progress:topicProgress,omitted_topic_progress_count:allProgress.length-topicProgress.length,
+    prior_period:{start:priorStart,end:priorEnd,observed_days:priorObserved,worked_days:previous.workedDays,
+      study_seconds:previous.totalSeconds,exam_count:previous.days.reduce((sum,day)=>sum+day.exams,0)},
+    timing_guidance:{as_of:asOf,exam_date:daysUntilExam===null?null:examDate,days_until_exam:daysUntilExam,
+      phase,month:Number(asOf.slice(5,7)),sources:yksGoal?GUIDANCE_SOURCES.map(source=>({title:source.title,url:source.url,principle:source.principle})):[]},
+    report_metrics:reportMetrics};
   return {snapshot,sourceHash:createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')};
 }

@@ -36,7 +36,10 @@
 .focus-brand{display:flex;gap:10px;align-items:center;font-size:15px;font-weight:700;letter-spacing:-.25px;color:#fff}
 .focus-brand>svg{color:var(--focus-soft)}
 .focus-brand>span{margin-left:11px;padding-left:19px;border-left:1px solid #ffffff25;font-size:11px;letter-spacing:.1px;font-weight:400;color:#ffffff94}
+.focus-topbar-actions{display:flex;align-items:center;gap:12px}
 .focus-preview-badge{padding:5px 10px;border:1px solid color-mix(in srgb,var(--focus-neon) 30%,transparent);background:color-mix(in srgb,var(--focus-neon) 8%,transparent);border-radius:20px;color:var(--focus-soft);font-size:10px;white-space:nowrap}
+.focus-simple-trigger{min-height:36px;padding:8px 14px;border:1px solid #ffffff4a;border-radius:10px;background:#ffffff12;color:#fff;font-size:11px;font-weight:600;cursor:pointer}
+.focus-simple-trigger:hover{background:#ffffff24}
 .focus-timer-body{width:min(950px,100%);margin:auto;position:relative;padding:38px 0 34px;display:flex;flex-direction:column;align-items:center;text-align:center;flex-shrink:0}
 .focus-timer-heading{width:100%;max-width:700px}
 .focus-timer-eyebrow{color:var(--focus-soft);font-size:11px;font-weight:600;letter-spacing:3px;text-transform:uppercase;margin-bottom:17px}
@@ -146,3 +149,32 @@
 .focus-setup .focus-title{grid-column:1/-1}
 .focus-setup .focus-start{grid-column:1/-1;justify-self:center;min-height:46px;min-width:190px;max-width:100%;margin-top:4px}
 .focus-setup:not(:has(.focus-duration)) .focus-mode{grid-column:1/-1}
+
+.timer-focus-screen--simple{display:block;padding:0;background:#000;color:#bdbdbd;overflow:auto}
+.simple-timer{position:relative;min-height:100%;display:flex;align-items:center;justify-content:center;padding:42px 24px}
+.simple-timer-close{position:fixed;top:5px;right:5px;z-index:3;display:grid;place-items:center;width:44px;height:44px;border:0;background:transparent;color:#1e1e1e;cursor:pointer}
+.simple-timer-close::before{content:'';position:absolute;width:20px;height:20px;border-radius:50%;background:#f5f5f7}
+.simple-timer-close svg{position:relative}
+.simple-timer-content{width:min(1488px,calc(100vw - 48px),calc((100dvh - 160px)*3 + 48px));display:flex;flex-direction:column;align-items:center;gap:48px}
+.simple-timer-digits{width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px}
+.simple-digit-unit{position:relative;container-type:inline-size;display:grid;place-items:center;aspect-ratio:1;min-width:0;overflow:hidden;border-radius:24px;background:#202020}
+.simple-digit-unit::after{content:'';position:absolute;top:calc(50% - 4px);left:0;right:0;height:8px;background:#000;pointer-events:none}
+.simple-digit-value{font-family:Arial,Helvetica,sans-serif;font-variant-numeric:tabular-nums;font-size:min(82cqw,400px);font-weight:800;line-height:1;letter-spacing:-.08em;color:#bdbdbd;transform:scaleX(.83)}
+.simple-timer-actions{display:flex;align-items:center;justify-content:center;gap:24px;min-height:46px}
+.simple-timer-control{display:grid;place-items:center;width:46px;height:46px;border:0;border-radius:50%;background:#f5f5f7;color:#6d6d79;cursor:pointer}
+.simple-timer-control:hover,.simple-timer-close:hover::before{background:#d9d9dc}
+.simple-timer-control:disabled{opacity:.45;cursor:not-allowed}
+.timer-focus-screen--simple :is(button,input):focus-visible{outline:2px solid #fff;outline-offset:5px}
+.simple-timer-error{max-width:520px;margin:-20px 0 -20px;padding:10px 14px;border:1px solid #ff9ba7;border-radius:8px;color:#fff;font-size:12px;text-align:center}
+.simple-timer-review{width:min(520px,100%);margin:-20px 0 -20px;color:#fff}
+.simple-timer-review .review-box{display:flex;flex-direction:column;gap:7px;margin:0;border:1px solid #666;background:#202020;color:#fff;line-height:1.6}
+.simple-timer-review .review-box input{min-height:42px;padding:9px 12px;border:1px solid #777;border-radius:8px;background:#101010;color:#fff}
+.simple-timer-hint{margin:-30px 0 0;color:#bdbdbd;font-size:12px;text-align:center}
+.simple-timer-preview{margin:-30px 0 0;color:#999;font-size:11px;text-align:center}
+@media(max-width:700px){
+  .simple-timer{padding:44px 16px}
+  .simple-timer-content{width:min(calc(100vw - 32px),calc((100dvh - 140px)*3 + 16px));gap:28px}
+  .simple-timer-digits{gap:8px}
+  .simple-digit-unit{border-radius:14px}
+  .simple-digit-unit::after{top:calc(50% - 2px);height:4px}
+}

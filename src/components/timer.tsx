@@ -1,6 +1,6 @@
 'use client';
 
-import {useContext, useEffect, useState, type FormEvent} from 'react';
+import {useContext, useEffect, useState} from 'react';
 import {Maximize2, Minus, Pause, Play, Plus, Square} from 'lucide-react';
 import type {AppState, StudySession, StudyType} from '@/lib/domain/types';
 import {clockText, type CommandFn} from '@/lib/ui';
@@ -123,9 +123,8 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
     return command(type, {id: active.id, expected_revision: active.revision, ...(type === 'timer.finish' && needsReview ? {confirmed_seconds: confirmedSeconds} : {})});
   };
 
-  const start = async (event: FormEvent<HTMLFormElement>, isFocus: boolean, instant: number) => {
-    event.preventDefault();
-    if (busy || !canStart) return;
+  const start = async (isFocus: boolean, instant: number) => {
+    if (busy || !canStart || (!preview && !state.authenticated)) return;
     const payload = {
       title: generatedTitle,
       task_id: null,
@@ -145,8 +144,7 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
       onClose();
     }
   };
-
-  const setup = (isFocus: boolean) => <form className={'timer-setup timer-setup--' + (isFocus ? 'focus' : 'modal')} onSubmit={event => void start(event, isFocus, Date.now())}>
+  const setup = (isFocus: boolean) => <form className={'timer-setup timer-setup--' + (isFocus ? 'focus' : 'modal')} onSubmit={event => {event.preventDefault(); void start(isFocus, Date.now());}}>
     <div className="timer-setup-head">
       <p className="eyebrow">Yeni odak oturumu</p>
       <h3>{isFocus ? 'Bugün neye odaklanacaksın?' : 'Ne çalışacaksın?'}</h3>
@@ -208,6 +206,7 @@ export function TimerPanel({state, command, busy, offset, expanded, focus, origi
     subtitle={active ? [active.study_type, active.subject].filter(Boolean).join(' · ') : 'Kendi ritminde çalışmaya başla.'}
     status={active ? (done ? 'done' : active.status === 'paused' ? 'paused' : 'running') : 'ready'}
     preview={preview} busy={busy} origin={origin} onMinimize={onClose}
+    canStart={canStart && (preview || state.authenticated)} onStart={instant => void start(true, instant)}
     onPauseResume={() => void transition(active?.status === 'running' ? 'timer.pause' : 'timer.resume')}
     onFinish={() => transition('timer.finish')} canFinish={reviewValid} review={reviewField} error={error}
     setup={!active ? setup(true) : undefined}

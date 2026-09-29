@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect, useId, useRef, useState, type ReactNode} from 'react';
-import {Check, Minimize2, Pause, Play, Square, Timer} from 'lucide-react';
+import {Check, Minimize2, Pause, Play, Square, Timer, X} from 'lucide-react';
 
 export type FocusOrigin = {left: number; top: number; width: number; height: number};
 
@@ -17,6 +17,8 @@ type TimerFocusViewProps = {
   origin: FocusOrigin | null;
   onMinimize: () => void;
   onPauseResume: () => void;
+  onStart: (instant: number) => void;
+  canStart: boolean;
   onFinish: () => Promise<boolean>;
   canFinish: boolean;
   setup?: ReactNode;
@@ -48,7 +50,8 @@ function collapsedFrame(origin: FocusOrigin | null, screen: HTMLElement) {
 const expandedFrame = {transform: 'translate(0, 0) scale(1, 1)', opacity: 1, borderRadius: '0px'};
 
 export function TimerFocusView(props: TimerFocusViewProps) {
-  const {busy, origin, onMinimize, onPauseResume, onFinish, canFinish, error} = props;
+  const {busy, origin, onMinimize, onPauseResume, onStart, canStart, onFinish, canFinish, error} = props;
+  const [simpleMode, setSimpleMode] = useState(false);
   const [finishSnapshot, setFinishSnapshot] = useState<FinishSnapshot | null>(null);
   const [finishError, setFinishError] = useState('');
   const finishingRef = useRef(false);
@@ -61,6 +64,18 @@ export function TimerFocusView(props: TimerFocusViewProps) {
   const initialOrigin = useRef(origin);
   const titleId = useId();
   const descriptionId = useId();
+  const simpleTriggerRef = useRef<HTMLButtonElement>(null);
+  const simpleCloseRef = useRef<HTMLButtonElement>(null);
+  const openedSimpleRef = useRef(false);
+
+  useEffect(() => {
+    if (simpleMode) {
+      openedSimpleRef.current = true;
+      simpleCloseRef.current?.focus({preventScroll: true});
+    } else if (openedSimpleRef.current) {
+      simpleTriggerRef.current?.focus({preventScroll: true});
+    }
+  }, [simpleMode]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -153,8 +168,28 @@ export function TimerFocusView(props: TimerFocusViewProps) {
     : mode === 'countdown' ? 'Geri sayım devam ediyor' : 'Odak süren birikiyor';
   const accessibleTime = `${showHours ? `${hours} saat ` : ''}${minutes} dakika ${remainder} saniye`;
 
-  return <dialog ref={dialogRef} className="timer-focus-dialog" aria-label="Odak ekranı" aria-describedby={descriptionId} onCancel={event => {event.preventDefault(); minimize();}}>
-    <div ref={screenRef} className="timer-focus-screen" data-status={status}>
+  return <dialog ref={dialogRef} className="timer-focus-dialog" aria-label={simpleMode ? 'Sade mod' : 'Odak ekranı'} aria-describedby={simpleMode ? undefined : descriptionId} onCancel={event => {event.preventDefault(); if (simpleMode) setSimpleMode(false); else minimize();}}>
+    <div ref={screenRef} className={`timer-focus-screen${simpleMode ? ' timer-focus-screen--simple' : ''}`} data-status={status}>
+      {simpleMode ? <div className="simple-timer">
+        <button ref={simpleCloseRef} type="button" className="simple-timer-close" aria-label="Sade modu kapat" title="Sade modu kapat (Esc)" onClick={() => setSimpleMode(false)}><X size={13} aria-hidden="true" /></button>
+        <div className="simple-timer-content">
+          <div className="simple-timer-digits" role="timer" aria-live="off" aria-label={`${hours} saat ${minutes} dakika ${remainder} saniye`}>
+            {[
+              {unit: 'hours', value: hours},
+              {unit: 'minutes', value: minutes},
+              {unit: 'seconds', value: remainder},
+            ].map(({unit, value}) => <div className="simple-digit-unit" data-unit={unit} key={unit} aria-hidden="true"><span className="simple-digit-value">{String(value).padStart(2, '0')}</span></div>)}
+          </div>
+          {(error || finishError) && <p className="simple-timer-error" role="alert">{error || finishError}</p>}
+          {review && status !== 'ready' && <div className="simple-timer-review">{review}</div>}
+          <div className="simple-timer-actions">
+            {status !== 'done' && <button type="button" className="simple-timer-control" aria-label={status === 'ready' ? 'Başlat' : status === 'paused' ? 'Sürdür' : 'Duraklat'} title={status === 'ready' ? 'Başlat' : status === 'paused' ? 'Sürdür' : 'Duraklat'} onClick={status === 'ready' ? () => onStart(Date.now()) : onPauseResume} disabled={busy || finishing || (status === 'ready' && !canStart)}>{status === 'running' ? <Pause size={22} fill="currentColor" aria-hidden="true" /> : <Play size={22} fill="currentColor" aria-hidden="true" />}</button>}
+            {(status === 'paused' || status === 'done') && <button type="button" className="simple-timer-control" aria-label="Bitir" title={preview ? 'Örnek sayacı bitir' : 'Bitir ve kaydet'} onClick={() => void finish()} disabled={busy || finishing || !canFinish}><X size={24} strokeWidth={2.5} aria-hidden="true" /></button>}
+          </div>
+          {status === 'ready' && !canStart && <p className="simple-timer-hint">Başlamak için odak ekranında bir ders seç.</p>}
+          {preview && <p className="simple-timer-preview">Örnek sayaç · Süre kaydedilmez.</p>}
+        </div>
+      </div> : <>
       <div className="focus-ambient" aria-hidden="true">
         <div className="focus-ambient-halo" />
         <div className="focus-ambient-orbit focus-ambient-orbit-outer" />
@@ -165,7 +200,7 @@ export function TimerFocusView(props: TimerFocusViewProps) {
       </div>
       <header className="focus-screen-topbar">
         <span className="focus-brand"><Timer size={18} aria-hidden="true" /> YKSim <span>Odak alanın</span></span>
-        {preview && <span className="focus-preview-badge">Örnek sayaç</span>}
+        <div className="focus-topbar-actions">{preview && <span className="focus-preview-badge">Örnek sayaç</span>}<button ref={simpleTriggerRef} type="button" className="focus-simple-trigger" onClick={() => setSimpleMode(true)}>Sade mod</button></div>
       </header>
       <div className="focus-timer-body">
         <div className="focus-timer-heading">
@@ -194,6 +229,7 @@ export function TimerFocusView(props: TimerFocusViewProps) {
         <p className="focus-timer-note" id={descriptionId}>{preview ? 'Örnek mod · Bu süre çalışma kayıtlarına eklenmez.' : status === 'ready' ? 'Küçük bir başlangıç, güzel bir ilerleme.' : 'Duraklattığında mola süresi çalışmana eklenmez.'}</p>
       </div>
       <footer className="focus-screen-footer"><span>Tek bir şeye odaklan. Kendi ritminde ilerle.</span><button type="button" className="focus-minimize" onClick={() => minimize()} disabled={finishing} aria-label="Sayacı küçült" title="Sayacı küçült (Esc)"><Minimize2 size={21} /><span>Küçült</span></button></footer>
+      </>}
     </div>
   </dialog>;
 }

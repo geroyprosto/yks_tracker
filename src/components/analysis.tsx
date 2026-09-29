@@ -184,18 +184,14 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
     {!loading && data && <>
       <div className={styles.statusGrid}>
         <section className={styles.statusCard} aria-label="Yapay zekâ bağlantı durumu">
-          <div className={styles.cardTop}><span className={styles.cardIcon}><Sparkles size={18} aria-hidden="true"/></span><span className={`${styles.pill} ${data.configured ? styles.ready : styles.waiting}`}>{data.configured ? 'Sunucu ayarlı' : 'Kurulum bekliyor'}</span></div>
-          <h3>Yapay zekâ analizi</h3>
+          <div className={styles.cardTop}><span className={styles.cardIcon}><Sparkles size={18} aria-hidden="true"/></span><h3>Yapay zekâ analizi</h3><span className={`${styles.pill} ${data.configured ? styles.ready : styles.waiting}`}>{data.configured ? 'Sunucu ayarlı' : 'Kurulum bekliyor'}</span></div>
           <p>{data.configured ? `Model ayarı: ${data.model ?? 'belirtilmedi'}. Model erişimi ilk gerçek istekte sınanır.` : 'Sunucuda OpenAI anahtarı ve model ayarı henüz tamamlanmadı. Kayıtların bu sırada normal çalışır.'}</p>
         </section>
         <section className={styles.statusCard} aria-label="Aylık kullanım">
-          <div className={styles.cardTop}><span className={styles.cardIcon}><CircleHelp size={18} aria-hidden="true"/></span><span className={styles.mutedBadge}>Bu ay</span></div>
-          <h3>Kullanım sınırı</h3>
+          <div className={styles.cardTop}><span className={styles.cardIcon}><CircleHelp size={18} aria-hidden="true"/></span><h3>Kullanım sınırı</h3><span className={styles.mutedBadge}>Bu ay</span></div>
           <div className={styles.usageLine}><span>İstek</span><strong>{requestsUsed} / {requestsLimit}</strong></div>
           <div className={styles.meter} role="progressbar" aria-label="Aylık istek kullanımı" aria-valuenow={requestsUsed} aria-valuemin={0} aria-valuemax={Math.max(requestsLimit, 1)}><span style={{width: `${requestsLimit > 0 ? Math.min(100, requestsUsed / requestsLimit * 100) : 0}%`}}/></div>
           <div className={styles.usageLine}><span>Tahmini API maliyeti</span><strong>{costUsed === null ? 'Hesaplanamadı' : usd(costUsed)}</strong></div>
-          <p className={styles.tinyNote}>ChatGPT aboneliğinden ayrı API kullanımıdır.</p>
-          {data.resets_at&&<p className={styles.tinyNote}>Yenilenme: {new Intl.DateTimeFormat('tr-TR',{dateStyle:'long',timeZone:'Europe/Istanbul'}).format(new Date(data.resets_at))} · İstanbul saati</p>}
         </section>
       </div>
 
@@ -211,8 +207,6 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
             <button className={styles.primaryButton} type="submit" disabled={!data.configured || !rangeValid || busyAction !== null}>{busyAction === 'report' ? 'Rapor hazırlanıyor…' : 'Rapor oluştur'}<ArrowRight size={16} aria-hidden="true"/></button>
           </form>
         </section>
-
-        <section className={styles.actionCard}><h3>Kontrol sende</h3><p>Beş bölüm tek raporda hazırlanır ve bir AI kullanımı sayılır. Kayıtlı raporu tekrar açmak ücretsizdir. Arka planda rapor üretilmez.</p><p>Öneriler takvimine kendiliğinden görev eklemez.</p></section>
       </div>
 
       <section className={styles.history} aria-labelledby="report-history-title">

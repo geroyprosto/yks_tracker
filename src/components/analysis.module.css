@@ -10,32 +10,32 @@
 .alert{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 35%,var(--border))}
 .success{color:var(--success);border-color:color-mix(in srgb,var(--success) 30%,var(--border))}
 .loading{color:var(--muted)}
-.statusGrid,.actionGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.statusGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+.actionGrid{display:grid;grid-template-columns:minmax(0,1fr)}
 .statusCard,.actionCard,.history{min-width:0;border:1px solid var(--border);border-radius:17px;background:var(--surface);box-shadow:var(--shadow)}
-.statusCard{padding:21px 23px}
-.cardTop{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:17px}
-.cardIcon{width:37px;height:37px;border-radius:11px}
-.statusCard h3{margin-bottom:7px;font-size:14px}
-.statusCard>p{max-width:480px;color:var(--muted);font-size:11px;line-height:1.7}
+.statusCard{padding:14px 18px}
+.cardTop{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.cardIcon{width:34px;height:34px;border-radius:10px}
+.cardTop h3{flex:1;min-width:0;font-size:14px}
+.statusCard>p{max-width:480px;color:var(--muted);font-size:11px;line-height:1.5}
 .pill,.mutedBadge{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:999px;padding:4px 9px;white-space:nowrap;font-size:10px;font-weight:600}
 .pill.ready{color:var(--success);border-color:color-mix(in srgb,var(--success) 31%,var(--border));background:color-mix(in srgb,var(--success) 9%,var(--surface))}
 .pill.waiting{color:var(--warning);border-color:color-mix(in srgb,var(--warning) 31%,var(--border));background:color-mix(in srgb,var(--warning) 9%,var(--surface))}
 .pill.failed{color:var(--danger);border-color:color-mix(in srgb,var(--danger) 31%,var(--border));background:color-mix(in srgb,var(--danger) 9%,var(--surface))}
 .mutedBadge{color:var(--muted);background:var(--surface-raised)}
-.usageLine{display:flex;justify-content:space-between;gap:10px;margin:8px 0 5px;color:var(--muted);font-size:11px}
+.usageLine{display:flex;justify-content:space-between;gap:10px;margin:4px 0 3px;color:var(--muted);font-size:11px}
 .usageLine strong{color:var(--foreground);font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
-.meter{height:5px;margin-bottom:13px;overflow:hidden;border-radius:99px;background:var(--surface-raised)}
+.meter{height:5px;margin-bottom:6px;overflow:hidden;border-radius:99px;background:var(--surface-raised)}
 .meter span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,var(--primary),var(--accent))}
-.statusCard .tinyNote{margin-top:9px;font-size:10px}
 .actionCard{display:flex;flex-direction:column;padding:25px}
 .sectionHeader{display:flex;align-items:center;gap:12px}
 .sectionIcon{width:43px;height:43px;border-radius:12px}
 .sectionHeader h3{margin-top:3px;font-size:17px}
-.cardDescription{min-height:48px;margin:17px 0 20px;color:var(--muted);font-size:12px;line-height:1.7}
+.cardDescription{margin:14px 0 16px;color:var(--muted);font-size:12px;line-height:1.7}
 .dateForm,.scheduleForm{display:grid;gap:14px;margin-top:auto}
-.dateForm{grid-template-columns:repeat(2,minmax(0,1fr))}
+.dateForm{grid-template-columns:repeat(3,minmax(0,1fr));max-width:800px;margin-top:0}
 .dateForm label,.startDate{display:grid;gap:7px;color:var(--muted);font-size:11px;font-weight:600}
-.dateForm input,.startDate input{width:100%;min-height:44px;color:var(--foreground);color-scheme:inherit;background:var(--surface-raised)}
+.dateForm input,.startDate input{width:100%;min-height:42px;color:var(--foreground);color-scheme:inherit;background:var(--surface-raised)}
 .formHint{grid-column:1/-1;color:var(--danger);font-size:11px}
 .primaryButton,.secondaryButton,.refreshButton{display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:43px;border-radius:9px;padding:10px 15px;font-size:12px;font-weight:700}
 .primaryButton{grid-column:1/-1;border:1px solid var(--primary);color:var(--on-primary);background:var(--primary)}
@@ -84,8 +84,8 @@
 .sourceDays button{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:7px;padding:5px 8px;background:var(--surface);color:var(--primary);font-size:10px}
 .sourceDays button:hover{border-color:var(--primary)}
 .reportUsage{padding-top:10px;border-top:1px solid var(--border);color:var(--muted);font-size:10px}
-@media(max-width:900px){.statusGrid,.actionGrid{grid-template-columns:1fr}.cardDescription{min-height:0}}
-@media(max-width:520px){.workspace{gap:14px}.hero{min-height:0;gap:13px;padding:21px;border-radius:15px}.heroIcon{width:39px;height:39px;border-radius:12px}.heroIcon svg{width:20px}.hero h2{font-size:20px}.hero p:last-child{font-size:11px}.statusCard,.actionCard,.history{padding:18px;border-radius:13px}.dateForm{gap:9px}.dateForm input{padding-inline:8px;font-size:11px}.reportCard summary{flex-wrap:wrap}.reportTitle{flex-basis:calc(100% - 50px)}.reportCard summary .pill{margin-left:47px}.historyHeader h3{font-size:16px}.refreshButton{padding-inline:9px}}
+@media(max-width:900px){.statusGrid{grid-template-columns:1fr}}
+@media(max-width:520px){.workspace{gap:14px}.hero{min-height:0;gap:13px;padding:21px;border-radius:15px}.heroIcon{width:39px;height:39px;border-radius:12px}.heroIcon svg{width:20px}.hero h2{font-size:20px}.hero p:last-child{font-size:11px}.statusCard,.actionCard,.history{padding:18px;border-radius:13px}.dateForm{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.dateForm label:first-child{grid-column:1/-1}.dateForm input{padding-inline:8px;font-size:11px}.reportCard summary{flex-wrap:wrap}.reportTitle{flex-basis:calc(100% - 50px)}.reportCard summary .pill{margin-left:47px}.historyHeader h3{font-size:16px}.refreshButton{padding-inline:9px}}
 .fiveCards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-block:16px}
 .reportSection{border:1px solid var(--border);border-radius:14px;padding:16px;overflow-wrap:anywhere}
 .reportSection:first-child{grid-column:1/-1}

@@ -1,13 +1,12 @@
 'use client';
 
 import {useRef, useState} from 'react';
-import {ChartNoAxesCombined, PenLine} from 'lucide-react';
+import {ChevronDown, PenLine} from 'lucide-react';
 import type {CourseExamResult, EducationState} from '@/lib/education';
-import {assessmentTypes, filterSchoolResults, schoolResultSummary, validateResultDrafts, type ResultDraft} from '@/lib/school-results';
+import {assessmentTypes, filterSchoolResults, validateResultDrafts, type ResultDraft} from '@/lib/school-results';
 import {formatDay} from '@/lib/ui';
 import {Card, Empty} from './primitives';
 import {Modal} from './modal';
-import {ChartPoint, useChartTooltip} from './chart-tooltip';
 import {SchoolResultsEntry, type EducationResultCommand} from './school-results-entry';
 import styles from './school-results.module.css';
 
@@ -26,62 +25,35 @@ export function SchoolResults({education, command, busy}: {education: EducationS
 
 function SchoolResultsAnalysis({education, command, busy}: {education: EducationState; command: EducationResultCommand; busy: boolean}) {
   const [term, setTerm] = useState(education.profile?.active_term_id ?? '');
-  const [selectedCourse, setSelectedCourse] = useState(''), [type, setType] = useState('');
-  const [start, setStart] = useState(''), [end, setEnd] = useState('');
-  const [percent, setPercent] = useState(false), [editing, setEditing] = useState<CourseExamResult | null>(null);
+  const [openCourse, setOpenCourse] = useState<string | null>(null);
+  const [editing, setEditing] = useState<CourseExamResult | null>(null);
   const courseOptions = education.courses.filter(course => course.context === 'school' && (!term || course.term_id === term));
-  const course = courseOptions.some(item => item.id === selectedCourse) ? selectedCourse : courseOptions[0]?.id ?? '';
-  const courseName = courseOptions.find(item => item.id === course)?.name ?? '';
-  const types = [...new Set(education.results.filter(result => result.course_id === course && (!term || result.term_id === term)).map(result => result.assessment_type))].sort((a, b) => a.localeCompare(b, 'tr'));
-  const selectedType = !type || types.includes(type) ? type : '';
-  const filtered = course ? filterSchoolResults(education.results, {course, term, start, end, type: selectedType}) : [];
-  const summary = schoolResultSummary(filtered, percent), latest = summary.latest;
-  const invalidRange = Boolean(start && end && start > end);
-  return <Card title="Ders sonuçlarının değişimi" eyebrow="SONUÇLAR VE ARŞİV" action={<ChartNoAxesCombined size={18}/>} className={styles.analysis}>
-    <div className={styles.filters}>
-      <label>Sonuç dönemi<select value={term} onChange={event => {setTerm(event.target.value); setSelectedCourse(''); setType('');}}><option value="">Tüm dönemler</option>{education.terms.map(item => <option key={item.id} value={item.id}>{item.academic_year} · {item.name}{item.archived ? ' · Arşiv' : ''}</option>)}</select></label>
-      <label>Grafikteki ders<select value={course} onChange={event => {setSelectedCourse(event.target.value); setType('');}}>{!courseOptions.length && <option value="">Ders yok</option>}{courseOptions.map(item => <option key={item.id} value={item.id}>{item.name}{!term ? ` · ${education.terms.find(entry => entry.id === item.term_id)?.name ?? 'Dönemsiz'}` : ''}{item.archived ? ' · Arşiv' : ''}</option>)}</select></label>
-      <label>Sonuç türü<select value={selectedType} onChange={event => setType(event.target.value)}><option value="">Tüm türler</option>{types.map(item => <option key={item}>{item}</option>)}</select></label>
-      <label>Başlangıç tarihi<input type="date" value={start} onChange={event => setStart(event.target.value)}/></label>
-      <label>Bitiş tarihi<input type="date" value={end} onChange={event => setEnd(event.target.value)}/></label>
-      <label>Grafik ölçeği<select value={percent ? 'percentage' : 'original'} onChange={event => setPercent(event.target.value === 'percentage')}><option value="original">Orijinal puan</option><option value="percentage">Yüzdeye dönüştür</option></select></label>
-    </div>
-    {invalidRange && <p className="error-text" role="alert">Bitiş tarihi başlangıçtan önce olamaz.</p>}
-    <div className={styles.summary}>
-      <div><span>Son sonuç</span><strong>{latest ? percent ? `%${tr(latest.score / latest.scale * 100)}` : `${tr(latest.score)} / ${tr(latest.scale)}` : '—'}</strong><small>{latest ? `${latest.assessment_type}${latest.assessment_name ? ` · ${latest.assessment_name}` : ''}` : 'Kayıt yok'}</small></div>
-      <div><span>Önceki aynı seri kaydına göre</span><strong>{summary.difference === null ? '—' : `${summary.difference >= 0 ? '+' : ''}${tr(summary.difference)}`}</strong><small>{summary.difference === null ? 'Karşılaştırılabilir iki sonuç gerekli' : summary.differenceLabel}</small></div>
-      <div><span>Seçili kayıt sayısı</span><strong>{filtered.length}</strong><small>{selectedType || 'Türler ayrı etiketlenir'}</small></div>
-    </div>
-    {!filtered.length ? <Empty icon={<ChartNoAxesCombined/>} title="Bu seçimde sonuç yok" text="Bir puan kaydet veya dönem ve tarih filtrelerini değiştir."/> : <>
-      {summary.mixedScale && !percent ? <p className={styles.notice}>Bu kayıtlarda farklı puan ölçekleri var. Birlikte çizmek için “Yüzdeye dönüştür” seçeneğini kullan.</p> : <SchoolResultsPlot records={filtered} percent={percent} courseName={courseName}/>}
-      {filtered.length < 2 && <p className={styles.note}>Henüz yalnız bir sonuç var; değişim için en az iki karşılaştırılabilir kayıt gerekli.</p>}
-      <div className={styles.tableScroll}><table className={styles.table}><caption>{courseName} sonuç kayıtları</caption><thead><tr><th scope="col">Tarih / ders</th><th scope="col">Değerlendirme</th><th scope="col">Orijinal sonuç</th><th scope="col"><span className="sr-only">İşlem</span></th></tr></thead><tbody>{[...filtered].reverse().map(result => <tr key={result.id}><td><strong>{formatDay(result.exam_date, {day: 'numeric', month: 'short', year: 'numeric'})}</strong><small>{result.course_name}</small></td><td>{result.assessment_type}<small>{result.assessment_name}</small></td><td><strong>{tr(result.score)} / {tr(result.scale)}</strong>{percent && <small>%{tr(result.score / result.scale * 100)}</small>}</td><td><button type="button" className="icon-button" aria-label={`${result.course_name} ${result.assessment_type} ${result.exam_date} sonucunu düzenle`} disabled={busy || !education.can_commit} onClick={() => setEditing(result)}><PenLine size={16}/></button></td></tr>)}</tbody></table></div>
-    </>}
-    <p className={styles.note}>Puan farkı öğrenme artışı değildir. Vize ve final otomatik karşılaştırılmaz; farklı sınavlar aynı zorlukta kabul edilmez. Yüzde görünümü yalnız ölçeği dönüştürür. Eksik sınavlar sıfır sayılmaz; dönem notu veya harf notu hesaplanmaz.</p>
+  return <Card title="Ders sonuçları" eyebrow="SONUÇLAR VE ARŞİV" className={styles.analysis}>
+    <label className={styles.periodFilter}>Sonuç dönemi<select value={term} onChange={event => {setTerm(event.target.value); setOpenCourse(null);}}><option value="">Tüm dönemler</option>{education.terms.map(item => <option key={item.id} value={item.id}>{item.academic_year} · {item.name}{item.archived ? ' · Arşiv' : ''}</option>)}</select></label>
+    {!courseOptions.length ? <Empty title="Bu dönemde ders yok" text="Sonuçlarını görmek için önce bu döneme ders ekle."/> : <div className={styles.courseList}>
+      {courseOptions.map(item => {
+        const records = filterSchoolResults(education.results, {course: item.id, term, start: '', end: '', type: ''});
+        const latest = records.at(-1);
+        const courseTerm = education.terms.find(entry => entry.id === item.term_id);
+        const expanded = openCourse === item.id;
+        return <section key={item.id} className={styles.courseCard}>
+          <button type="button" className={styles.courseToggle} aria-expanded={expanded} aria-controls={`course-results-${item.id}`} onClick={() => setOpenCourse(expanded ? null : item.id)}>
+            <span className={styles.courseTitle}>{item.name}{!term && <small>{courseTerm ? `${courseTerm.academic_year} · ${courseTerm.name}` : 'Dönemsiz'}{item.archived ? ' · Arşiv' : ''}</small>}</span>
+            <span className={styles.coursePreview}><span>{records.length} sonuç</span><strong>{latest ? `${tr(latest.score)} / ${tr(latest.scale)}` : 'Henüz sonuç yok'}</strong></span>
+            <ChevronDown size={18} className={styles.courseChevron} aria-hidden="true"/>
+          </button>
+          <div id={`course-results-${item.id}`} role="region" aria-label={`${item.name}${!term && courseTerm ? ` ${courseTerm.academic_year} ${courseTerm.name}` : ''} sınav sonuçları`} className={styles.courseBody} hidden={!expanded}>
+            {expanded && (records.length ? <ul className={styles.resultList}>{[...records].reverse().map(result => <li key={result.id} className={styles.resultRow}>
+              <div className={styles.resultDetail}><time dateTime={result.exam_date}>{formatDay(result.exam_date, {day: 'numeric', month: 'short', year: 'numeric'})}</time><strong>{result.assessment_type}{result.assessment_name ? ` · ${result.assessment_name}` : ''}</strong></div>
+              <strong className={styles.resultScore}>{tr(result.score)} / {tr(result.scale)}</strong>
+              <button type="button" className="icon-button" aria-label={`${result.course_name} ${result.assessment_type} ${result.exam_date} sonucunu düzenle`} disabled={busy || !education.can_commit} onClick={() => setEditing(result)}><PenLine size={16}/></button>
+            </li>)}</ul> : <p className={styles.emptyCourse}>Bu ders için henüz sonuç kaydedilmedi.</p>)}
+          </div>
+        </section>;
+      })}
+    </div>}
     {editing && <SchoolResultEditor result={editing} command={command} busy={busy} onClose={() => setEditing(null)}/>}
   </Card>;
-}
-
-function SchoolResultsPlot({records, percent, courseName}: {records: CourseExamResult[]; percent: boolean; courseName: string}) {
-  const tooltip = useChartTooltip();
-  const width = Math.max(400, records.length * 90 + 40), height = 190;
-  const value = (record: CourseExamResult) => percent ? record.score / record.scale * 100 : record.score;
-  const max = Math.max(1, ...records.map(record => percent ? 100 : record.scale));
-  const x = (index: number) => records.length === 1 ? width / 2 : 42 + index * (width - 84) / (records.length - 1);
-  const y = (record: CourseExamResult) => 140 - value(record) / max * 110;
-  // Only connect successive results sharing an assessment type and name.
-  return <div className="exam-plot-scroll"><div className="exam-plot-canvas" style={{minWidth: width}} role="group" aria-label={`${courseName} sonuç noktaları`}>
-    <svg className="exam-plot" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${courseName} için ${records.length} sınav sonucu; ${percent ? 'yüzde' : 'puan'} grafiği`}>
-      <line x1="22" x2={width - 22} y1="140" y2="140" className="exam-zero-line"/>
-      {records.map((record, index) => {const previous = records[index - 1]; return <g key={record.id}>
-        {previous && previous.assessment_type === record.assessment_type && previous.assessment_name === record.assessment_name && <line x1={x(index - 1)} y1={y(previous)} x2={x(index)} y2={y(record)} stroke="var(--primary)" strokeWidth="2"/>}
-        <circle cx={x(index)} cy={y(record)} r="5.5" className="exam-plot-dot"/>
-        <text x={x(index)} y={Math.max(18, y(record) - 13)} textAnchor="middle" className="exam-plot-value">{percent ? '%' : ''}{tr(value(record))}</text>
-        <text x={x(index)} y="174" textAnchor="middle" className="exam-plot-date">{formatDay(record.exam_date, {day: 'numeric', month: 'short'})}</text>
-      </g>;})}
-    </svg>
-    {records.map((record, index) => <ChartPoint key={record.id} pointKey={record.id} x={x(index) / width * 100} y={y(record) / height * 100} tooltip={tooltip} detail={{title: `${courseName} · ${formatDay(record.exam_date, {day: 'numeric', month: 'long'})}`, value: `${tr(record.score)} / ${tr(record.scale)}${percent ? ` · %${tr(value(record))}` : ''}`, context: [record.assessment_type, record.assessment_name].filter(Boolean).join(' · '), note: 'Bir sınav kaydı; çalışma süresi ve konu hâkimiyetinden ayrı değerlendirilir.'}}/>)}
-  </div>{tooltip.tooltip}</div>;
 }
 
 function SchoolResultEditor({result, command, busy, onClose}: {result: CourseExamResult; command: EducationResultCommand; busy: boolean; onClose: () => void}) {

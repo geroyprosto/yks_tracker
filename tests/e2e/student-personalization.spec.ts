@@ -44,6 +44,7 @@ test('a delayed state GET cannot replace a newer atomic education result',async(
  });
  await page.goto('/');
  await page.getByRole('navigation',{name:'Ana gezinme'}).getByRole('button',{name:'Sınav Sonuçları',exact:true}).click();
+ await page.getByRole('button',{name:'Hızlı sonuç girişini aç'}).click();
  await expect(page.getByLabel('Matematik puanı',{exact:true})).toBeVisible();
  // Arm only after the UI is ready: development Strict Mode may issue two initial reads.
  nextReadArmed=true;
@@ -52,14 +53,17 @@ test('a delayed state GET cannot replace a newer atomic education result',async(
  const staleRoute=await delayed;
  await page.getByLabel('Matematik puanı',{exact:true}).fill('72');
  await page.getByRole('button',{name:'Tümünü kaydet',exact:true}).click();
- const graph=page.getByRole('img',{name:'Matematik için 1 sınav sonucu; puan grafiği'});
- await expect(graph).toBeVisible();expect(requests).toHaveLength(1);
+ const course=page.getByRole('button',{name:/Matematik.*1 sonuç.*72 \/ 100/});
+ await expect(course).toBeVisible();
+ await course.click();
+ const results=page.getByRole('region',{name:'Matematik sınav sonuçları'});
+ await expect(results).toContainText('72 / 100');expect(requests).toHaveLength(1);
  const received=page.waitForResponse(response=>response.request()===staleRoute.request());
  await staleRoute.fulfill({json:stale});
  await (await received).finished();
  // Let React process the old response, rather than asserting before it arrives.
  await page.evaluate(()=>new Promise<void>(resolve=>requestAnimationFrame(()=>resolve())));
- await expect(graph).toBeVisible();
+ await expect(results).toContainText('72 / 100');
  await expect(page.getByRole('button',{name:'Matematik Vize 2026-09-27 sonucunu düzenle'})).toHaveCount(1);
  expect(state.education!.results[0].score).toBe(72);expect(heldReads).toBe(1);
 });

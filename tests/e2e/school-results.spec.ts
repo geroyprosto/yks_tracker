@@ -45,7 +45,15 @@ async function openResults(page: Page, state: AppState, failFirst = false) {
 test('quick table skips blanks, keeps zero/decimal, Enter advances, failed response retries one atomic request', async ({page}) => {
   const state = fixture(), sent = await openResults(page, state, true);
   await expect(page.getByRole('button', {name: 'Konularım', exact: true})).toHaveCount(0);
+  const entryToggle = page.getByRole('button', {name: 'Hızlı sonuç girişini aç'});
+  await expect(entryToggle).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('input[aria-label="Matematik puanı"]')).toBeHidden();
+  await entryToggle.click();
   await page.getByLabel('Matematik puanı', {exact: true}).fill('0');
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini kapat'}).click();
+  await expect(page.locator('input[aria-label="Matematik puanı"]')).toBeHidden();
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini aç'}).click();
+  await expect(page.getByLabel('Matematik puanı', {exact: true})).toHaveValue('0');
   await page.getByLabel('Matematik puanı', {exact: true}).press('Enter');
   await expect(page.getByLabel('Bilişim puanı', {exact: true})).toBeFocused();
   await page.getByLabel('Bilişim puanı', {exact: true}).fill('87,5');
@@ -59,6 +67,9 @@ test('quick table skips blanks, keeps zero/decimal, Enter advances, failed respo
   expect(sent[0].payload.rows!.map(row => row.score)).toEqual([0, 87.5]);
   expect(state.education!.results).toHaveLength(2);
   await expect(page.getByLabel('Matematik puanı', {exact: true})).toHaveValue('');
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini kapat'}).click();
+  await expect(page.getByRole('status')).toContainText('2 sınav sonucu birlikte kaydedildi.');
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini aç'}).click();
 
   // A deliberately new exam with the same date and score has a new operation identity.
   await page.getByLabel('Matematik puanı', {exact: true}).fill('0');
@@ -66,6 +77,7 @@ test('quick table skips blanks, keeps zero/decimal, Enter advances, failed respo
   await expect(page.getByRole('status')).toContainText('1 sınav sonucu birlikte kaydedildi.');
   expect(sent[2].request_id).not.toBe(sent[0].request_id);
   expect(state.education!.results).toHaveLength(3);
+  await page.locator(`button[aria-controls="course-results-${state.education!.courses[0].id}"]`).click();
   await page.getByRole('button', {name: `Matematik Vize ${day} sonucunu düzenle`}).first().click();
   const dialog = page.getByRole('dialog', {name: 'Ders sınavını düzenle'});
   await dialog.getByLabel('Alınan puan').fill('15');
@@ -76,8 +88,13 @@ test('quick table skips blanks, keeps zero/decimal, Enter advances, failed respo
 
 test('local CSV preview maps columns, forces unknown course selection, and validates every row before sending', async ({page}) => {
   const state = fixture(), sent = await openResults(page, state);
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini aç'}).click();
   await page.getByRole('button', {name: 'Yapıştır / CSV', exact: true}).click();
-  await page.getByLabel('Ders–puan tablosu', {exact: true}).fill('Puan;Ders;Ölçek;Tarih\n16;Matematik;20;27.09.2026\n0;Bilişim 1;100;2026-09-27\n87,5;İKTİSAT;100;2026-09-27');
+  const csvDraft = 'Puan;Ders;Ölçek;Tarih\n16;Matematik;20;27.09.2026\n0;Bilişim 1;100;2026-09-27\n87,5;İKTİSAT;100;2026-09-27';
+  await page.getByLabel('Ders–puan tablosu', {exact: true}).fill(csvDraft);
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini kapat'}).click();
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini aç'}).click();
+  await expect(page.locator('textarea')).toHaveValue(csvDraft);
   await page.getByRole('button', {name: 'Önizle ve eşleştir'}).click();
   await expect(page.getByRole('combobox', {name: 'Ders sütunu', exact: true})).toHaveValue('1');
   await page.getByRole('button', {name: 'Önizlemeyi kaydet'}).click();
@@ -87,14 +104,14 @@ test('local CSV preview maps columns, forces unknown course selection, and valid
   await page.getByRole('button', {name: 'Önizlemeyi kaydet'}).click();
   await expect(page.getByRole('status')).toContainText('3 sınav sonucu birlikte kaydedildi.');
   expect(sent[0].payload.rows!.map(row => [row.score, row.scale, row.exam_date])).toEqual([[16, 20, day], [0, 100, day], [87.5, 100, day]]);
-  await page.getByRole('combobox', {name: 'Grafikteki ders', exact: true}).selectOption(state.education!.courses[3].id);
-  await expect(page.getByRole('img', {name: 'İktisat için 1 sınav sonucu; puan grafiği'})).toBeVisible();
-  await expect(page.getByRole('img', {name: 'Matematik için 1 sınav sonucu; puan grafiği'})).toHaveCount(0);
+  await page.getByRole('button', {name: /^İktisat 1 sonuç/}).click();
+  await expect(page.getByRole('region', {name: 'İktisat sınav sonuçları'})).toContainText('87,5 / 100');
+  await expect(page.getByRole('region', {name: 'Matematik sınav sonuçları'})).toHaveCount(0);
   await page.setViewportSize({width: 360, height: 800});
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('different scales require optional normalization and different assessment types never imply a gain', async ({page}) => {
+test('course cards show each original result and hide removed chart filters', async ({page}) => {
   const state = fixture(), education = state.education!;
   education.results = [
     {id: 'one', score: 16, scale: 20, assessment_type: 'Vize', exam_date: '2026-09-01'},
@@ -102,14 +119,20 @@ test('different scales require optional normalization and different assessment t
     {id: 'three', score: 90, scale: 100, assessment_type: 'Final', exam_date: '2026-09-20'},
   ].map(row => ({...row, course_id: education.courses[0].id, term_id: termId, course_name: 'Matematik', assessment_name: '', revision: 1, created_at: stamp, updated_at: stamp}));
   await openResults(page, state);
-  await expect(page.getByText('Bu kayıtlarda farklı puan ölçekleri var.', {exact: false})).toBeVisible();
-  await page.getByRole('combobox', {name: 'Grafik ölçeği', exact: true}).selectOption('percentage');
-  await expect(page.getByText('Karşılaştırılabilir iki sonuç gerekli', {exact: true})).toBeVisible();
-  await page.getByRole('combobox', {name: 'Sonuç türü', exact: true}).selectOption('Vize');
-  await expect(page.getByText('yüzde puan', {exact: true})).toBeVisible();
-  await expect(page.getByRole('img', {name: 'Matematik için 2 sınav sonucu; yüzde grafiği'})).toBeVisible();
-  await page.getByLabel('Başlangıç tarihi', {exact: true}).fill('2026-09-02');
-  await expect(page.getByText('Henüz yalnız bir sonuç var;', {exact: false})).toBeVisible();
+  await expect(page.getByRole('button', {name: /^Matematik 3 sonuç 90 \/ 100/})).toHaveAttribute('aria-expanded', 'false');
+  for (const label of ['Sonuç türü', 'Grafik ölçeği', 'Başlangıç tarihi', 'Bitiş tarihi', 'Grafikteki ders']) {
+    await expect(page.getByText(label, {exact: true})).toHaveCount(0);
+  }
+  await page.getByRole('button', {name: /^Matematik 3 sonuç/}).click();
+  const mathResults = page.getByRole('region', {name: 'Matematik sınav sonuçları'});
+  await expect(mathResults.getByRole('listitem')).toHaveCount(3);
+  await expect(mathResults).toContainText('16 / 20');
+  await expect(mathResults).toContainText('80 / 100');
+  await expect(mathResults).toContainText('90 / 100');
+  await expect(mathResults).toContainText('Final');
+  await page.getByRole('button', {name: /^Bilişim 0 sonuç/}).click();
+  await expect(mathResults).toHaveCount(0);
+  await expect(page.getByRole('region', {name: 'Bilişim sınav sonuçları'})).toContainText('Bu ders için henüz sonuç kaydedilmedi.');
 });
 
 test('study course filters separate assigned and unassigned records without course-specific zero marks', async ({page}) => {

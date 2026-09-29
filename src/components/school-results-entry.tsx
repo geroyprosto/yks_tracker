@@ -1,6 +1,7 @@
 'use client';
 
-import {useRef, useState} from 'react';
+import {useId, useRef, useState} from 'react';
+import {ChevronDown} from 'lucide-react';
 import type {EducationCourse} from '@/lib/education';
 import {assessmentTypes, matchSchoolCourses, parseSchoolTable, suggestSchoolColumns, validateResultDrafts, type ParsedSchoolTable, type ResultDraft, type SchoolColumnMap, type TableDelimiter} from '@/lib/school-results';
 import {localDate} from '@/lib/ui';
@@ -11,6 +12,8 @@ export type EducationResultCommand = (type: string, payload: Record<string, unkn
 type Defaults = {exam_date: string; assessment_type: string; assessment_name: string; scale: string};
 
 export function SchoolResultsEntry({courses, command, busy, canCommit, termLabel}: {courses: EducationCourse[]; command: EducationResultCommand; busy: boolean; canCommit: boolean; termLabel: string}) {
+  const [expanded, setExpanded] = useState(false);
+  const panelId = useId();
   const [method, setMethod] = useState<'quick' | 'paste'>('quick');
   const [defaults, setDefaults] = useState<Defaults>({exam_date: localDate(), assessment_type: 'Vize', assessment_name: '', scale: '100'});
   const [marks, setMarks] = useState<Record<string, {score: string; date?: string}>>({});
@@ -39,7 +42,8 @@ export function SchoolResultsEntry({courses, command, busy, canCommit, termLabel
     } catch {setError('Bağlantı kurulamadı. Tablo korunuyor; tekrar kaydettiğinde aynı işlem güvenle sorgulanır.');}
     finally {sending.current = false; setSaving(false);}
   }
-  return <Card title="Hızlı sonuç girişi" eyebrow={termLabel} className={styles.entry}>
+  return <Card title="Hızlı sonuç girişi" eyebrow={termLabel} className={styles.entry} action={<button type="button" className={`button secondary ${styles.entryToggle}`} aria-label={`Hızlı sonuç girişini ${expanded ? 'kapat' : 'aç'}`} aria-expanded={expanded} aria-controls={panelId} onClick={() => setExpanded(value => !value)}>{expanded ? 'Kapat' : 'Aç'}<ChevronDown size={16} aria-hidden="true"/></button>}>
+    <div id={panelId} className={styles.entryBody} hidden={!expanded}>
     <p className={styles.note}>Derslerin hazır. Ortak sınav türünü ve ölçeği seç, puanlarını yaz. Boş satırlar kaydedilmez; 0 geçerli bir puandır.</p>
     {!courses.length ? <Empty title="Bu dönemde okul dersi yok" text="Ayarlar → Dönemler ve Dersler bölümünden ders eklediğinde satırların burada hazır olacak."/> : <>
       <div className="segmented" role="group" aria-label="Sonuç giriş yöntemi"><button type="button" aria-pressed={method === 'quick'} onClick={() => {setMethod('quick'); setIssues({}); setError('');}}>Hızlı tablo</button><button type="button" aria-pressed={method === 'paste'} onClick={() => {setMethod('paste'); setIssues({}); setError('');}}>Yapıştır / CSV</button></div>
@@ -56,8 +60,9 @@ export function SchoolResultsEntry({courses, command, busy, canCommit, termLabel
         </> : <SchoolResultsImport key={importVersion} courses={courses} defaults={defaults} issues={issues} onSave={save}/>}
       </fieldset>
     </>}
-    {error && <p className="error-text" role="alert">{error}</p>}{success && <p className={styles.success} role="status">{success}</p>}
     <p className={styles.note}>Bu girişler AI kullanmaz. Sonuçlar tek işlemle kaydedilir; bağlantı hatasında aynı tabloyu yeniden göndermek kopya oluşturmaz.</p>
+    </div>
+    {error && <p className="error-text" role="alert">{error}</p>}{success && <p className={styles.success} role="status">{success}</p>}
   </Card>;
 }
 

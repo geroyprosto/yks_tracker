@@ -117,11 +117,11 @@ export function Donut({ segments, center, caption, label, empty = false, rounded
   const arcs = visible.map((segment, index) => {
     const start = visible.slice(0, index).reduce((total, item) => total + item.value * scale * 3.6, 0);
     const extent = segment.value * scale * 3.6;
-    const gap = visible.length > 1 || sum < 99.99 ? Math.min(2.5, extent * .16) : .01;
+    const gap = visible.length > 1 ? Math.min(2.5, extent * .16) : 0;
     const arcLength = Math.max(0, extent - gap) / 360 * CIRCUMFERENCE;
-    const strokeWidth = roundCaps ? Math.min(ARC_STROKE_WIDTH, arcLength) : ARC_STROKE_WIDTH;
-    // Round caps extend half a stroke beyond both ends; keep the visible sweep accurate.
-    const capAllowance = roundCaps && !completeCircle ? Math.max(0, strokeWidth - .01) : 0;
+    const strokeWidth = ARC_STROKE_WIDTH;
+    // Tiny progress keeps the track's full width; center its minimum round dot on the true sweep.
+    const capAllowance = roundCaps && !completeCircle ? Math.min(strokeWidth, Math.max(0, arcLength - .01)) : 0;
 
     return {
       ...segment,
@@ -162,8 +162,8 @@ export function Donut({ segments, center, caption, label, empty = false, rounded
   </div>;
 }
 
-export function Ring({ value, label, detail, segments, color = 0, showLegend = true, showCenterPercentage = true, rounded = false }: {
-  value: number | null; label: string; detail: string; segments?: RingSegment[]; color?: number; showLegend?: boolean; showCenterPercentage?: boolean; rounded?: boolean;
+export function Ring({ value, label, detail, status, segments, color = 0, showLegend = true, showCenterPercentage = true, rounded = false }: {
+  value: number | null; label: string; detail: string; status?: string | null; segments?: RingSegment[]; color?: number; showLegend?: boolean; showCenterPercentage?: boolean; rounded?: boolean;
 }) {
   const progress = value === null ? null : Math.min(100, Math.max(0, value));
   const parts = segments ?? (progress === null ? [] : [{ key: 'completed', label: 'Tamamlanan', value: progress, color }]);
@@ -174,6 +174,7 @@ export function Ring({ value, label, detail, segments, color = 0, showLegend = t
       caption={value === null ? 'HENÜZ PLAN YOK' : 'TAMAMLANDI'}
       label={label + ': ' + (value === null ? 'tanımlı değil' : '%' + percentage(value))} empty={value === null || value === 0} />
     <h3>{label}</h3><p className="metric-detail">{detail}</p>
+    {status && <span className="metric-status">{status}</span>}
     {showLegend && <ul className="ring-legend">
       {parts.map(part => <li key={part.key}><span className="legend-dot" style={{ '--legend-color': 'var(--ring-' + (part.color + 1) + ')' } as CSSProperties} /><span>{part.label}</span><b>%{percentage(part.value)}</b></li>)}
       {remaining !== null && <li className="remaining"><span className="legend-dot" /><span>Kalan</span><b>%{percentage(remaining)}</b></li>}

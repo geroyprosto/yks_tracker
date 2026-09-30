@@ -44,6 +44,8 @@
 .daily-card .card-head .pill { font-size: 11px; font-weight: 700; color: var(--foreground); }
 .daily-card .neon-metrics { padding: 0; gap: 18px; align-content: center; }
 .daily-card .neon-metric { display: block; }
+.daily-card .neon-metric:first-child { --metric-status-accent: var(--ring-1); --metric-status-ink: var(--primary); }
+.daily-card .neon-metric:nth-child(2) { --metric-status-accent: var(--ring-2); --metric-status-ink: var(--accent); }
 .daily-card .neon-metric + .neon-metric::before { display: none; }
 .daily-card .neon-donut { width: min(240px, 100%); margin: 0 auto 12px; }
 .daily-card .neon-donut.is-rounded .donut-segment,
@@ -53,7 +55,23 @@
 .daily-card .donut-center strong { font-size: clamp(35px, 3.3vw, 44px); font-weight: 750; letter-spacing: -1.5px; }
 .daily-card .donut-center span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.15px; }
 .daily-card .neon-metric h3 { font-size: 16px; font-weight: 700; line-height: 1.35; letter-spacing: -.3px; margin-bottom: 4px; }
-.daily-card .metric-detail { min-height: 32px; font-size: 12px; line-height: 1.5; margin: 0; }
+.daily-card .metric-detail { min-height: 0; font-size: 12px; line-height: 1.5; margin: 0; color: color-mix(in srgb, var(--metric-status-ink) 40%, var(--muted)); }
+.daily-card .metric-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  min-height: 27px;
+  margin-top: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--metric-status-accent) 18%, var(--surface));
+  color: var(--metric-status-ink);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
 :root[data-simple=true] .daily-card { background: var(--surface); }
 
 .overview-grid .focus-card.gradient-card {
@@ -180,7 +198,7 @@
   .daily-card .donut-center { padding: 20px; }
   .daily-card .donut-center strong { font-size: clamp(30px, 7.5vw, 39px); letter-spacing: -1px; }
   .daily-card .neon-metric h3 { font-size: 14px; min-height: 0; }
-  .daily-card .metric-detail { font-size: 11px; min-height: 30px; }
+  .daily-card .metric-detail { font-size: 11px; }
   .overview-grid .focus-card.gradient-card { min-height: 0; }
   .overview-grid .focus-card-actions { max-width: 360px; }
   .page-heading > .button { align-self: flex-start; }

@@ -114,6 +114,19 @@ test('questions sum recorded counts and manual duration uses its reported calend
   assert.deepEqual(result.questionSubjects.map(row => row.questions), [55, 12]);
 });
 
+test('classroom question rows retain separate course identities and a clear unassigned label', () => {
+  const state = emptyState();
+  state.practice_entries = [
+    { id: 'a', course_id: 'course-a', practice_date: '2026-09-28', exam: 'TYT', subject: 'Matematik', question_count: 12, test_count: 0, revision: 1, created_at: now.toISOString(), updated_at: now.toISOString() },
+    { id: 'b', course_id: 'course-b', practice_date: '2026-09-28', exam: 'TYT', subject: 'Matematik', question_count: 8, test_count: 0, revision: 1, created_at: now.toISOString(), updated_at: now.toISOString() },
+    { id: 'c', course_id: null, practice_date: '2026-09-28', exam: null, subject: null, question_count: 4, test_count: 0, revision: 1, created_at: now.toISOString(), updated_at: now.toISOString() },
+  ];
+  const rows = studentMetrics(state, now).questionSubjects;
+  assert.deepEqual(rows.map(row => row.questions), [12, 8, 4]);
+  assert.equal(new Set(rows.map(row => row.key)).size, 3);
+  assert.deepEqual(rows.map(row => row.exam ? `${row.exam} ${row.subject}` : row.subject), ['TYT Matematik', 'TYT Matematik', 'Ders seçilmedi']);
+});
+
 test('isolated demo seed is repeatable, creates exactly 10/25 students and consistent current data', async () => {
   const { PGlite } = await import('@electric-sql/pglite');
   const { readFile, readdir } = await import('node:fs/promises');

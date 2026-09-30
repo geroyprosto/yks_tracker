@@ -285,6 +285,50 @@ test("practice validation and ownership reject invalid counts, hidden fields and
  assert.equal((await state()).practice_entries.find(entry=>entry.id===created.id)!.test_count,2);
 });
 
+test("practice counts can be saved without a course and legacy records keep their subject on partial edits",async()=>{
+ const date="2026-09-25";
+ const questionOnly={practice_date:date,course_id:null,question_count:35,test_count:0};
+ assert.equal(commandSchema.safeParse({request_id:randomUUID(),type:"practice.create",payload:questionOnly}).success,true);
+ const first=await command("practice.create",questionOnly);
+ let saved=(await state()).practice_entries.find(entry=>entry.id===first.id)!;
+ assert.equal(saved.course_id,null);assert.equal(saved.exam,null);assert.equal(saved.subject,null);
+ assert.equal(saved.question_count,35);assert.equal(saved.test_count,0);
+ const second=await command("practice.create",{practice_date:date,course_id:null,question_count:0,test_count:2});
+ saved=(await state()).practice_entries.find(entry=>entry.id===second.id)!;
+ assert.equal(saved.question_count,0);assert.equal(saved.test_count,2);
+ assert.equal(commandSchema.safeParse({request_id:randomUUID(),type:"practice.create",payload:{...questionOnly,question_count:0}}).success,false);
+ await assert.rejects(()=>command("practice.create",{...questionOnly,question_count:0}),/check constraint|INVALID_INPUT/);
+ const legacy=await command("practice.create",{practice_date:date,exam:"AYT",subject:"Kimya",question_count:12,test_count:0});
+ await command("practice.update",{id:legacy.id,expected_revision:1,test_count:1});
+ saved=(await state()).practice_entries.find(entry=>entry.id===legacy.id)!;
+ assert.equal(saved.course_id,null);assert.equal(saved.exam,"AYT");assert.equal(saved.subject,"Kimya");
+ await command("practice.update",{id:legacy.id,expected_revision:2,course_id:null});
+ saved=(await state()).practice_entries.find(entry=>entry.id===legacy.id)!;
+ assert.equal(saved.course_id,null);assert.equal(saved.exam,null);assert.equal(saved.subject,null);
+});
+
+test("practice derives exam and subject from an owner course and rejects foreign or archived courses",async()=>{
+ const tytCourse=randomUUID(),schoolCourse=randomUUID(),foreignCourse=randomUUID(),term=randomUUID();
+ await admin("insert into public.education_terms(id,user_id,academic_year,name) values($1,$2,'2026-2027','Güz')",[term,OWNER]);
+ await admin("insert into public.education_courses(id,user_id,name,context,exam) values($1,$2,'Problem Çözümü','yks','TYT'),($3,$4,'Yabancı Ders','yks','AYT')",[tytCourse,OWNER,foreignCourse,OTHER]);
+ await admin("insert into public.education_courses(id,user_id,term_id,name,context) values($1,$2,$3,'Psikoloji','school')",[schoolCourse,OWNER,term]);
+ const payload={practice_date:"2026-09-26",course_id:tytCourse,exam:"AYT",subject:"Sahte ders",question_count:0,test_count:3};
+ const requestId=randomUUID();
+ const chosen=await command("practice.create",payload,requestId);
+ assert.equal((await command("practice.create",payload,requestId)).replayed,true);
+ let saved=(await state()).practice_entries.find(entry=>entry.id===chosen.id)!;
+ assert.equal(saved.course_id,tytCourse);assert.equal(saved.exam,"TYT");assert.equal(saved.subject,"Problem Çözümü");
+ assert.equal(saved.question_count,0);assert.equal(saved.test_count,3);
+ await command("practice.update",{id:chosen.id,expected_revision:1,course_id:schoolCourse,exam:"TYT",subject:"Sahte ders",question_count:25});
+ saved=(await state()).practice_entries.find(entry=>entry.id===chosen.id)!;
+ assert.equal(saved.course_id,schoolCourse);assert.equal(saved.exam,null);assert.equal(saved.subject,"Psikoloji");
+ await assert.rejects(()=>command("practice.create",{...payload,course_id:foreignCourse}),/INVALID_INPUT/);
+ await admin("update public.education_courses set archived=true where id=$1",[tytCourse]);
+ await assert.rejects(()=>command("practice.create",payload),/INVALID_INPUT/);
+ await assert.rejects(()=>command("practice.update",{id:chosen.id,expected_revision:2,course_id:foreignCourse}),/INVALID_INPUT/);
+ assert.equal((await state()).practice_entries.find(entry=>entry.id===chosen.id)!.course_id,schoolCourse);
+});
+
 
 
 test("exam formats stay versioned and full TYT totals count each section exactly once",async()=>{

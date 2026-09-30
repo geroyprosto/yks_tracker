@@ -1,4 +1,5 @@
 import type { AppState, ExamRecord, StudySession } from '../domain/types';
+import { practiceCourseKey } from '../practice-summary';
 import { secondsByDay } from '../timing';
 import { localDate } from '../ui';
 
@@ -20,7 +21,7 @@ export type StudentMetrics = {
   todaySeconds: number | null; weekSeconds: number | null; todayQuestions: number | null;
   latestTYT: ExamComparison | null; latestAYT: ExamComparison | null;
   weeklyStudy: Array<{ date: string; label: string; seconds: number | null }>;
-  questionSubjects: Array<{ subject: string; exam: 'TYT' | 'AYT'; questions: number }>;
+  questionSubjects: Array<{ key: string; subject: string; exam: 'TYT' | 'AYT' | null; questions: number }>;
   topicProgress: Array<{
     exam: 'TYT' | 'AYT'; subject: string; completed: number; total: number;
     /** Completion means mastery >= 2, "Konu anlatımı tamamlandı" in the existing model. */
@@ -126,8 +127,8 @@ export function studentMetrics(state: AppState, now: Date | number = new Date())
   const observed = weeklyStudy.filter(day => day.seconds !== null);
   const questionTotals = new Map<string, StudentMetrics['questionSubjects'][number]>();
   for (const entry of state.practice_entries.filter(entry => entry.practice_date === today)) {
-    const key = `${entry.exam}:${entry.subject}`;
-    const row = questionTotals.get(key) ?? { exam: entry.exam, subject: entry.subject, questions: 0 };
+    const key = practiceCourseKey(entry);
+    const row = questionTotals.get(key) ?? { key, exam: entry.exam, subject: entry.subject?.trim() || 'Ders seçilmedi', questions: 0 };
     row.questions += entry.question_count;
     questionTotals.set(key, row);
   }

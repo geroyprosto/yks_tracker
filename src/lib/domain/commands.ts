@@ -17,11 +17,15 @@ const taskFields = z.object({
 }).strict();
 const topicFields = z.object({exam,subject:text(120).min(1),name:text(240).min(1),parent_id:id.nullable().optional(),mastery:z.number().int().min(0).max(4).optional(),notes:text(10000).optional(),review_requested:z.boolean().optional(),source:text(1000).optional(),next_step:text(1000).optional()}).strict();
 const practiceFields = z.object({
- practice_date:date,exam,subject:text(120).min(1),
+ practice_date:date,course_id:id.nullable().optional(),exam:exam.nullable().optional(),subject:text(120).min(1).nullable().optional(),
  question_count:z.number().int().min(0).max(100000),
  test_count:z.number().int().min(0).max(10000),
 }).strict();
-const practiceCreate = practiceFields.refine(v=>v.question_count>0||v.test_count>0,"En az bir soru veya test girin.");const examFormatCode = z.enum(["TYT","AYT_SAYISAL","BRANCH"]);
+const practiceCreate = practiceFields.superRefine((value,ctx)=>{
+ if(value.question_count===0&&value.test_count===0)ctx.addIssue({code:"custom",message:"En az bir soru veya test girin."});
+ if(value.course_id===null&&(value.exam!=null||value.subject!=null))ctx.addIssue({code:"custom",message:"Derssiz kayıtta sınav ve ders boş olmalı."});
+ if(value.course_id===undefined&&(value.exam==null)!==(value.subject==null))ctx.addIssue({code:"custom",message:"Sınav ve ders birlikte girilmeli."});
+});const examFormatCode = z.enum(["TYT","AYT_SAYISAL","BRANCH"]);
 const examResult = z.union([
  z.object({section_key:text(80).min(1),correct:z.number().int().min(0).max(1000),wrong:z.number().int().min(0).max(1000),blank:z.number().int().min(0).max(1000).optional()}).strict(),
  z.object({section_key:text(80).min(1),net:z.number().finite().min(-1000).max(1000)}).strict(),

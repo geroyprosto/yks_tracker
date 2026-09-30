@@ -2,8 +2,8 @@ import type { PracticeEntry } from './domain/types';
 
 export type PracticePeriod = 'day' | 'week' | 'month';
 export type PracticeCount = { questionCount: number; testCount: number };
-export type PracticeExamRow = PracticeCount & { exam: 'TYT' | 'AYT' };
-export type PracticeSubjectRow = PracticeCount & { exam: 'TYT' | 'AYT'; subject: string };
+export type PracticeExamRow = PracticeCount & { exam: 'TYT' | 'AYT' | 'Diğer' };
+export type PracticeSubjectRow = PracticeCount & { key: string; exam: 'TYT' | 'AYT' | null; subject: string };
 export type PracticeDayRow = PracticeCount & { date: string };
 export type PracticeTrendRow = PracticeCount & { date: string; end: string; label: string };
 
@@ -52,8 +52,18 @@ function cleanCount(value: number) {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
-function subjectName(subject: string) {
-  return subject.trim() || 'Diğer';
+function subjectName(subject: string | null) {
+  return subject?.trim() || 'Ders seçilmedi';
+}
+
+export function practiceCourseKey(entry: PracticeEntry) {
+  return entry.course_id ? `course:${entry.course_id}` : entry.subject?.trim()
+    ? `legacy:${entry.exam ?? ''}:${entry.subject.trim().toLocaleLowerCase('tr-TR')}` : 'unassigned';
+}
+
+export function practiceCourseLabel(entry: PracticeEntry) {
+  const subject = subjectName(entry.subject);
+  return entry.exam ? `${entry.exam} · ${subject}` : subject;
 }
 
 export function summarizePractice(entries: readonly PracticeEntry[], anchor: string, period: PracticePeriod) {
@@ -80,12 +90,15 @@ export function summarizePractice(entries: readonly PracticeEntry[], anchor: str
       examRow.testCount += tests;
     }
     const subject = subjectName(entry.subject);
-    const key = entry.exam + '\0' + subject.toLocaleLowerCase('tr-TR');
-    const row = subjects.get(key) ?? { exam: entry.exam, subject, questionCount: 0, testCount: 0 };
+    const key = practiceCourseKey(entry);
+    const row = subjects.get(key) ?? { key, exam: entry.exam, subject, questionCount: 0, testCount: 0 };
     row.questionCount += questions;
     row.testCount += tests;
     subjects.set(key, row);
   }
+  const otherQuestions = totalQuestions - examRows.reduce((sum, row) => sum + row.questionCount, 0);
+  const otherTests = totalTests - examRows.reduce((sum, row) => sum + row.testCount, 0);
+  if (otherQuestions || otherTests) examRows.push({ exam: 'Diğer', questionCount: otherQuestions, testCount: otherTests });
   const subjectRows = [...subjects.values()].sort((a, b) => b.questionCount - a.questionCount || b.testCount - a.testCount || a.subject.localeCompare(b.subject, 'tr-TR'));
   return { ...range, totalQuestions, totalTests, activeDays: activeDates.size, entryCount: records.length, examRows, subjectRows, records };
 }

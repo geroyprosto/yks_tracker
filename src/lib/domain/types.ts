@@ -36,7 +36,7 @@ export type DayPlan = {
 };
 export type TopicHistory = { id: string; topic_id: string; old_mastery: number; new_mastery: number; changed_at: string };
 export type PracticeEntry = {
-  id: string; practice_date: string; exam: "TYT" | "AYT"; subject: string;
+  id: string; practice_date: string; course_id?: string | null; exam: "TYT" | "AYT" | null; subject: string | null;
   question_count: number; test_count: number; revision: number;
   created_at: string; updated_at: string;
 };

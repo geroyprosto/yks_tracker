@@ -83,3 +83,21 @@ test('aylık eğilim takvim haftalarını ay sınırında kırpar', () => {
     ['2026-09-28', '2026-09-30', 10, 1],
   ]);
 });
+
+test('ders kimlikleri ayrı kalır; derssiz soru ve test kayıtları birlikte özetlenir', () => {
+  const rows = [
+    { ...entry('course-a', '2026-09-24', 'TYT', 'Matematik', 20, 0), course_id: 'course-a' },
+    { ...entry('course-b', '2026-09-24', 'TYT', 'Matematik', 0, 2), course_id: 'course-b' },
+    { ...entry('unassigned', '2026-09-24', 'TYT', 'Matematik', 0, 3), course_id: null, exam: null, subject: null },
+  ] as PracticeEntry[];
+  const summary = summarizePractice(rows, '2026-09-24', 'day');
+  assert.equal(summary.totalQuestions, 20);
+  assert.equal(summary.totalTests, 5);
+  assert.deepEqual(summary.subjectRows.map(row => [row.subject, row.questionCount, row.testCount]), [
+    ['Matematik', 20, 0], ['Ders seçilmedi', 0, 3], ['Matematik', 0, 2],
+  ]);
+  assert.equal(new Set(summary.subjectRows.map(row => row.key)).size, 3);
+  assert.deepEqual(summary.examRows.map(row => [row.exam, row.questionCount, row.testCount]), [
+    ['TYT', 20, 2], ['AYT', 0, 0], ['Diğer', 0, 3],
+  ]);
+});

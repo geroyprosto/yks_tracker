@@ -138,7 +138,7 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
           <div className="week-chart" role="group" aria-label={'Son yedi gün toplam çalışma ' + duration(weekTotal)}>{days.map(day => <button type="button" className={'day-bar ' + (day === today ? 'current' : '')} key={day} {...tooltip.triggerProps(day, {title:formatDay(day, {day:'numeric',month:'long'}),value:totals[day] ? duration(totals[day]) : 'Kayıt yok',context:'Net çalışma süresi',note:day === today ? 'Bugün' : undefined})}><span className="bar-value">{totals[day] ? hourFormatter.format(totals[day] / 3600) + ' sa' : '—'}</span><span className="bar-track"><span style={{height: Math.max(0, 100 * (totals[day] ?? 0) / max) + '%'}}/></span><span>{new Intl.DateTimeFormat('tr-TR', {weekday: 'short', timeZone: 'UTC'}).format(new Date(day + 'T12:00:00Z'))}</span></button>)}</div>
           <p className="footnote">— Kayıt olmayan günler. Henüz çalışma yapılmadığı anlamına gelmez.</p>
         </Card>}
-        {yks&&(modules?.statistics??true)&&<div className="today-practice-card"><PracticeOverview state={state} preview={preview} onOpen={openPractice}/></div>}
+        {yks&&(modules?.statistics??true)&&<div className="today-practice-card"><PracticeOverview state={state} preview={preview} command={command} busy={busy} onOpen={openPractice}/></div>}
       </div>
       <div className="column">
         <TodayCalendar authenticated={state.authenticated} onOpenSettings={() => go('settings', 'connections')}/>

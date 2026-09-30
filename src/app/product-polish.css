@@ -106,6 +106,8 @@
 .today-practice-card .practice-overview-subject strong { font-size: 10px; }
 .today-practice-card .practice-overview-track { background: var(--surface-raised); }
 .today-practice-card .practice-overview-track > span { background: var(--primary); box-shadow: none; }
+.today-practice-card .practice-overview-test .practice-overview-track > span { background: var(--ring-2); }
+.today-practice-card .practice-overview-bar small { color: var(--muted); }
 .today-practice-card .practice-overview-link { background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding-top: 12px; color: var(--primary); font-size: 12px; justify-content: flex-start; }
 .today-primary-grid .journal-preview-card { min-height: 0; }
 .today-primary-grid .journal-preview-body { display: grid; gap: 12px; }

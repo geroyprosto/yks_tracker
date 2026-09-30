@@ -1,36 +1,44 @@
 'use client';
-import { BarChart3, ArrowUpRight } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowUpRight, Plus } from 'lucide-react';
 import type { AppState } from '@/lib/domain/types';
-import { localDate } from '@/lib/ui';
+import { summarizePractice } from '@/lib/practice-summary';
+import { localDate, type CommandFn } from '@/lib/ui';
 import { Card } from './primitives';
+import { Modal } from './modal';
+import { PracticeEntryForm } from './practice-entry-form';
 
-export function PracticeOverview({ state, preview, onOpen }: { state: AppState; preview: boolean; onOpen: () => void }) {
+export function PracticeOverview({ state, preview, command, busy, onOpen }: { state: AppState; preview: boolean; command: CommandFn; busy: boolean; onOpen: () => void }) {
+  const [adding, setAdding] = useState(false);
   const today = localDate(Date.parse(state.server_now), state.settings?.timezone ?? 'Europe/Istanbul');
-  const entries = (state.practice_entries ?? []).filter(entry => entry.practice_date === today);
-  const questions = entries.reduce((total, entry) => total + entry.question_count, 0);
-  const tests = entries.reduce((total, entry) => total + entry.test_count, 0);
-  const subjects = Array.from(entries.reduce((map, entry) => {
-    const label = `${entry.exam} · ${entry.subject}`;
-    const previous = map.get(label) ?? { label, questions: 0, tests: 0 };
-    map.set(label, { label, questions: previous.questions + entry.question_count, tests: previous.tests + entry.test_count });
-    return map;
-  }, new Map<string, { label: string; questions: number; tests: number }>()).values())
-    .sort((left, right) => right.questions - left.questions || right.tests - left.tests);
-  const maximum = Math.max(1, ...subjects.map(subject => subject.questions));
+  const summary = summarizePractice(state.practice_entries ?? [], today, 'day');
+  const subjects = summary.subjectRows;
+  const maximumQuestions = Math.max(1, ...subjects.map(subject => subject.questionCount));
+  const maximumTests = Math.max(1, ...subjects.map(subject => subject.testCount));
+  const writable = state.authenticated && !preview;
 
-  return <Card className="insight-card practice-overview-card" title="Soru ve testlerin" eyebrow="BUGÜN · ÇÖZÜM TAKİBİ" action={<BarChart3 size={20} className="muted-icon"/>}>
+  return <><Card className="insight-card practice-overview-card" title="Soru ve testlerin" eyebrow="BUGÜN · ÇÖZÜM TAKİBİ" action={<button type="button" className="button small primary practice-overview-add" disabled={!writable || busy} onClick={() => setAdding(true)}><Plus size={15} aria-hidden="true"/>Kayıt ekle</button>}>
     {preview && <span className="practice-preview-badge">Örnek veri</span>}
-    <div className="practice-overview-totals" aria-label={`Bugün ${questions} soru ve ${tests} test`}>
-      <div><strong>{questions.toLocaleString('tr-TR')}</strong><span>soru</span></div>
-      <div><strong>{tests.toLocaleString('tr-TR')}</strong><span>test</span></div>
+    <div className="practice-overview-totals" aria-label={`Bugün ${summary.totalQuestions} soru ve ${summary.totalTests} test`}>
+      <div><strong>{summary.totalQuestions.toLocaleString('tr-TR')}</strong><span>soru</span></div>
+      <div><strong>{summary.totalTests.toLocaleString('tr-TR')}</strong><span>test</span></div>
     </div>
     {subjects.length ? <div className="practice-overview-subjects" aria-label="Bugün derslere göre çözümler">
-      {subjects.slice(0, 3).map(subject => <div className="practice-overview-subject" key={subject.label}>
-        <div><span>{subject.label}</span><strong>{subject.questions} soru · {subject.tests} test</strong></div>
-        <div className="practice-overview-track"><span style={{ width: `${Math.max(4, 100 * subject.questions / maximum)}%` }}/></div>
+      {subjects.slice(0, 3).map(subject => <div className="practice-overview-subject" key={subject.key}>
+        <div><span>{subject.exam ? `${subject.exam} · ` : ''}{subject.subject}</span><strong>{subject.questionCount} soru · {subject.testCount} test</strong></div>
+        <div className="practice-overview-bars">
+          {summary.totalQuestions > 0 && <div className="practice-overview-bar"><small>Soru</small><div className="practice-overview-track" role="img" aria-label={`${subject.subject}: ${subject.questionCount} soru`}><span style={{ width: `${100 * subject.questionCount / maximumQuestions}%` }}/></div></div>}
+          {summary.totalTests > 0 && <div className="practice-overview-bar practice-overview-test"><small>Test</small><div className="practice-overview-track" role="img" aria-label={`${subject.subject}: ${subject.testCount} test`}><span style={{ width: `${100 * subject.testCount / maximumTests}%` }}/></div></div>}
+        </div>
       </div>)}
       {subjects.length > 3 && <span className="practice-overview-more">+{subjects.length - 3} ders daha</span>}
-    </div> : <p className="practice-overview-empty">Bugün için soru veya test kaydı yok. İlk çözümünü ekleyerek başla.</p>}
-    <button className="practice-overview-link" onClick={onOpen}>Gün · hafta · ay analizi <ArrowUpRight size={16}/></button>
-  </Card>;
+    </div> : <p className="practice-overview-empty">Bugün için soru veya test kaydı yok. Kayıt ekle ile başla.</p>}
+    <button type="button" className="practice-overview-link" onClick={onOpen}>Gün · hafta · ay analizi <ArrowUpRight size={16}/></button>
+  </Card>
+    {adding && <Modal title="Yeni çözüm kaydı" onClose={() => setAdding(false)}>
+      <PracticeEntryForm state={state} entry={null} date={today} today={today} busy={busy} writable={writable} onCancel={() => setAdding(false)} onSave={async payload => {
+        if (await command('practice.create', payload)) setAdding(false);
+      }}/>
+    </Modal>}
+  </>;
 }

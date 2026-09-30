@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useState } from 'react';
 import { BarChart3, ChevronLeft, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import type { AppState, PracticeEntry } from '@/lib/domain/types';
 import { practicePeriod, practiceTrend, summarizePractice, type PracticePeriod } from '@/lib/practice-summary';
 import { localDate, type CommandFn } from '@/lib/ui';
 import { Card } from './primitives';
 import { Modal } from './modal';
+import { PracticeEntryForm } from './practice-entry-form';
 
 type Props = { state: AppState; command: CommandFn; busy: boolean; preview: boolean };
 const periodOptions: { id: PracticePeriod; label: string }[] = [
@@ -76,38 +77,38 @@ export function PracticeAnalysis({ state, command, busy, preview }: Props) {
         <p className="practice-chart-note">{summary.entryCount === 0 ? 'Bu dönemde kayıt yok. İlk kaydınla grafik dolacak.' : 'Soru ve test sütunları kendi ölçekleriyle gösterilir; kesin sayılar aşağıda yer alır.'} Kayıt olmayan günler çalışmadığın anlamına gelmez.</p>
       </Card>
 
-      <Card className="practice-exams" eyebrow="TYT + AYT" title="Sınav dağılımı" action={<BarChart3 size={19} aria-hidden="true" />}>
+      <Card className="practice-exams" eyebrow="ÇÖZÜM DAĞILIMI" title="Sınav dağılımı" action={<BarChart3 size={19} aria-hidden="true" />}>
         <div className="practice-exam-list">
           {summary.examRows.map(row => <div className="practice-exam-row" key={row.exam}>
             <div><strong>{row.exam}</strong><span>{count(row.questionCount, 'soru')} · {count(row.testCount, 'test')}</span></div>
-            <div className="practice-meter" role="img" aria-label={`${row.exam}: toplam soruların yüzde ${summary.totalQuestions ? Math.round(row.questionCount / summary.totalQuestions * 100) : 0}'i`}><span style={{ width: `${summary.totalQuestions ? row.questionCount / summary.totalQuestions * 100 : 0}%` }} /></div>
+            <PracticeShareBars context={row.exam} questions={row.questionCount} tests={row.testCount} totalQuestions={summary.totalQuestions} totalTests={summary.totalTests} />
           </div>)}
         </div>
-        <p className="practice-card-note">Dönem içindeki tüm TYT ve AYT soru kayıtları.</p>
+        <p className="practice-card-note">TYT, AYT ve derssiz veya okul derslerine ait kayıtlar. Soru ve test payları ayrı gösterilir.</p>
       </Card>
     </div>
 
     <div className="practice-details">
-      <Card className="practice-subjects" eyebrow="DERS BAZINDA" title="Hangi dersten kaç soru?" action={<span className="pill">{summary.subjectRows.length} ders</span>}>
+      <Card className="practice-subjects" eyebrow="DERS BAZINDA" title="Hangi dersten kaç soru?" action={<span className="pill">{summary.subjectRows.length} grup</span>}>
         {summary.subjectRows.length === 0 ? <div className="practice-empty"><p>Bu dönemde derslere ait çözüm kaydı yok.</p><small>Bir kayıt eklediğinde her dersin soru ve test sayısı burada görünecek.</small></div> :
-          <div className="practice-subject-list">{summary.subjectRows.map(row => <div className="practice-subject-row" key={row.exam + ':' + row.subject}>
-            <div className="practice-subject-head"><span><small>{row.exam}</small><strong>{row.subject}</strong></span><b>{count(row.questionCount, 'soru')} <i>·</i> {count(row.testCount, 'test')}</b></div>
-            <div className="practice-meter" role="img" aria-label={`${row.exam} ${row.subject}: ${count(row.questionCount, 'soru')}, ${count(row.testCount, 'test')}`}><span style={{ width: `${summary.totalQuestions ? row.questionCount / summary.totalQuestions * 100 : 0}%` }} /></div>
+          <div className="practice-subject-list">{summary.subjectRows.map(row => <div className="practice-subject-row" key={row.key}>
+            <div className="practice-subject-head"><span><small>{row.exam ?? (row.subject === 'Ders seçilmedi' ? 'Genel' : 'Okul')}</small><strong>{row.subject}</strong></span><b>{count(row.questionCount, 'soru')} <i>·</i> {count(row.testCount, 'test')}</b></div>
+            <PracticeShareBars context={`${row.exam ? row.exam + ' ' : ''}${row.subject}`} questions={row.questionCount} tests={row.testCount} totalQuestions={summary.totalQuestions} totalTests={summary.totalTests} />
           </div>)}</div>}
       </Card>
 
       <Card className="practice-records" eyebrow="KAYIT GEÇMİŞİ" title="Çözüm kayıtların" action={<span className="pill">{summary.entryCount} kayıt</span>}>
         {summary.records.length === 0 ? <div className="practice-empty"><p>Seçili dönemde kayıt bulunmuyor.</p><small>Önceki döneme geçebilir veya yeni bir kayıt ekleyebilirsin.</small></div> :
           <div className="practice-record-list">{summary.records.map(entry => <div className="practice-row" key={entry.id}>
-            <div className="practice-row-date"><strong>{shortDate.format(dateObject(entry.practice_date))}</strong><span>{entry.exam}</span></div>
-            <div className="practice-row-main"><strong>{entry.subject}</strong><span>{count(entry.question_count, 'soru')} · {count(entry.test_count, 'test')}</span></div>
-            <div className="practice-row-actions"><button type="button" className="icon-button" disabled={!writable || busy} onClick={() => setEditing(entry)} aria-label={`${entry.exam} ${entry.subject} kaydını düzenle`}><Pencil size={16} /></button><button type="button" className="icon-button" disabled={!writable || busy} onClick={() => setDeleting(entry)} aria-label={`${entry.exam} ${entry.subject} kaydını sil`}><Trash2 size={16} /></button></div>
+            <div className="practice-row-date"><strong>{shortDate.format(dateObject(entry.practice_date))}</strong><span>{entry.exam ?? (entry.subject ? 'Okul' : 'Genel')}</span></div>
+            <div className="practice-row-main"><strong>{entry.subject || 'Ders seçilmedi'}</strong><span>{count(entry.question_count, 'soru')} · {count(entry.test_count, 'test')}</span></div>
+            <div className="practice-row-actions"><button type="button" className="icon-button" disabled={!writable || busy} onClick={() => setEditing(entry)} aria-label={`${entry.exam ? entry.exam + ' ' : ''}${entry.subject || 'Ders seçilmedi'} kaydını düzenle`}><Pencil size={16} /></button><button type="button" className="icon-button" disabled={!writable || busy} onClick={() => setDeleting(entry)} aria-label={`${entry.exam ? entry.exam + ' ' : ''}${entry.subject || 'Ders seçilmedi'} kaydını sil`}><Trash2 size={16} /></button></div>
           </div>)}</div>}
       </Card>
     </div>
 
     {editing !== false && <Modal title={editing ? 'Çözüm kaydını düzenle' : 'Yeni çözüm kaydı'} onClose={() => setEditing(false)}>
-      <PracticeForm key={editing?.id ?? 'new'} entry={editing || null} date={defaultEntryDate} today={today} busy={busy} writable={writable} subjects={[...new Set([...state.topics.map(topic => topic.subject), ...entries.map(entry => entry.subject)])]} onCancel={() => setEditing(false)} onSave={async payload => {
+      <PracticeEntryForm key={editing?.id ?? 'new'} state={state} entry={editing || null} date={defaultEntryDate} today={today} busy={busy} writable={writable} onCancel={() => setEditing(false)} onSave={async payload => {
         const action = editing ? 'practice.update' : 'practice.create';
         const data = editing ? { ...payload, id: editing.id, expected_revision: editing.revision } : payload;
         if (await command(action, data)) setEditing(false);
@@ -115,35 +116,16 @@ export function PracticeAnalysis({ state, command, busy, preview }: Props) {
     </Modal>}
 
     {deleting && <Modal title="Çözüm kaydını sil" onClose={() => setDeleting(null)}>
-      <div className="practice-delete-confirm"><p><strong>{deleting.exam} {deleting.subject}</strong> için {fullDate.format(dateObject(deleting.practice_date))} tarihli {count(deleting.question_count, 'soru')} ve {count(deleting.test_count, 'test')} kaydı silinecek.</p><p>Bu işlem grafikleri ve dönem toplamlarını günceller.</p><div className="form-actions"><button type="button" className="button secondary" onClick={() => setDeleting(null)}>Vazgeç</button><button type="button" className="button practice-delete-button" disabled={busy || !writable} onClick={async () => { if (await command('practice.delete', { id: deleting.id, expected_revision: deleting.revision })) setDeleting(null); }}>Kaydı sil</button></div></div>
+      <div className="practice-delete-confirm"><p><strong>{deleting.exam ? deleting.exam + ' · ' : ''}{deleting.subject || 'Ders seçilmedi'}</strong> için {fullDate.format(dateObject(deleting.practice_date))} tarihli {count(deleting.question_count, 'soru')} ve {count(deleting.test_count, 'test')} kaydı silinecek.</p><p>Bu işlem grafikleri ve dönem toplamlarını günceller.</p><div className="form-actions"><button type="button" className="button secondary" onClick={() => setDeleting(null)}>Vazgeç</button><button type="button" className="button practice-delete-button" disabled={busy || !writable} onClick={async () => { if (await command('practice.delete', { id: deleting.id, expected_revision: deleting.revision })) setDeleting(null); }}>Kaydı sil</button></div></div>
     </Modal>}
   </div>;
 }
 
-function PracticeForm({ entry, date, today, busy, writable, subjects, onCancel, onSave }: {
-  entry: PracticeEntry | null; date: string; today: string; busy: boolean; writable: boolean; subjects: string[];
-  onCancel: () => void; onSave: (payload: Record<string, unknown>) => Promise<void>;
+function PracticeShareBars({ context, questions, tests, totalQuestions, totalTests }: {
+  context: string; questions: number; tests: number; totalQuestions: number; totalTests: number;
 }) {
-  const [error, setError] = useState('');
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    const subject = String(form.get('subject') ?? '').trim();
-    const questions = Number(form.get('question_count'));
-    const tests = Number(form.get('test_count'));
-    if (!subject) { setError('Ders adını gir.'); return; }
-    if (questions === 0 && tests === 0) { setError('En az bir soru veya test sayısı gir.'); return; }
-    setError('');
-    await onSave({ practice_date: form.get('practice_date'), exam: form.get('exam'), subject, question_count: questions, test_count: tests });
-  };
-  return <form className="form-grid practice-form" onSubmit={submit}>
-    <label>Tarih<input type="date" name="practice_date" required max={today} defaultValue={entry?.practice_date ?? date} /></label>
-    <label>Sınav<select name="exam" defaultValue={entry?.exam ?? 'TYT'}><option value="TYT">TYT</option><option value="AYT">AYT</option></select></label>
-    <label className="span-2">Ders<input name="subject" list="practice-subject-options" required maxLength={120} defaultValue={entry?.subject ?? ''} placeholder="Örn. Matematik" autoComplete="off" /><datalist id="practice-subject-options">{subjects.filter(Boolean).map(subject => <option key={subject} value={subject} />)}</datalist></label>
-    <label>Çözülen soru<input type="number" name="question_count" min="0" max="100000" step="1" required defaultValue={entry?.question_count ?? 0} /></label>
-    <label>Bitirilen test<input type="number" name="test_count" min="0" max="10000" step="1" required defaultValue={entry?.test_count ?? 0} /></label>
-    <p className="footnote span-2">Soru ve test sayılarını ayrı ayrı yaz. Bu kayıt çalışma sürene eklenmez.</p>
-    {error && <p className="error-text span-2" role="alert">{error}</p>}
-    <div className="form-actions span-2"><button type="button" className="button secondary" onClick={onCancel}>Vazgeç</button><button type="submit" className="button primary" disabled={busy || !writable}>{busy ? 'Kaydediliyor…' : 'Kaydet'}</button></div>
-  </form>;
+  return <div className="practice-share-bars">
+    {totalQuestions > 0 && <div className="practice-share-row"><small>Soru</small><div className="practice-meter" role="img" aria-label={`${context}: ${questions} soru, soruların yüzde ${Math.round(questions / totalQuestions * 100)}'i`}><span style={{ width: `${questions / totalQuestions * 100}%` }} /></div></div>}
+    {totalTests > 0 && <div className="practice-share-row practice-share-test"><small>Test</small><div className="practice-meter" role="img" aria-label={`${context}: ${tests} test, testlerin yüzde ${Math.round(tests / totalTests * 100)}'i`}><span style={{ width: `${tests / totalTests * 100}%` }} /></div></div>}
+  </div>;
 }

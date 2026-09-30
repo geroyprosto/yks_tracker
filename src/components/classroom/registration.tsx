@@ -14,6 +14,7 @@ function AccountShell({ children, wide = false }: { children: ReactNode; wide?: 
 export function Registration() {
   const [role, setRole] = useState<'student' | 'teacher'>('student');
   const [token, setToken] = useState('');
+  const [friendInvite, setFriendInvite] = useState('');
   const [invitedTeacher, setInvitedTeacher] = useState('');
   const [demoEnabled, setDemoEnabled] = useState(false);
   const [demo, setDemo] = useState(false);
@@ -24,7 +25,7 @@ export function Registration() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const inviteToken = params.get('token') ?? '';
-    queueMicrotask(() => { setToken(inviteToken); if (params.get('role') === 'teacher' && !inviteToken) setRole('teacher'); if (params.get('error') === 'verification') setError('E-posta doğrulama bağlantısı geçersiz veya süresi dolmuş. En son gelen bağlantıyı dene; doğrulamayı tamamladıysan giriş yap.'); });
+    queueMicrotask(() => { setToken(inviteToken); const friendToken=params.get('friend_invite')??''; if(/^[a-f0-9]{64}$/.test(friendToken))setFriendInvite(friendToken); if (params.get('role') === 'teacher' && !inviteToken) setRole('teacher'); if (params.get('error') === 'verification') setError('E-posta doğrulama bağlantısı geçersiz veya süresi dolmuş. En son gelen bağlantıyı dene; doğrulamayı tamamladıysan giriş yap.'); });
     if (inviteToken) void fetch(`/api/classroom/invite?token=${encodeURIComponent(inviteToken)}`, { cache: 'no-store' }).then(async response => {
       const body = await response.json();
       if (!response.ok) throw new Error(errorMessage(body, 'Bu davet bağlantısı geçersiz, iptal edilmiş veya süresi dolmuş.'));
@@ -49,7 +50,8 @@ export function Registration() {
       {demoEnabled && <label className={styles.demoCheckbox}><input type="checkbox" checked={demo} onChange={event => setDemo(event.target.checked)} /><span>Başvuruyu demo olarak dene<small>Yerel simülasyon; gerçek e-posta gönderilmez, şifre saklanmaz.</small></span></label>}
       {error && <p className={styles.error} role="alert">{error}</p>}<button className={styles.primaryButton} disabled={busy || Boolean(token && !invitedTeacher)}>{busy ? 'Hesabın oluşturuluyor…' : soloStudent ? 'Bireysel hesabımı oluştur' : 'Başvurumu oluştur'}<ArrowUpRight size={17} /></button>
     </form>}
-    <p className={styles.accountFooter}>Zaten hesabın var mı? <Link href="/">Giriş yap</Link></p><Link className={styles.backLink} href="/"><ArrowLeft size={14} />Ana sayfaya dön</Link>
+    {friendInvite && <p className={styles.inlineInfo}>Arkadaş davetin hazır. Hesabın onaylandıktan sonra <Link href={`/friend-invite?token=${encodeURIComponent(friendInvite)}`}>davet bağlantısına dönüp</Link> katılımı kabul edebilirsin.</p>}
+    <p className={styles.accountFooter}>Zaten hesabın var mı? <Link href={friendInvite?`/friend-invite?token=${encodeURIComponent(friendInvite)}`:'/'}>Giriş yap</Link></p><Link className={styles.backLink} href="/"><ArrowLeft size={14} />Ana sayfaya dön</Link>
   </AccountShell>;
 }
 

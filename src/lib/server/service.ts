@@ -14,6 +14,8 @@ export function databaseError(error:{message:string;code?:string}):never{
   EMAIL_VERIFICATION_REQUIRED:[403,"Önce e-posta adresinizi doğrulayın."],
   AUTH_REQUIRED:[401,"Devam etmek için giriş yapın."],
   INVITE_INVALID:[410,"Davet iptal edilmiş veya süresi dolmuş."],
+  SELF_INVITE:[409,"Kendi davetini kabul edemezsin."],
+  ALREADY_FRIENDS:[409,"Zaten arkadaşsınız."],
   ALERT_LOCKED:[409,"Bu ekranın beş dakikalık süresi henüz dolmadı."],
   ROLE_CHANGE_FORBIDDEN:[409,"Mevcut hesabınızın rolü bu başvuruyla değiştirilemez."],
   PENDING_APPLICATION_EXISTS:[409,"Zaten değerlendirme bekleyen bir başvurunuz var."],

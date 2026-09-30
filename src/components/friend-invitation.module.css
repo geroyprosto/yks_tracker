@@ -1,0 +1,11 @@
+.card { display: grid; justify-items: start; gap: 12px; }
+.card :global(.brand) { margin-bottom: 18px; }
+.icon { width: 48px; height: 48px; display: grid; place-items: center; border-radius: 14px; background: var(--surface-raised); color: var(--primary); }
+.card h1 { margin-top: 0; }
+.card > p:not(.eyebrow) { margin-top: 0; }
+.card :global(.button.wide) { width: 100%; margin-top: 8px; }
+.card form { width: 100%; margin-top: 8px; }
+.card :global(.footnote) { width: 100%; }
+.card :global(.footnote a), .notice a { color: var(--primary); text-decoration: underline; text-underline-offset: 3px; }
+.privacy { padding: 13px 14px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface-raised); line-height: 1.65; }
+.notice { width: 100%; padding: 15px; border: 1px solid var(--border); border-radius: 9px; display: grid; gap: 8px; color: var(--muted); font-size: 13px; }

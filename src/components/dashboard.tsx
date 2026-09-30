@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { GraduationCap, LayoutDashboard, ListTodo, BookOpen, ChartNoAxesCombined, BarChart3, NotebookPen, Sparkles, Settings2, ChevronRight, Menu, X, ArrowUpRight, CloudCheck, WifiOff, AlertCircle, ShieldCheck } from 'lucide-react';
+import { GraduationCap, LayoutDashboard, ListTodo, BookOpen, ChartNoAxesCombined, BarChart3, UsersRound, NotebookPen, Sparkles, Settings2, ChevronRight, Menu, X, ArrowUpRight, CloudCheck, WifiOff, AlertCircle, ShieldCheck } from 'lucide-react';
 import {emptyState,type AppState} from '@/lib/domain/types';
 import { normalizeTheme,localDate,formatDay,type CommandFn } from '@/lib/ui';
 import { createChartPreviewState } from '@/lib/chart-preview';
@@ -11,6 +11,7 @@ import { Preferences } from './preferences';
 import { TimerPanel } from './timer';
 import type { FocusOrigin } from './timer-focus-view';
 import { StatisticsWorkspace, type StatisticsView } from './statistics-workspace';
+import { FriendsWorkspace } from './friends-workspace';
 import { Exams } from './exams';
 import { Journal } from './journal';
 import { ModalErrorContext } from './modal';
@@ -30,6 +31,7 @@ const navigation=[
  {id:'topics',label:'Konularım',icon:BookOpen},
  {id:'exams',label:'Sınav Sonuçları',icon:ChartNoAxesCombined},
  {id:'stats',label:'Çalışma İstatistikleri',icon:BarChart3},
+ {id:'friends',label:'Arkadaşlar',icon:UsersRound},
  {id:'journal',label:'Günlüğüm',icon:NotebookPen},
  {id:'analysis',label:'Analiz',icon:Sparkles},
  {id:'settings',label:'Ayarlar',icon:Settings2},
@@ -95,7 +97,7 @@ export function Dashboard(){
    if(savedReduced!==null||savedSimple!==null)preferenceDirty.current=true;
    setReduced(savedReduced==='true');setSimple(savedSimple==='true'); });
    queueMicrotask(()=>void refresh());
-   queueMicrotask(()=>{const query=new URLSearchParams(window.location.search);if(query.get('settings')==='connections'){setSettingsInitialTab('connections');setPage('settings')}});
+   queueMicrotask(()=>{const query=new URLSearchParams(window.location.search);if(query.get('page')==='friends')setPage('friends');else if(query.get('settings')==='connections'){setSettingsInitialTab('connections');setPage('settings')}});
    const reconnect=()=>{setOnline(navigator.onLine);if(navigator.onLine&&!pending.current)void refresh()};
    window.addEventListener('online',reconnect);window.addEventListener('offline',reconnect);window.addEventListener('focus',reconnect);
    const interval=setInterval(()=>{if(navigator.onLine&&!pending.current&&document.visibilityState==='visible')void refresh()},30000);
@@ -142,10 +144,10 @@ export function Dashboard(){
    }catch(cause){setError(cause instanceof Error?cause.message:'Kayıt tamamlanamadı; aynı işlemi yeniden deneyebilirsin.');return false;}
    finally{pending.current=false;setBusy(false);}
  };
- const go=(p:PageId,settingsTab?:'plan'|'connections')=>{if(p==='stats')setStatisticsView('study');if(p==='settings')setSettingsInitialTab(settingsTab??'appearance');setLinkedDate(null);setPage(p);setMobileMenu(false)};
+ const go=(p:PageId,settingsTab?:'plan'|'connections')=>{if(p==='stats')setStatisticsView('study');if(p==='settings')setSettingsInitialTab(settingsTab??'appearance');setLinkedDate(null);setPage(p);setMobileMenu(false);const url=new URL(window.location.href);if(p==='friends')url.searchParams.set('page','friends');else url.searchParams.delete('page');if(p==='settings'&&settingsTab==='connections')url.searchParams.set('settings','connections');else url.searchParams.delete('settings');window.history.replaceState(window.history.state,'',url)};
  const goFromReport=(p:PageId,date?:string)=>{go(p);if(date&&(p==='journal'||p==='exams'||p==='stats'))setLinkedDate(date)};
  const openPractice=()=>{go('stats');setStatisticsView('practice')};
- const openExamDateSettings=()=>{setSettingsInitialTab('plan');setPage('settings');setMobileMenu(false)};
+ const openExamDateSettings=()=>go('settings','plan');
  const previewEnabled=Boolean(state&&!state.configured&&(previewChoice??true));
  const todayState=state&&previewEnabled?createChartPreviewState(state):state;
  const openTimer=()=>{timerTrigger.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setTimerFocus(false);setTimerOpen(true)};
@@ -165,7 +167,7 @@ export function Dashboard(){
  const displayName=state?.settings?.display_name?.trim() || 'Öğrenci';
  const initials=displayName.split(/\s+/).map(part=>Array.from(part)[0]).filter(Boolean).slice(0,2).join('').toLocaleUpperCase('tr-TR');
  const title=page==='today'?'Merhaba, '+displayName+'.':navigation.find(n=>n.id===page)?.label;
- const descriptions:Record<PageId,string>={today:'Kendi ritminde, hedefe doğru. İşte bugünün çalışma alanı.',tasks:'Planını oluştur, adım adım ilerle.',topics:'Ne öğrendiğini ve bir sonraki adımını gör.',exams:'Sonuçlarını zaman içinde birlikte değerlendirelim.',stats:'Çalışma süreni, çözdüğün soru ve testleri birlikte incele.',journal:'Günün düşüncelerine küçük bir alan.',analysis:'Kayıtlarından anlamlı gözlemlere.',settings:'Çalışma alanını kendine göre düzenle.'};
+ const descriptions:Record<PageId,string>={today:'Kendi ritminde, hedefe doğru. İşte bugünün çalışma alanı.',tasks:'Planını oluştur, adım adım ilerle.',topics:'Ne öğrendiğini ve bir sonraki adımını gör.',exams:'Sonuçlarını zaman içinde birlikte değerlendirelim.',stats:'Çalışma süreni, çözdüğün soru ve testleri birlikte incele.',friends:'Birlikte çalış, birbirinizi tatlı bir şekilde motive edin.',journal:'Günün düşüncelerine küçük bir alan.',analysis:'Kayıtlarından anlamlı gözlemlere.',settings:'Çalışma alanını kendine göre düzenle.'};
  const profile=state?.education?.profile;
  const yksEnabled=profile?.yks_goal??true;
  const schoolEnabled=Boolean(profile&&(profile.education_level!=='graduate'||state?.education?.courses.some(course=>course.context==='school')||state?.education?.results.length));
@@ -199,6 +201,7 @@ export function Dashboard(){
        {state&&page==='journal'&&<Journal key={linkedDate??'today'} initialDate={linkedDate??undefined} state={state} command={command} busy={busy}/>}
        {state&&page==='analysis'&&<Analysis onOpenDay={date=>goFromReport('stats',date)}/>}
        {state&&page==='stats'&&<StatisticsWorkspace initialDate={linkedDate} state={state} practiceState={previewEnabled&&todayState?todayState:state} command={command} busy={busy} preview={previewEnabled} go={goFromReport} view={statisticsView} onViewChange={setStatisticsView}/>}
+       {state&&page==='friends'&&<FriendsWorkspace/>}
        <footer className="page-footer"><span>Her gün aynı olmak zorunda değil.</span><a href="/classroom">Hesap ve sınıf alanı</a><span>YKSim <span className="subtle">·</span> Kişisel çalışma alanın</span></footer>
      </main>
    </div>

@@ -4,6 +4,7 @@ import {emptyState, type AppState, type Task} from '../../src/lib/domain/types';
 const monday = '2026-09-28';
 const tuesday = '2026-09-29';
 const wednesday = '2026-09-30';
+const sunday = '2026-09-27';
 const stamp = '2026-09-28T09:00:00.000Z';
 
 function task(id: string, title: string, plan_date: string, progress: number, position = 0): Task {
@@ -29,6 +30,8 @@ test('task form saves on the creation day and preserves values removed from the 
   });
   await openTasks(page, state);
   await page.getByLabel('Plan tarihi').fill(monday);
+  await page.getByRole('tab', {name: 'Geçmiş görevler'}).click();
+  await page.getByRole('combobox', {name: 'Görev durumu'}).selectOption('done');
   await page.getByRole('button', {name: 'Görev ekle', exact: true}).click();
   const dialog = page.getByRole('dialog', {name: 'Yeni görev'});
   for (const label of ['Tarih', 'Kaynak / test / sayfa', 'İlerleme (%)', 'Özel ağırlık (isteğe bağlı)']) {
@@ -39,7 +42,9 @@ test('task form saves on the creation day and preserves values removed from the 
   await expect.poll(() => commands.length).toBe(1);
   expect(commands[0]).toMatchObject({type: 'task.create', payload: {title: 'Salı görevi', plan_date: tuesday}});
   for (const field of ['resource', 'progress', 'weight_override']) expect(commands[0].payload).not.toHaveProperty(field);
+  await expect(page.getByRole('tab', {name: 'Günün görevleri'})).toHaveAttribute('aria-selected', 'true');
   await expect(page.getByLabel('Plan tarihi')).toHaveValue(tuesday);
+  await expect(page.getByRole('combobox', {name: 'Görev durumu'})).toHaveValue('all');
 
   await page.getByRole('button', {name: 'Eski görev düzenle'}).click();
   const edit = page.getByRole('dialog', {name: 'Görevi düzenle'});
@@ -78,7 +83,7 @@ test('task can be deleted from its edit dialog after confirmation', async ({page
   expect(commands).toMatchObject([{type: 'task.delete', payload: {id: 'delete-me', expected_revision: 1}}]);
 });
 
-test('today shows unfinished earlier tasks without moving them into today', async ({page}) => {
+test('day view shows one date and history keeps older tasks separate', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};
   state.tasks = [
@@ -87,6 +92,7 @@ test('today shows unfinished earlier tasks without moving them into today', asyn
     task('monday-done', 'Pazartesi biten', monday, 1, 2),
     task('tuesday-open', 'Salı görevi', tuesday, 0),
     task('tuesday-done', 'Salı biten', tuesday, 1, 1),
+    task('sunday-open', 'Pazar görevi', sunday, 0),
     task('wednesday-open', 'Çarşamba görevi', wednesday, 0),
   ];
   await page.route('**/api/command', route => {
@@ -98,18 +104,40 @@ test('today shows unfinished earlier tasks without moving them into today', asyn
     return route.fulfill({json: {ok: true, state}});
   });
   await openTasks(page, state);
-  await expect(page.locator('.task-item h3')).toHaveText(['Pazartesiden kalan', 'Pazartesi yarım', 'Salı görevi', 'Salı biten']);
-  await expect(page.getByText('Pazartesi biten', {exact: true})).toHaveCount(0);
+  const dayTab = page.getByRole('tab', {name: 'Günün görevleri'});
+  const historyTab = page.getByRole('tab', {name: 'Geçmiş görevler'});
+  await expect(dayTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.task-item h3')).toHaveText(['Salı görevi', 'Salı biten']);
+  await expect(page.getByText('Pazartesiden kalan', {exact: true})).toHaveCount(0);
   await expect(page.getByText('Çarşamba görevi', {exact: true})).toHaveCount(0);
-  await expect(page.getByText('28 Eyl tarihinden kaldı')).toHaveCount(2);
-  await expect(page.getByRole('button', {name: 'Pazartesiden kalan yukarı taşı'})).toBeDisabled();
-  await expect(page.getByRole('button', {name: 'Pazartesiden kalan aşağı taşı'})).toBeDisabled();
-  await expect(page.getByRole('button', {name: 'Salı görevi yukarı taşı'})).toBeDisabled();
-  await page.getByRole('button', {name: 'Pazartesiden kalan görevini tamamla'}).click();
-  await expect(page.locator('.task-item h3')).toHaveText(['Pazartesi yarım', 'Salı görevi', 'Salı biten']);
   await page.getByRole('combobox', {name: 'Görev durumu'}).selectOption('done');
   await expect(page.locator('.task-item h3')).toHaveText(['Salı biten']);
-  await expect(page.getByRole('button', {name: 'Salı biten yukarı taşı'})).toBeDisabled();
+  await page.getByRole('combobox', {name: 'Görev durumu'}).selectOption('open');
+  await expect(page.locator('.task-item h3')).toHaveText(['Salı görevi']);
+  await page.getByRole('combobox', {name: 'Görev durumu'}).selectOption('all');
+  await expect(page.getByRole('button', {name: 'Salı görevi yukarı taşı'})).toBeDisabled();
+
+  await historyTab.click();
+  await expect(historyTab).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('.task-item h3')).toHaveText(['Pazartesiden kalan', 'Pazartesi yarım', 'Pazartesi biten', 'Pazar görevi']);
+  await expect(page.getByText('Salı görevi', {exact: true})).toHaveCount(0);
+  await expect(page.getByText('Çarşamba görevi', {exact: true})).toHaveCount(0);
+  for (const title of ['Pazartesiden kalan', 'Pazartesi yarım', 'Pazartesi biten']) {
+    await expect(page.locator('.task-item').filter({hasText: title})).toContainText('28 Eyl');
+  }
+  await expect(page.locator('.task-item').filter({hasText: 'Pazar görevi'})).toContainText('27 Eyl');
+  await expect(page.getByRole('button', {name: 'Pazartesiden kalan yukarı taşı'})).toBeDisabled();
+  await expect(page.getByRole('button', {name: 'Pazartesiden kalan aşağı taşı'})).toBeDisabled();
+  await page.getByRole('combobox', {name: 'Görev durumu'}).selectOption('done');
+  await expect(page.locator('.task-item h3')).toHaveText(['Pazartesi biten']);
+  await page.getByRole('combobox', {name: 'Görev durumu'}).selectOption('open');
+  await expect(page.locator('.task-item h3')).toHaveText(['Pazartesiden kalan', 'Pazartesi yarım', 'Pazar görevi']);
+  await page.getByRole('combobox', {name: 'Görev durumu'}).selectOption('all');
+
+  await dayTab.click();
   await page.getByLabel('Plan tarihi').fill(monday);
-  await expect(page.locator('.task-item h3')).toHaveText(['Pazartesiden kalan', 'Pazartesi biten']);
+  await expect(page.locator('.task-item h3')).toHaveText(['Pazartesiden kalan', 'Pazartesi yarım', 'Pazartesi biten']);
+  await expect(page.getByText('Pazar görevi', {exact: true})).toHaveCount(0);
+  await page.getByLabel('Plan tarihi').fill(tuesday);
+  await expect(page.locator('.task-item h3')).toHaveText(['Salı görevi', 'Salı biten']);
 });

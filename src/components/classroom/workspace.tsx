@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowDownUp, ArrowUpRight, BellRing, BookOpen, CalendarDays, Check, ChevronDown, Clipboard, GraduationCap, Link2, LogOut, Moon, Plus, Search, Send, ShieldCheck, Sun, Users, X } from 'lucide-react';
+import { ArrowDownUp, ArrowUpRight, BellRing, BookOpen, CalendarDays, Check, ChevronDown, Clipboard, GraduationCap, Link2, LogOut, Moon, Plus, Search, Send, ShieldCheck, Sun, UserMinus, Users, X } from 'lucide-react';
 import { studentMetrics, type ExamComparison } from '@/lib/classroom/metrics';
 import { Conversation } from './conversation';
 import { StudentExamProgress } from './exam-progress';
@@ -24,21 +24,42 @@ function ExamCard({ data, label }: { data: ExamComparison | null; label: string 
   </section>;
 }
 
-function StudentRow({ student, state, command, busy }: { student: Student; state: ClassroomState; command: Command; busy: boolean }) {
+function StudentRow({ student, state, command, busy, onRemoved }: { student: Student; state: ClassroomState; command: Command; busy: boolean; onRemoved: (name: string) => void }) {
   const [expanded, setExpanded] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [orderBody, setOrderBody] = useState('');
+  const [confirmRemoval, setConfirmRemoval] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState('');
+  const removeTriggerRef = useRef<HTMLButtonElement>(null);
+  const cancelRemovalRef = useRef<HTMLButtonElement>(null);
+  const restoreFocusAfterCancelRef = useRef(false);
+  useEffect(() => {
+    if (confirmRemoval) cancelRemovalRef.current?.focus();
+    else if (restoreFocusAfterCancelRef.current) {
+      restoreFocusAfterCancelRef.current = false;
+      removeTriggerRef.current?.focus();
+    }
+  }, [confirmRemoval]);
   const metrics = useMemo(() => studentMetrics(student.state, new Date(state.server_now)), [student.state, state.server_now]);
   const unread = state.messages.filter(message => message.student_id === student.id && message.sender_id !== state.account?.id && !message.read_at).length;
   const maximum = Math.max(3600, ...metrics.weeklyStudy.map(day => day.seconds ?? 0));
   const values = [{ label: 'Bugün çalışma', value: duration(metrics.todaySeconds), empty: metrics.todaySeconds === null }, { label: 'Bu hafta', value: duration(metrics.weekSeconds), empty: metrics.weekSeconds === null }, { label: 'TYT neti', value: net(metrics.latestTYT?.exam.total_net), empty: metrics.latestTYT?.exam.total_net == null }, { label: 'AYT neti', value: net(metrics.latestAYT?.exam.total_net), empty: metrics.latestAYT?.exam.total_net == null }, { label: 'Bugün soru', value: metrics.todayQuestions === null ? '—' : String(metrics.todayQuestions), empty: metrics.todayQuestions === null }];
   return <article className={`${styles.studentRow} ${expanded ? styles.expandedRow : ''}`}>
-    <button className={styles.rowToggle} onClick={() => setExpanded(!expanded)} aria-expanded={expanded} aria-controls={`student-detail-${student.id}`}>
+    <button className={styles.rowToggle} onClick={() => { setExpanded(!expanded); setConfirmRemoval(false); setRemoveError(''); }} aria-expanded={expanded} aria-controls={`student-detail-${student.id}`}>
       <span className={styles.studentIdentity}><span className={styles.studentAvatar}>{student.name.split(' ').slice(0, 2).map(name => name[0]).join('')}</span><span><strong>{student.name}</strong><span className={styles.presence} data-status={student.presence.status}><i />{presenceLabels[student.presence.status]}{unread > 0 && <b>{unread} yeni cevap</b>}</span></span></span>
       <span className={styles.rowMetrics}>{values.map(item => <span className={styles.metricBox} key={item.label} title={item.empty ? 'Henüz veri yok' : undefined}><strong>{item.value}</strong><small>{item.label}</small></span>)}</span><ChevronDown className={styles.chevron} size={19} />
     </button>
     {expanded && <div id={`student-detail-${student.id}`} className={styles.studentDetail}>
       <div className={styles.detailNote}><ShieldCheck size={15} /><span>Öğrenci istatistikleri salt okunur.</span><span>Son görülme: {formatDate(student.presence.last_seen)}</span></div>
+      <section className={styles.membershipPanel} aria-label={`${student.name} sınıf üyeliği`}>
+        <div><strong>Sınıf üyeliği</strong><p>Bu öğrenci artık sınıfında olmamalıysa bağlantısını kaldırabilirsin.</p></div>
+        {!confirmRemoval ? <button ref={removeTriggerRef} type="button" className={styles.dangerButton} disabled={busy} onClick={() => { setRemoveError(''); setConfirmRemoval(true); }}><UserMinus size={16} />Sınıftan çıkar</button> : <div className={styles.removeConfirmation}>
+          <p><strong>{student.name}</strong> adlı öğrenciyi sınıfından çıkarmak istediğine emin misin? Öğrencinin hesabı ve çalışma kayıtları korunur.</p>
+          <div className={styles.actions}><button ref={cancelRemovalRef} type="button" className={styles.secondaryButton} disabled={removing} onClick={() => { restoreFocusAfterCancelRef.current = true; setConfirmRemoval(false); setRemoveError(''); }}>Vazgeç</button><button type="button" className={styles.dangerButton} disabled={busy || removing} onClick={async () => { setRemoving(true); setRemoveError(''); try { if (await command('student.remove', { id: student.id })) onRemoved(student.name); else setRemoveError('Öğrenci sınıftan çıkarılamadı. Lütfen tekrar dene.'); } finally { setRemoving(false); } }}><UserMinus size={16} />{removing ? 'Çıkarılıyor…' : 'Evet, sınıftan çıkar'}</button></div>
+          {removeError && <p role="alert" className={styles.removeError}>{removeError}</p>}
+        </div>}
+      </section>
       <div className={styles.detailGrid}><ExamCard data={metrics.latestTYT} label="TYT" /><ExamCard data={metrics.latestAYT} label="AYT" />
         <StudentExamProgress exams={student.state.exams} today={metrics.today} studentId={student.id} />
         <section className={styles.detailCard}><div className={styles.sectionHeading}><h3>Bu haftanın çalışma ritmi</h3><span className={styles.muted}>Net süre</span></div><div className={styles.weekChart} role="img" aria-label={metrics.weeklyStudy.map(day => `${day.label}: ${day.seconds === null ? 'henüz veri yok' : duration(day.seconds)}`).join(', ')}>{metrics.weeklyStudy.map(day => <div key={day.date} className={styles.dayColumn}><span>{duration(day.seconds)}</span><div className={styles.barTrack}><i style={{ height: `${((day.seconds ?? 0) / maximum) * 100}%` }} /></div><strong>{day.label}</strong></div>)}</div><p className={styles.mutedSmall}>Pazartesi–pazar · İstanbul saati · Molalar hariç</p></section>
@@ -60,14 +81,15 @@ function StudentRow({ student, state, command, busy }: { student: Student; state
 function TeacherStudents({ state, command, busy }: { state: ClassroomState; command: Command; busy: boolean }) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState('name');
+  const [removedName, setRemovedName] = useState('');
   const students = useMemo(() => {
     const selected = state.students.filter(student => student.name.toLocaleLowerCase('tr-TR').includes(query.toLocaleLowerCase('tr-TR').trim()));
     const scores = new Map(selected.map(student => [student.id, studentMetrics(student.state, new Date(state.server_now))]));
     return selected.sort((a, b) => sort === 'name' ? a.name.localeCompare(b.name, 'tr') : sort === 'status' ? Number(b.presence.online) - Number(a.presence.online) || a.name.localeCompare(b.name, 'tr') : sort === 'week' ? (scores.get(b.id)?.weekSeconds ?? -1) - (scores.get(a.id)?.weekSeconds ?? -1) : (scores.get(b.id)?.todayQuestions ?? -1) - (scores.get(a.id)?.todayQuestions ?? -1));
   }, [state.students, state.server_now, query, sort]);
-  return <><div className={styles.listToolbar}><label className={styles.search}><Search size={18} /><input aria-label="Öğrenci adına göre ara" placeholder="Öğrenci ara…" value={query} onChange={event => setQuery(event.target.value)} /></label><label className={styles.sort}><ArrowDownUp size={16} /><select aria-label="Öğrencileri sırala" value={sort} onChange={event => setSort(event.target.value)}><option value="name">İsim, A–Z</option><option value="status">Çevrimiçi olanlar önce</option><option value="week">Haftalık çalışma, çoktan aza</option><option value="questions">Bugünkü soru, çoktan aza</option></select></label></div>
+  return <>{removedName && <div className={styles.membershipNotice} role="status"><Check size={17} /><span>{removedName} sınıfından çıkarıldı. Hesabı ve çalışma kayıtları korundu.</span><button type="button" onClick={() => setRemovedName('')} aria-label="Bildirimi kapat"><X size={16} /></button></div>}<div className={styles.listToolbar}><label className={styles.search}><Search size={18} /><input aria-label="Öğrenci adına göre ara" placeholder="Öğrenci ara…" value={query} onChange={event => setQuery(event.target.value)} /></label><label className={styles.sort}><ArrowDownUp size={16} /><select aria-label="Öğrencileri sırala" value={sort} onChange={event => setSort(event.target.value)}><option value="name">İsim, A–Z</option><option value="status">Çevrimiçi olanlar önce</option><option value="week">Haftalık çalışma, çoktan aza</option><option value="questions">Bugünkü soru, çoktan aza</option></select></label></div>
     <div className={styles.listCaption}><span>{students.length} öğrenci</span><span>Detayları ve mesajları görmek için bir satırı aç.</span></div>
-    <div className={styles.studentList}>{students.map(student => <StudentRow key={student.id} student={student} state={state} command={command} busy={busy} />)}</div>
+    <div className={styles.studentList}>{students.map(student => <StudentRow key={student.id} student={student} state={state} command={command} busy={busy} onRemoved={setRemovedName} />)}</div>
     {!students.length && <div className={styles.emptyState}><Users size={30} /><h2>{query ? 'Bu isimle öğrenci bulunamadı.' : 'Sınıfın yeni başlangıçlara hazır.'}</h2><p>{query ? 'Aramanı kısaltarak tekrar deneyebilirsin.' : 'Davet bağlantını paylaş. Başvuran öğrencileri onayladıktan sonra burada görünecekler.'}</p></div>}
     <p className={styles.metricExplanation}>Çalışma süreleri mola ve duraklamalar hariçtir. Gün ve pazartesi başlayan hafta İstanbul saatine göre hesaplanır. TYT / AYT, son tamamlanmış ilgili denemenin toplam netidir. “—” henüz veri olmadığını belirtir.</p>
   </>;

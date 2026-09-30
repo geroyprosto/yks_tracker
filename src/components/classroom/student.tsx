@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Bell, BookOpen, Clock3, MessageCircle, X } from 'lucide-react';
+import { Bell, BookOpen, Clock3, LogOut, MessageCircle, Users, X } from 'lucide-react';
 import type { AppState } from '@/lib/domain/types';
 import { useClassroom, type Command, type StudyAlert } from './api';
 import { Conversation } from './conversation';
@@ -51,12 +51,15 @@ function AcceptedCountdown({ alert, serverNow, refresh }: { alert: StudyAlert; s
   </section>;
 }
 
-function FullscreenAlert({ alert, serverNow, command, busy, error }: { alert: StudyAlert; serverNow: string; command: Command; busy: boolean; error: string }) {
+function FullscreenAlert({ alert, serverNow, command, busy, error, onLeave }: { alert: StudyAlert; serverNow: string; command: Command; busy: boolean; error: string; onLeave: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const noButton = useRef<HTMLButtonElement>(null);
   const acceptButton = useRef<HTMLButtonElement>(null);
+  const leaveButton = useRef<HTMLButtonElement>(null);
+  const confirmLeaveButton = useRef<HTMLButtonElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null);
+  const [confirmingLeave, setConfirmingLeave] = useState(false);
   const finished = alert.refusal_count >= 10 || alert.status === 'declined';
   const now = useServerClock(serverNow);
   const unlockAt = alert.closed_at ? Date.parse(alert.closed_at) + 5 * 60_000 : Number.POSITIVE_INFINITY;
@@ -64,12 +67,12 @@ function FullscreenAlert({ alert, serverNow, command, busy, error }: { alert: St
   const locked = finished && lockSeconds > 0;
   useEffect(() => {
     const element = dialog.current; const previous = document.activeElement as HTMLElement | null;
-    element?.showModal(); (acceptButton.current ?? element)?.focus();
+    element?.showModal(); (acceptButton.current ?? leaveButton.current ?? element)?.focus();
     const overflow = document.body.style.overflow; document.body.style.overflow = 'hidden';
     return () => { element?.close(); document.body.style.overflow = overflow; previous?.focus(); };
   }, []);
   useEffect(() => { const reposition = () => setPosition(null); window.addEventListener('resize', reposition); return () => window.removeEventListener('resize', reposition); }, []);
-  useEffect(() => { if (finished) (locked ? dialog.current : acceptButton.current)?.focus(); }, [finished, locked]);
+  useEffect(() => { if (finished) (locked ? leaveButton.current : acceptButton.current)?.focus(); }, [finished, locked]);
   function moveButton() {
     const bounds = dialog.current?.getBoundingClientRect(); if (!bounds) return;
     const width = noButton.current?.offsetWidth ?? 112; const height = noButton.current?.offsetHeight ?? 48;
@@ -84,6 +87,18 @@ function FullscreenAlert({ alert, serverNow, command, busy, error }: { alert: St
     setPosition(next);
   }
   return <dialog ref={dialog} tabIndex={-1} className={`${styles.fullscreenAlert} ${styles.studentTheme} ${locked ? styles.lockedAlert : ''}`} aria-labelledby="study-alert-title" aria-describedby="study-alert-description" onCancel={event => event.preventDefault()}>
+    <div className={styles.alertLeave}>
+      <button ref={leaveButton} type="button" aria-expanded={confirmingLeave} aria-controls="alert-leave-confirmation" disabled={busy} onClick={() => { setConfirmingLeave(open => !open); if (!confirmingLeave) requestAnimationFrame(() => confirmLeaveButton.current?.focus()); }}><LogOut size={15} aria-hidden="true" />Sınıftan ayrıl</button>
+      {confirmingLeave && <div id="alert-leave-confirmation" className={styles.alertLeaveConfirm} role="group" aria-label="Sınıftan ayrılma onayı">
+        <strong>Sınıftan ayrılmak istediğine emin misin?</strong>
+        <p>Öğretmenin çalışma ilerlemeni artık göremez; öğretmen mesajlarını da artık göremezsin. Kişisel çalışma kayıtların ve hesabın kalır.</p>
+        {error && <p className={styles.alertLeaveError} role="alert">{error}</p>}
+        <div className={styles.alertLeaveActions}>
+          <button type="button" className={styles.secondaryButton} disabled={busy} onClick={() => { setConfirmingLeave(false); requestAnimationFrame(() => leaveButton.current?.focus()); }}>Vazgeç</button>
+          <button ref={confirmLeaveButton} type="button" className={styles.dangerButton} disabled={busy} onClick={async () => { if (await command('student.remove', { id: alert.student_id })) onLeave(); }}>{busy ? 'Ayrılınıyor…' : 'Evet, sınıftan ayrıl'}</button>
+        </div>
+      </div>}
+    </div>
     <div className={styles.alertContent} ref={content}><span className={styles.alertIcon}><BookOpen size={30} /></span><p className={styles.eyebrow}>ÖĞRETMENİNDEN BİR HATIRLATMA</p>
       <h2 id="study-alert-title">{finished ? 'Peki, sen bilirsin.' : alert.kind === 'followup' ? 'E hani başlıyordun?' : alert.body}</h2>
       <p id="study-alert-description" className={styles.alertDescription}>{finished ? '10 kez Hayır dedin. Beş dakikalık bekleme bitince ekranı kapatabilirsin.' : alert.kind === 'followup' ? 'Tamam demiştin ama 15 dakika içinde bir ders başlatmadın. Hazır olduğunda ders zamanlayıcısını kendin başlatabilirsin.' : 'Tamam dediğinde öğretmenine çalışacağını onayladığın bildirilir. Bir ders başlatmak için zamanlayıcını ayrıca açmalısın.'}</p>
@@ -91,11 +106,35 @@ function FullscreenAlert({ alert, serverNow, command, busy, error }: { alert: St
       {!finished && alert.kind === 'initial' && <small className={styles.muted}>{alert.refusal_count}/10 Hayır</small>}
       {locked && <div className={styles.lockCountdown}><span>Ekran kilidi</span><time dateTime={`PT${lockSeconds}S`}>{countdown(lockSeconds)}</time><small>Süre bitince kapatma düğmesi açılacak.</small></div>}
       {alert.kind === 'followup' && !finished && <p className={styles.followupElapsed}>15 dakikalık sayaç doldu.</p>}
-      {error && <p className={styles.error} role="alert">{error}</p>}
+      {error && !confirmingLeave && <p className={styles.error} role="alert">{error}</p>}
     </div>
-    {!locked && <div className={styles.alertAccept}><button ref={acceptButton} className={styles.primaryButton} disabled={busy} onClick={() => void command('alert.respond', { id: alert.id, response: finished ? 'dismiss' : 'accept' })}>{finished ? 'Kapat ve devam et' : alert.kind === 'followup' ? 'Haklısın...' : 'Tamam'}</button></div>}
-    {!finished && alert.kind === 'initial' && <button ref={noButton} className={`${styles.noButton} ${position ? styles.movedNo : ''}`} style={position ?? undefined} disabled={busy} onClick={async () => { if (await command('alert.respond', { id: alert.id, response: 'refuse' })) { moveButton(); requestAnimationFrame(() => noButton.current?.focus()); } }}>Hayır</button>}
+    {!locked && <div className={styles.alertAccept}><button ref={acceptButton} className={styles.primaryButton} disabled={busy || confirmingLeave} onClick={() => void command('alert.respond', { id: alert.id, response: finished ? 'dismiss' : 'accept' })}>{finished ? 'Kapat ve devam et' : alert.kind === 'followup' ? 'Haklısın...' : 'Tamam'}</button></div>}
+    {!finished && alert.kind === 'initial' && <button ref={noButton} className={`${styles.noButton} ${position ? styles.movedNo : ''}`} style={position ?? undefined} disabled={busy || confirmingLeave} onClick={async () => { if (await command('alert.respond', { id: alert.id, response: 'refuse' })) { moveButton(); requestAnimationFrame(() => noButton.current?.focus()); } }}>Hayır</button>}
   </dialog>;
+}
+
+function StudentMembership({ studentId, command, busy, onAttempt, onLeave }: { studentId: string; command: Command; busy: boolean; onAttempt: () => void; onLeave: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const cancel = () => {
+    setConfirming(false);
+    requestAnimationFrame(() => trigger.current?.focus());
+  };
+  return <section className={styles.classMembership} aria-label="Sınıf üyeliğin">
+    <div className={styles.classMembershipHead}>
+      <Users size={18} aria-hidden="true" />
+      <div><strong>Öğretmeninin sınıfındasın</strong><p>Sınıf bağlantını buradan yönetebilirsin.</p></div>
+      <button ref={trigger} type="button" className={styles.dangerButton} aria-expanded={confirming} aria-controls="student-leave-confirmation" disabled={busy} onClick={() => setConfirming(open => !open)}><LogOut size={15} aria-hidden="true" />Sınıftan ayrıl</button>
+    </div>
+    {confirming && <div id="student-leave-confirmation" className={styles.classMembershipConfirm}>
+      <strong>Sınıftan ayrılmak istediğine emin misin?</strong>
+      <p>Öğretmenin çalışma ilerlemeni artık göremez; öğretmen mesajlarını da artık göremezsin. Kişisel çalışma kayıtların ve hesabın kalır. Yeniden katılmak için yeni bir davet gerekir.</p>
+      <div className={styles.classMembershipActions}>
+        <button type="button" className={styles.secondaryButton} disabled={busy} onClick={cancel}>Vazgeç</button>
+        <button type="button" className={styles.dangerButton} disabled={busy} onClick={async () => { onAttempt(); if (await command('student.remove', { id: studentId })) onLeave(); }}>{busy ? 'Ayrılınıyor…' : 'Evet, sınıftan ayrıl'}</button>
+      </div>
+    </div>}
+  </section>;
 }
 
 export function StudentClassroom({ state: studentState }: { state?: AppState }) {
@@ -103,6 +142,7 @@ export function StudentClassroom({ state: studentState }: { state?: AppState }) 
   const { state, error, busy, command, refresh } = useClassroom(enabled);
   const [open, setOpen] = useState(false);
   const [hiddenError, setHiddenError] = useState(false);
+  const [leftClassroom, setLeftClassroom] = useState(false);
   const account = state?.account;
   useStudentPresence(account);
   useEffect(() => {
@@ -121,10 +161,12 @@ export function StudentClassroom({ state: studentState }: { state?: AppState }) 
   return <div className={styles.studentTheme}>
     {accepted && <AcceptedCountdown key={accepted.id} alert={accepted} serverNow={state.server_now} refresh={refresh} />}
     {pendingClassInvite && <Link className={styles.inlineInfo} href="/classroom">Sınıfa katılım isteğin yönetici onayı bekliyor. Başvuru durumunu gör.</Link>}
+    {account.teacher_id && <StudentMembership studentId={account.id} command={command} busy={busy} onAttempt={() => setHiddenError(false)} onLeave={() => setLeftClassroom(true)} />}
     {account.teacher_id && <section className={styles.studentInbox}><button className={styles.inboxToggle} aria-expanded={open} aria-controls="student-classroom-messages" onClick={() => setOpen(!open)}><MessageCircle size={19} /><span>Öğretmen mesajları<small>{unread ? `${unread} okunmamış mesaj` : 'Mesajlar ve cevapların'}</small></span>{unread > 0 && <b className={styles.unreadCount}>{unread}</b>}<span className={styles.inboxChevron}>{open ? '−' : '+'}</span></button>
       {open && <div id="student-classroom-messages" className={styles.inboxBody}><Conversation state={state} studentId={account.id} command={command} busy={busy} /></div>}
     </section>}
+    {leftClassroom && !account.teacher_id && <p className={styles.classMembershipSuccess} role="status">Sınıftan ayrıldın. Kişisel çalışma alanını kullanmaya devam edebilirsin.</p>}
     {error && !hiddenError && <div className={styles.error} role="alert"><Bell size={16} />{error}<button type="button" aria-label="Hata bildirimini kapat" onClick={() => setHiddenError(true)}><X size={16} /></button></div>}
-    {alert && <FullscreenAlert key={alert.id} alert={alert} serverNow={state.server_now} command={command} busy={busy} error={error} />}
+    {alert && <FullscreenAlert key={alert.id} alert={alert} serverNow={state.server_now} command={command} busy={busy} error={error} onLeave={() => setLeftClassroom(true)} />}
   </div>;
 }

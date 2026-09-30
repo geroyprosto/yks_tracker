@@ -598,3 +598,77 @@ test("application decisions stay in-app even if the old email cron still runs", 
   assert.equal(persisted.rows[0].attempts, 0);
   assert.equal(persisted.rows[0].sent_at, null);
 });
+
+test("a teacher can remove only their own student without deleting study data", async () => {
+  const student = STUDENTS[7];
+  await browser(student);
+  await db.query("select public.yks_command($1::uuid,'task.create',$2::jsonb)",
+    [randomUUID(), JSON.stringify({ title: "Sınıftan sonra da kalan plan", plan_date: "2026-10-01" })]);
+
+  await browser(TEACHERS[0]);
+  const alert = await command("alert.send", { student_id: student, body: "Bekleyen çalışma uyarısı" });
+  const message = await command("message.send", { student_id: student, category: "praise", body: "Öğretmen mesajı" });
+  const beforeEvents = (await db.query<{ count: number }>("select count(*)::integer as count from public.classroom_events")).rows[0].count;
+  await assert.rejects(() => command("student.remove", { id: STUDENTS[15] }), /ACCESS_DENIED/);
+  await browser(STUDENTS[15]);
+  await assert.rejects(() => command("student.remove", { id: student }), /ACCESS_DENIED/);
+  await browser(OWNER);
+  await assert.rejects(() => command("student.remove", { id: student }), /ACCESS_DENIED/);
+  await browser(TEACHERS[0]);
+  await assert.rejects(() => command("student.remove", { id: student, teacher_id: null }), /INVALID_INPUT/);
+
+  const requestId = randomUUID();
+  const removed = await command("student.remove", { id: student }, requestId);
+  assert.equal(removed.id, student);
+  assert.equal((await command("student.remove", { id: student }, requestId)).replayed, true);
+  assert.equal((await state()).students.some(item => item.id === student), false);
+  assert.equal((await state()).messages.some(item => item.id === message.id), false);
+  assert.ok((await db.query<{ count: number }>("select count(*)::integer as count from public.classroom_events")).rows[0].count > beforeEvents);
+  await assert.rejects(() => command("student.remove", { id: student }), /ACCESS_DENIED/);
+  await assert.rejects(() => command("alert.send", { student_id: student, body: "Eski sınıf" }), /ACCESS_DENIED/);
+
+  await browser(student);
+  const own = await state();
+  assert.equal(own.account?.teacher_id, null);
+  assert.equal(own.account?.status, "approved");
+  assert.equal(own.alerts.find(item => item.id === alert.id)?.status, "cancelled");
+  assert.equal(own.messages.some(item => item.id === message.id), false);
+  const study = (await db.query<{ value: { tasks: Array<{ title: string }> } }>("select public.yks_state() as value")).rows[0].value;
+  assert.ok(study.tasks.some(task => task.title === "Sınıftan sonra da kalan plan"));
+});
+
+test("a student can leave their own class and the former teacher gets an invalidation", async () => {
+  const student = STUDENTS[15];
+  await browser(TEACHERS[1]);
+  const alert = await command("alert.send", { student_id: student, body: "Sınıf uyarısı" });
+  const beforeEvents = (await db.query<{ count: number }>("select count(*)::integer as count from public.classroom_events")).rows[0].count;
+  await browser(student);
+  assert.equal((await state()).account?.teacher_id, TEACHERS[1]);
+  await assert.rejects(() => command("student.remove", { id: STUDENTS[16] }), /ACCESS_DENIED/);
+  await command("student.remove", { id: student });
+  const own = await state();
+  assert.equal(own.account?.teacher_id, null);
+  assert.equal(own.account?.status, "approved");
+  assert.equal(own.alerts.find(item => item.id === alert.id)?.status, "cancelled");
+  await assert.rejects(() => command("student.remove", { id: student }), /INVALID_TRANSITION/);
+  await db.query("select public.yks_state()");
+
+  await browser(TEACHERS[1]);
+  assert.equal((await state()).students.some(item => item.id === student), false);
+  assert.ok((await db.query<{ count: number }>("select count(*)::integer as count from public.classroom_events")).rows[0].count > beforeEvents);
+  await assert.rejects(() => command("message.send", { student_id: student, category: "warning", body: "Eski sınıf" }), /ACCESS_DENIED/);
+});
+
+test("leaving a class with no alerts still notifies the former teacher", async () => {
+  const student = STUDENTS[16];
+  await browser(TEACHERS[1]);
+  const beforeEvents = (await db.query<{ count: number }>(
+    "select count(*)::integer as count from public.classroom_events where user_id=$1", [TEACHERS[1]]
+  )).rows[0].count;
+  await browser(student);
+  await command("student.remove", { id: student });
+  await browser(TEACHERS[1]);
+  assert.ok((await db.query<{ count: number }>(
+    "select count(*)::integer as count from public.classroom_events where user_id=$1", [TEACHERS[1]]
+  )).rows[0].count > beforeEvents);
+});

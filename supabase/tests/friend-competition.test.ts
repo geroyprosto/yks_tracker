@@ -7,6 +7,8 @@ import {PGlite} from '@electric-sql/pglite';
 const ALICE = randomUUID();
 const BOB = randomUUID();
 const CAROL = randomUUID();
+const DAVE = randomUUID();
+const EVE = randomUUID();
 const PENDING = randomUUID();
 const TEACHER = randomUUID();
 let db: PGlite;
@@ -18,7 +20,8 @@ type Score = {
   today_tests: number; week_tests: number;
   today_tasks: number; week_tasks: number;
 };
-type State = {today: string; week_start: string; me: Score; friends: Score[]};
+type Group = {id: string; name: string; owner_id: string; member_count: number; timezone?: string};
+type State = {today: string; week_start: string; me: Score; friends: Score[]; groups: Group[]; group: Group | null};
 
 before(async () => {
   db = new PGlite();
@@ -33,7 +36,7 @@ before(async () => {
   for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql')).sort()) {
     await db.exec(await readFile(new URL(name, migrations), 'utf8'));
   }
-  for (const id of [ALICE, BOB, CAROL, PENDING, TEACHER]) {
+  for (const id of [ALICE, BOB, CAROL, DAVE, EVE, PENDING, TEACHER]) {
     await db.query('insert into auth.users(id,email,email_confirmed_at) values($1,$2,clock_timestamp())',
       [id, `${id}@example.test`]);
   }
@@ -41,6 +44,8 @@ before(async () => {
     [ALICE, 'Alice Classroom', 'student', 'approved'],
     [BOB, 'Bob Classroom', 'student', 'approved'],
     [CAROL, 'Carol', 'student', 'approved'],
+    [DAVE, 'Dave', 'student', 'approved'],
+    [EVE, 'Eve', 'student', 'approved'],
     [PENDING, 'Pending', 'student', 'pending'],
     [TEACHER, 'Teacher', 'teacher', 'approved'],
   ]) {
@@ -54,6 +59,8 @@ before(async () => {
     limit 1`)).rows[0].name;
   await db.query('insert into public.profiles(user_id,display_name,timezone) values($1,$2,$3),($4,$5,$6)',
     [ALICE, 'Alice', tz, BOB, 'Bob', 'Pacific/Honolulu']);
+  await db.query('insert into public.profiles(user_id,display_name,timezone) values($1,$2,$3)',
+    [DAVE, 'Dave', 'Pacific/Honolulu']);
 });
 after(async () => { await db?.close(); });
 
@@ -64,20 +71,25 @@ async function browser(id: string) {
   await db.query("select set_config('request.jwt.claim.client_id','',false)");
 }
 async function admin() { await db.exec('reset role'); }
-async function state() {
-  return (await db.query<{value: State}>('select public.friend_competition_state() as value')).rows[0].value;
+async function state(groupId: string | null = null) {
+  return (await db.query<{value: State}>(
+    'select public.friend_competition_state($1::uuid) as value', [groupId])).rows[0].value;
 }
-async function createInvite() {
-  return (await db.query<{value: {token: string; expires_at: string}}>(
-    'select public.friend_invite_create() as value')).rows[0].value;
+async function createInvite(groupId: string | null = null) {
+  return (await db.query<{value: {token: string; expires_at: string; group_id: string; group_name: string}}>(
+    'select public.friend_invite_create($1::uuid) as value', [groupId])).rows[0].value;
 }
 async function preview(token: string) {
-  return (await db.query<{value: {display_name: string; expires_at: string} | null}>(
+  return (await db.query<{value: {display_name: string; expires_at: string; group_name: string; member_count: number} | null}>(
     'select public.friend_invite_preview($1) as value', [token])).rows[0].value;
 }
 async function accept(token: string) {
-  return (await db.query<{value: {friend_id: string; display_name: string}}>(
+  return (await db.query<{value: {friend_id: string; display_name: string; group_id: string; group_name: string}}>(
     'select public.friend_invite_accept($1) as value', [token])).rows[0].value;
+}
+async function remove(friendId: string, groupId: string | null = null) {
+  return (await db.query<{value: boolean}>(
+    'select public.friend_remove($1::uuid,$2::uuid) as value', [friendId, groupId])).rows[0].value;
 }
 
 test('friend RPCs enforce student approval and keep private rows closed', async () => {
@@ -95,7 +107,7 @@ test('friend RPCs enforce student approval and keep private rows closed', async 
   await assert.rejects(() => db.query('select public.friend_remove($1::uuid)', [ALICE]), /permission denied/);
   assert.equal(await preview('a'.repeat(64)), null);
   await browser(CAROL);
-  for (const table of ['friend_invites', 'friendships']) {
+  for (const table of ['friend_invites', 'friendships', 'friend_groups', 'friend_group_members']) {
     await assert.rejects(() => db.query(`select * from private.${table}`), /permission denied/);
   }
   await assert.rejects(() => db.query(
@@ -105,8 +117,8 @@ test('friend RPCs enforce student approval and keep private rows closed', async 
   await assert.rejects(state, /STUDENT_REQUIRED/);
   await admin();
   const rls = await db.query<{relname: string; relrowsecurity: boolean}>(
-    "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and relname in ('friend_invites','friendships')");
-  assert.equal(rls.rows.length, 2);
+    "select relname,relrowsecurity from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and relname in ('friend_invites','friendships','friend_groups','friend_group_members')");
+  assert.equal(rls.rows.length, 4);
   assert.ok(rls.rows.every(row => row.relrowsecurity));
 });
 
@@ -115,9 +127,14 @@ test('one-time hashed link requires consent and cannot be reused or accepted by 
   const empty = await state();
   assert.equal(empty.me.user_id, ALICE);
   assert.deepEqual(empty.friends, []);
+  assert.deepEqual(empty.groups, []);
+  assert.equal(empty.group, null);
   const invitation = await createInvite();
   assert.match(invitation.token, /^[0-9a-f]{64}$/);
+  assert.match(invitation.group_id, /^[0-9a-f-]{36}$/);
+  assert.equal(invitation.group_name, 'Alice ve arkadaşları');
   assert.equal((await preview(invitation.token))?.display_name, 'Alice');
+  assert.equal((await preview(invitation.token))?.member_count, 1);
   await admin();
   const stored = (await db.query<{hash: string}>(
     'select encode(token_hash,\'hex\') as hash from private.friend_invites where inviter_id=$1', [ALICE])).rows[0];
@@ -131,7 +148,10 @@ test('one-time hashed link requires consent and cannot be reused or accepted by 
   await browser(ALICE);
   await assert.rejects(() => accept(invitation.token), /SELF_INVITE/);
   await browser(BOB);
-  assert.deepEqual(await accept(invitation.token), {friend_id: ALICE, display_name: 'Alice'});
+  assert.deepEqual(await accept(invitation.token), {
+    friend_id: ALICE, display_name: 'Alice',
+    group_id: invitation.group_id, group_name: invitation.group_name,
+  });
   assert.equal(await preview(invitation.token), null);
   await browser(CAROL);
   await assert.rejects(() => accept(invitation.token), /INVITE_INVALID/);
@@ -196,6 +216,10 @@ test('both friends see only aggregate scores at the viewer timezone boundaries',
     assert.equal((await db.query(`select * from public.${table} where user_id=$1`, [BOB])).rows.length, 0);
   }
   const alice = await state();
+  assert.equal(alice.group?.owner_id, ALICE);
+  assert.equal(alice.group?.member_count, 2);
+  assert.equal(alice.group?.timezone, (await db.query<{timezone: string}>(
+    'select timezone from public.profiles where user_id=$1', [ALICE])).rows[0].timezone);
   assert.equal(alice.today, bounds.today);
   assert.equal(alice.week_start, bounds.monday);
   assert.deepEqual(alice.friends.map(score => score.user_id), [BOB]);
@@ -217,28 +241,94 @@ test('both friends see only aggregate scores at the viewer timezone boundaries',
   await admin();
   await db.query("update public.classroom_accounts set status='suspended' where id=$1", [BOB]);
   await browser(ALICE);
-  assert.deepEqual((await state()).friends, []);
+  const duringSuspension = await state();
+  assert.deepEqual(duringSuspension.friends, []);
+  assert.equal(duringSuspension.group?.member_count, 1);
+  await browser(BOB);
+  await assert.rejects(state, /STUDENT_REQUIRED/);
   await admin();
   await db.query("update public.classroom_accounts set status='approved' where id=$1", [BOB]);
   await browser(ALICE);
-  assert.equal((await db.query<{value: boolean}>(
-    'select public.friend_remove($1::uuid) as value', [BOB])).rows[0].value, true);
+  assert.equal(await remove(BOB), true);
   assert.deepEqual((await state()).friends, []);
   await browser(BOB);
   assert.deepEqual((await state()).friends, []);
-  assert.equal((await db.query<{value: boolean}>(
-    'select public.friend_remove($1::uuid) as value', [ALICE])).rows[0].value, false);
+  assert.equal(await remove(ALICE), false);
 });
 
 test('deleting a recipient account cascades through a consumed invite and friendship', async () => {
   await browser(ALICE);
   const invitation = await createInvite();
   await browser(CAROL);
-  assert.deepEqual(await accept(invitation.token), {friend_id: ALICE, display_name: 'Alice'});
+  assert.deepEqual(await accept(invitation.token), {
+    friend_id: ALICE, display_name: 'Alice',
+    group_id: invitation.group_id, group_name: invitation.group_name,
+  });
   await admin();
   await db.query('delete from auth.users where id=$1', [CAROL]);
   assert.equal((await db.query<{count: string}>(
     'select count(*)::text as count from private.friendships where user_a=$1 or user_b=$1', [CAROL])).rows[0].count, '0');
   assert.equal((await db.query<{count: string}>(
     'select count(*)::text as count from private.friend_invites where accepted_by=$1', [CAROL])).rows[0].count, '0');
+});
+
+test('shared groups show every member, stay isolated, and transfer ownership on leave', async () => {
+  await browser(ALICE);
+  const aliceGroup = (await state()).group;
+  assert.ok(aliceGroup);
+  const bobLink = await createInvite(aliceGroup.id);
+  await browser(BOB);
+  assert.equal((await accept(bobLink.token)).group_id, aliceGroup.id);
+  const daveLink = await createInvite(aliceGroup.id);
+  await browser(DAVE);
+  assert.equal((await accept(daveLink.token)).group_id, aliceGroup.id);
+  const davePending = await createInvite(aliceGroup.id);
+  const daveState = await state();
+  assert.deepEqual(new Set(daveState.friends.map(score => score.user_id)), new Set([ALICE, BOB]));
+  assert.equal(daveState.group?.member_count, 3);
+  await browser(ALICE);
+  assert.equal(daveState.today, (await state()).today);
+
+  await browser(EVE);
+  assert.equal((await state()).group, null);
+  await assert.rejects(() => state(aliceGroup.id), /GROUP_NOT_FOUND/);
+  await assert.rejects(() => createInvite(aliceGroup.id), /GROUP_NOT_FOUND/);
+  await assert.rejects(() => remove(ALICE, aliceGroup.id), /GROUP_NOT_FOUND/);
+  const eveLink = await createInvite();
+  assert.notEqual(eveLink.group_id, aliceGroup.id);
+  await browser(BOB);
+  assert.equal((await accept(eveLink.token)).group_id, eveLink.group_id);
+  const bobDefault = await state();
+  assert.deepEqual(new Set(bobDefault.groups.map(group => group.id)),
+    new Set([aliceGroup.id, eveLink.group_id]));
+  assert.equal(bobDefault.group?.id, aliceGroup.id);
+  assert.deepEqual(new Set(bobDefault.friends.map(score => score.user_id)), new Set([ALICE, DAVE]));
+  const bobOther = await state(eveLink.group_id);
+  assert.deepEqual(bobOther.friends.map(score => score.user_id), [EVE]);
+  assert.equal(bobOther.group?.member_count, 2);
+  await assert.rejects(() => remove(DAVE, aliceGroup.id), /GROUP_OWNER_REQUIRED/);
+
+  await browser(ALICE);
+  assert.equal(await remove(DAVE, aliceGroup.id), true);
+  assert.equal(await preview(davePending.token), null);
+  await browser(DAVE);
+  assert.equal((await state()).group, null);
+  await browser(ALICE);
+  const alicePending = await createInvite(aliceGroup.id);
+  assert.equal(await remove(ALICE, aliceGroup.id), true);
+  assert.equal(await preview(alicePending.token), null);
+  await assert.rejects(() => state(aliceGroup.id), /GROUP_NOT_FOUND/);
+  await browser(BOB);
+  const transferred = await state(aliceGroup.id);
+  assert.equal(transferred.group?.owner_id, BOB);
+  assert.equal(transferred.group?.name, 'Bob ve arkadaşları');
+  assert.equal(transferred.group?.member_count, 1);
+  assert.deepEqual(transferred.friends, []);
+  assert.equal(await remove(BOB, aliceGroup.id), true);
+  assert.equal((await state()).group?.id, eveLink.group_id);
+  assert.equal(await remove(BOB, eveLink.group_id), true);
+  await browser(EVE);
+  assert.equal((await state()).group?.member_count, 1);
+  assert.equal(await remove(EVE, eveLink.group_id), true);
+  assert.equal((await state()).group, null);
 });

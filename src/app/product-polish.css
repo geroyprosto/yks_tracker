@@ -109,10 +109,6 @@
 .today-practice-card .practice-overview-test .practice-overview-track > span { background: var(--ring-2); }
 .today-practice-card .practice-overview-bar small { color: var(--muted); }
 .today-practice-card .practice-overview-link { background: transparent; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding-top: 12px; color: var(--primary); font-size: 12px; justify-content: flex-start; }
-.today-primary-grid .journal-preview-card { min-height: 0; }
-.today-primary-grid .journal-preview-body { display: grid; gap: 12px; }
-.today-primary-grid .journal-preview-body .text-button { justify-self: start; }
-
 .today-primary-grid .calendar-program-card {
   --foreground: inherit; --muted: inherit; --primary: inherit; --border: inherit;
   min-height: 0; padding: 23px; color: var(--foreground); background: var(--surface);

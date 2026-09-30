@@ -1,7 +1,7 @@
 'use client';
 
 import {useEffect, useState, type CSSProperties} from 'react';
-import {ArrowUpRight, Check, ListTodo, Maximize2, NotebookPen, Pause, Play, Sparkles, Timer} from 'lucide-react';
+import {ArrowUpRight, Check, ListTodo, Maximize2, Pause, Play, Sparkles, Timer} from 'lucide-react';
 import type {AppState} from '@/lib/domain/types';
 import {taskProgress, timeProgress} from '@/lib/progress';
 import {secondsByDay, sessionSeconds} from '@/lib/timing';
@@ -70,7 +70,6 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
     : activeSession ? Math.floor(elapsed % 60) : 0;
   const today = localDate();
   const tasks = state.tasks.filter(task => task.plan_date === today);
-  const todayJournal = state.journal_entries.find(entry => entry.journal_date === today);
   const plan = state.day_plans.filter(item => item.plan_date === today).sort((a, b) => b.version - a.version)[0];
   const target = plan?.target_minutes ?? state.settings?.weekday_targets[(new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7] ?? state.settings?.daily_target_minutes ?? 360;
   const factors = plan?.difficulty_factors ?? state.settings?.difficulty_factors ?? {easy: 1, medium: 1.25, hard: 1.5};
@@ -144,7 +143,6 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
         <TodayCalendar authenticated={state.authenticated} onOpenSettings={() => go('settings', 'connections')}/>
         {yks&&<YksCountdown examDate={state.settings?.exam_date ?? null} preview={preview} examYear={state.settings?.exam_year ?? 2027} onSetDate={openExamDateSettings}/> }
         {latestAnalysis&&<Card title="Son iki haftalık analiz" action={<Sparkles size={19} className="muted-icon"/>}><p className="soft-copy">{formatDay(latestAnalysis.start)} – {formatDay(latestAnalysis.end)}{latestAnalysis.stale?' · Kayıtlar değişti':''}</p><LinkButton onClick={()=>go('analysis')}>Raporu aç</LinkButton></Card>}
-        {(modules?.journal??true)&&<Card className="journal-preview-card" title="Günden bir not" action={<NotebookPen size={19} className="muted-icon"/>}><div className="journal-preview-body"><p className="soft-copy">{todayJournal?.original_text.trim().slice(0, 180) || 'Bugün neler iyi gitti, aklında neler kaldı?'}</p><LinkButton onClick={() => go('journal')}>{todayJournal ? 'Günlüğü aç' : 'Bir not yaz'}</LinkButton></div></Card>}
       </div>
     </div>
 

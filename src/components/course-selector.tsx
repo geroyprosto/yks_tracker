@@ -30,6 +30,7 @@ export function CourseSelector({state, value, onChange, label = 'Ders', disabled
   const attempts = useRef(new Map<string, {id: string; requestId: string}>());
   const pickerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const pointerOutside = useRef(false);
   const labelId = useId();
   const badgeId = useId();
   const selectionId = useId();
@@ -49,12 +50,36 @@ export function CourseSelector({state, value, onChange, label = 'Ders', disabled
 
   useEffect(() => {
     if (!open) return;
+    let pointerCloseTimer: ReturnType<typeof setTimeout> | undefined;
     const onPointerDown = (event: PointerEvent) => {
+      pointerOutside.current = !pickerRef.current?.contains(event.target as Node);
+    };
+    const onPointerUp = () => {
+      if (!pointerOutside.current) return;
+      pointerCloseTimer = setTimeout(() => {
+        if (pointerOutside.current) setOpen(false);
+        pointerOutside.current = false;
+      }, 0);
+    };
+    const onPointerCancel = () => {
+      if (pointerOutside.current) setOpen(false);
+      pointerOutside.current = false;
+    };
+    const onClick = (event: MouseEvent) => {
       if (!pickerRef.current?.contains(event.target as Node)) setOpen(false);
+      pointerOutside.current = false;
     };
     document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('pointerup', onPointerUp);
+    document.addEventListener('pointercancel', onPointerCancel);
+    document.addEventListener('click', onClick);
     return () => {
       document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('pointerup', onPointerUp);
+      document.removeEventListener('pointercancel', onPointerCancel);
+      document.removeEventListener('click', onClick);
+      clearTimeout(pointerCloseTimer);
+      pointerOutside.current = false;
     };
   }, [open]);
 
@@ -89,7 +114,7 @@ export function CourseSelector({state, value, onChange, label = 'Ders', disabled
 
   return <div className={styles.selector}>
     <span className={styles.label} id={labelId}>{label}</span>
-    <div ref={pickerRef} className={styles.picker} onBlur={event => {if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false);}} onKeyDown={event => {if (open && event.key === 'Escape') {event.preventDefault(); event.stopPropagation(); setOpen(false); triggerRef.current?.focus();}}}>
+    <div ref={pickerRef} className={styles.picker} onBlur={event => {if (!pointerOutside.current && !event.currentTarget.contains(event.relatedTarget)) setOpen(false);}} onKeyDown={event => {if (open && event.key === 'Escape') {event.preventDefault(); event.stopPropagation(); setOpen(false); triggerRef.current?.focus();}}}>
       <button ref={triggerRef} type="button" className={styles.trigger} data-initial-focus={initialFocus || undefined} aria-labelledby={selected ? `${labelId} ${badgeId} ${selectionId}` : `${labelId} ${selectionId}`} aria-expanded={open} aria-controls={open ? panelId : undefined} disabled={disabled || saving} onClick={() => setOpen(current => !current)}>
         {selected ? <><span id={badgeId} className={styles.badge}>{selected.context === 'yks' ? selected.exam : 'Okul'}</span><span id={selectionId} className={styles.triggerText}>{selected.name}{selected.archived ? ' · Arşiv' : selected.context === 'school' && selected.term_id !== term ? ' · Önceki dönem' : ''}</span></> : <span id={selectionId} className={styles.triggerText}>Ders seç</span>}
         <ChevronDown className={styles.chevron} size={16} aria-hidden="true"/>

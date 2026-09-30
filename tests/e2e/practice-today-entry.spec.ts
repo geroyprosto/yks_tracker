@@ -116,6 +116,21 @@ test('a test-only record has visible test share bars and counts as an unassigned
   expect(await analysisTestBar.evaluate(element => [...element.querySelectorAll('span')].some(fill => fill.getBoundingClientRect().width > 0))).toBe(true);
 });
 
+test('Cancel closes the entry modal on the first click while the lesson popup is open', async ({ page }) => {
+  const state = fixture();
+  const sent: { type: string; payload: Record<string, unknown> }[] = [];
+  await openToday(page, state, sent);
+  await page.locator('.today-practice-card').getByRole('button', { name: 'Kayıt ekle', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Yeni çözüm kaydı' });
+  await dialog.getByRole('button', { name: /Ders seç/ }).click();
+  await expect(dialog.getByRole('button', { name: 'Ders seçmeden devam et' })).toBeVisible();
+
+  await dialog.getByRole('button', { name: 'Vazgeç', exact: true }).click();
+
+  await expect(dialog).not.toBeVisible();
+  expect(sent).toHaveLength(0);
+});
+
 test('TYT, AYT and school lessons with the same name stay distinct in practice analysis', async ({ page }) => {
   const state = fixture();
   const sent: { type: string; payload: Record<string, unknown> }[] = [];

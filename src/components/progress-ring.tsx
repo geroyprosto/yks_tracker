@@ -5,6 +5,7 @@ import type { RingSegment } from '@/lib/progress-breakdown';
 
 const RADIUS = 70;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const ARC_STROKE_WIDTH = 28;
 const RISE_DURATION = 850;
 const subscribeToHydration = () => () => {};
 const clientHydrated = () => true;
@@ -60,19 +61,21 @@ function AnimatedPercent({ value }: { value: number }) {
   return <>%{Math.round(display)}</>;
 }
 
-function AnimatedArc({ length, offset, color, gradient, midpoint, label, entering }: {
-  length: number; offset: number; color: number; gradient: string;
+function AnimatedArc({ length, offset, strokeWidth, color, gradient, midpoint, label, entering }: {
+  length: number; offset: number; strokeWidth: number; color: number; gradient: string;
   midpoint: { x: number; y: number }; label: string | null; entering: boolean;
 }) {
   const [drawn, setDrawn] = useState(() => ({
     length: entering && !motionDisabled() ? 0 : length,
     offset,
+    strokeWidth,
   }));
 
   useEffect(() => {
     let nextFrame = 0;
     const update = () => setDrawn(previous =>
-      previous.length === length && previous.offset === offset ? previous : { length, offset });
+      previous.length === length && previous.offset === offset && previous.strokeWidth === strokeWidth
+        ? previous : { length, offset, strokeWidth });
     if (motionDisabled()) {
       nextFrame = requestAnimationFrame(update);
       return () => cancelAnimationFrame(nextFrame);
@@ -85,21 +88,21 @@ function AnimatedArc({ length, offset, color, gradient, midpoint, label, enterin
       cancelAnimationFrame(firstFrame);
       cancelAnimationFrame(nextFrame);
     };
-  }, [length, offset]);
+  }, [length, offset, strokeWidth]);
 
   const dasharray = drawn.length.toFixed(3) + ' ' + Math.max(0, CIRCUMFERENCE - drawn.length).toFixed(3);
   return <g style={{ '--segment-color': 'var(--ring-' + (color + 1) + ')' } as CSSProperties}>
-    <circle className="donut-glow" cx="90" cy="90" r={RADIUS} transform="rotate(-90 90 90)"
+    <circle className="donut-glow" cx="90" cy="90" r={RADIUS} transform="rotate(-90 90 90)" strokeWidth={drawn.strokeWidth + 2}
       strokeDasharray={dasharray} strokeDashoffset={-drawn.offset} />
-    <circle className="donut-segment" cx="90" cy="90" r={RADIUS} transform="rotate(-90 90 90)"
+    <circle className="donut-segment" cx="90" cy="90" r={RADIUS} transform="rotate(-90 90 90)" strokeWidth={drawn.strokeWidth}
       strokeDasharray={dasharray} strokeDashoffset={-drawn.offset} stroke={'url(#' + gradient + ')'} />
     {label && <text className={'donut-arc-label' + (entering ? ' is-entering' : '')}
       x={midpoint.x} y={midpoint.y} dominantBaseline="central" textAnchor="middle">{label}</text>}
   </g>;
 }
 
-export function Donut({ segments, center, caption, label, empty = false }: {
-  segments: RingSegment[]; center: ReactNode; caption: string; label: string; empty?: boolean;
+export function Donut({ segments, center, caption, label, empty = false, rounded = false }: {
+  segments: RingSegment[]; center: ReactNode; caption: string; label: string; empty?: boolean; rounded?: boolean;
 }) {
   const id = useId().replace(/:/g, '');
   const root = useRef<HTMLDivElement>(null);
@@ -108,16 +111,23 @@ export function Donut({ segments, center, caption, label, empty = false }: {
   const sum = visible.reduce((total, segment) => total + segment.value, 0);
   const previousSum = useRef(sum);
   const scale = sum > 100 ? 100 / sum : 1;
+  const roundCaps = rounded;
+  const completeCircle = visible.length === 1 && sum >= 99.99;
 
   const arcs = visible.map((segment, index) => {
     const start = visible.slice(0, index).reduce((total, item) => total + item.value * scale * 3.6, 0);
     const extent = segment.value * scale * 3.6;
     const gap = visible.length > 1 || sum < 99.99 ? Math.min(2.5, extent * .16) : .01;
+    const arcLength = Math.max(0, extent - gap) / 360 * CIRCUMFERENCE;
+    const strokeWidth = roundCaps ? Math.min(ARC_STROKE_WIDTH, arcLength) : ARC_STROKE_WIDTH;
+    // Round caps extend half a stroke beyond both ends; keep the visible sweep accurate.
+    const capAllowance = roundCaps && !completeCircle ? Math.max(0, strokeWidth - .01) : 0;
 
     return {
       ...segment,
-      length: Math.max(0, extent - gap) / 360 * CIRCUMFERENCE,
-      offset: (start + gap / 2) / 360 * CIRCUMFERENCE,
+      length: arcLength - capAllowance,
+      offset: (start + gap / 2) / 360 * CIRCUMFERENCE + capAllowance / 2,
+      strokeWidth,
       midpoint: point(start + extent / 2),
       scaledValue: segment.value * scale,
     };
@@ -134,7 +144,7 @@ export function Donut({ segments, center, caption, label, empty = false }: {
     );
   }, [sum]);
 
-  return <div ref={root} className={'neon-donut ' + (empty ? 'is-empty' : '')} role="img" aria-label={label}>
+  return <div ref={root} className={'neon-donut' + (empty ? ' is-empty' : '') + (roundCaps ? ' is-rounded' : '')} role="img" aria-label={label}>
     <svg viewBox="0 0 180 180" aria-hidden="true">
       <defs>{arcs.map(segment => <linearGradient key={segment.key} id={id + '-' + segment.color} x1="0%" y1="0%" x2="100%" y2="100%">
         <stop offset="0%" style={{ stopColor: 'var(--ring-' + (segment.color + 1) + '-start, color-mix(in srgb, var(--ring-' + (segment.color + 1) + ') 80%, white))' }} />
@@ -143,7 +153,7 @@ export function Donut({ segments, center, caption, label, empty = false }: {
       <circle className="donut-aura" cx="90" cy="90" r={RADIUS} />
       <circle className="donut-track" cx="90" cy="90" r={RADIUS} />
       <circle className="donut-inner-edge" cx="90" cy="90" r="54" />
-      {arcs.map(segment => <AnimatedArc key={segment.key} length={segment.length} offset={segment.offset}
+      {arcs.map(segment => <AnimatedArc key={segment.key} length={segment.length} offset={segment.offset} strokeWidth={segment.strokeWidth}
         color={segment.color} gradient={id + '-' + segment.color} midpoint={segment.midpoint}
         label={segment.scaledValue >= 13 ? Math.round(segment.scaledValue) + '%' : null}
         entering={hydrated} />)}
@@ -152,15 +162,15 @@ export function Donut({ segments, center, caption, label, empty = false }: {
   </div>;
 }
 
-export function Ring({ value, label, detail, segments, color = 0, showLegend = true, showCenterPercentage = true }: {
-  value: number | null; label: string; detail: string; segments?: RingSegment[]; color?: number; showLegend?: boolean; showCenterPercentage?: boolean;
+export function Ring({ value, label, detail, segments, color = 0, showLegend = true, showCenterPercentage = true, rounded = false }: {
+  value: number | null; label: string; detail: string; segments?: RingSegment[]; color?: number; showLegend?: boolean; showCenterPercentage?: boolean; rounded?: boolean;
 }) {
   const progress = value === null ? null : Math.min(100, Math.max(0, value));
   const parts = segments ?? (progress === null ? [] : [{ key: 'completed', label: 'Tamamlanan', value: progress, color }]);
   const remaining = progress === null ? null : Math.max(0, 100 - progress);
   const center = showCenterPercentage ? (value === null ? '—' : <AnimatedPercent value={value} />) : null;
   return <div className="neon-metric">
-    <Donut segments={parts} center={center}
+    <Donut segments={parts} center={center} rounded={rounded}
       caption={value === null ? 'HENÜZ PLAN YOK' : 'TAMAMLANDI'}
       label={label + ': ' + (value === null ? 'tanımlı değil' : '%' + percentage(value))} empty={value === null || value === 0} />
     <h3>{label}</h3><p className="metric-detail">{detail}</p>

@@ -91,8 +91,8 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
     <div className="overview-grid">
       <Card className="daily-card" title="Bugün ne kadar ilerledin?" eyebrow="GÜNLÜK ÖZET" action={<span className="pill">{completed} / {tasks.length} görev</span>}>
         <div className="neon-metrics">
-          <Ring value={progress} showLegend={false} label="Görevler" detail={tasks.length ? completed + ' / ' + tasks.length + ' tamamlandı' : 'İlk görevini ekle'}/>
-          <Ring value={time} showLegend={false} color={1} label="Net çalışma süresi" detail={duration(seconds) + ' / ' + duration(target * 60)}/>
+          <Ring value={progress} showLegend={false} rounded label="Görevler" detail={tasks.length ? completed + ' / ' + tasks.length + ' tamamlandı' : 'İlk görevini ekle'}/>
+          <Ring value={time} showLegend={false} rounded color={1} label="Net çalışma süresi" detail={duration(seconds) + ' / ' + duration(target * 60)}/>
         </div>
       </Card>
       {((modules?.timer??true)||activeSession)&&<Card className="focus-card gradient-card" eyebrow="ÇALIŞMA ZAMANI" action={<span className="focus-card-status" role="status"><i aria-hidden="true" className={activeSession?.status === 'running' && !countdownDone ? 'is-running' : ''}/>{dialStatus}</span>}>

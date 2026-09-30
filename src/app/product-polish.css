@@ -30,17 +30,31 @@
 .card .empty { padding-block: 28px; }
 
 .overview-grid { grid-template-columns: minmax(0, 1fr) 390px; gap: 20px; align-items: stretch; }
-.daily-card { border-top: 1px solid var(--border); padding: 24px; }
+.daily-card {
+  border-top: 1px solid var(--border);
+  padding: 24px;
+  background:
+    radial-gradient(ellipse 60% 76% at 0% 0%, color-mix(in srgb, var(--ring-1) 10%, transparent), transparent 78%),
+    radial-gradient(ellipse 64% 78% at 100% 100%, color-mix(in srgb, var(--ring-2) 14%, transparent), transparent 76%),
+    var(--surface);
+}
 .daily-card .card-head { margin-bottom: 24px; }
+.daily-card .card-head .eyebrow { font-size: 11px; font-weight: 750; letter-spacing: 1.5px; }
+.daily-card .card-head h2 { font-size: clamp(19px, 1.7vw, 22px); font-weight: 750; line-height: 1.25; letter-spacing: -.65px; }
+.daily-card .card-head .pill { font-size: 11px; font-weight: 700; color: var(--foreground); }
 .daily-card .neon-metrics { padding: 0; gap: 18px; align-content: center; }
 .daily-card .neon-metric { display: block; }
 .daily-card .neon-metric + .neon-metric::before { display: none; }
 .daily-card .neon-donut { width: min(240px, 100%); margin: 0 auto 12px; }
-.daily-card .donut-glow { opacity: .25; }
-.daily-card .donut-center strong { font-size: clamp(33px, 3.3vw, 42px); }
-.daily-card .donut-center span { display: none; }
-.daily-card .neon-metric h3 { font-size: 12px; line-height: 1.5; margin-bottom: 4px; }
-.daily-card .metric-detail { min-height: 32px; font-size: 11px; line-height: 1.5; margin: 0; }
+.daily-card .neon-donut.is-rounded .donut-segment,
+.daily-card .neon-donut.is-rounded .donut-glow { stroke-linecap: round; }
+.daily-card .donut-glow { opacity: .3; }
+.daily-card .donut-arc-label { display: none; }
+.daily-card .donut-center strong { font-size: clamp(35px, 3.3vw, 44px); font-weight: 750; letter-spacing: -1.5px; }
+.daily-card .donut-center span { display: block; font-size: 10px; font-weight: 700; letter-spacing: 1.15px; }
+.daily-card .neon-metric h3 { font-size: 16px; font-weight: 700; line-height: 1.35; letter-spacing: -.3px; margin-bottom: 4px; }
+.daily-card .metric-detail { min-height: 32px; font-size: 12px; line-height: 1.5; margin: 0; }
+:root[data-simple=true] .daily-card { background: var(--surface); }
 
 .overview-grid .focus-card.gradient-card {
   --focus-dial-size: 232px;
@@ -51,19 +65,21 @@
 }
 .overview-grid .focus-card.gradient-card::before { opacity: .55; }
 .overview-grid .focus-card .card-head { margin-bottom: 6px; }
+.overview-grid .focus-card .card-head .eyebrow { font-size: 11px; font-weight: 750; letter-spacing: 1.5px; }
+.overview-grid .focus-card-status { font-size: 10px; font-weight: 650; padding: 5px 8px; }
 .overview-grid .focus-card-scene { display: flex; flex-direction: column; justify-content: center; }
 .overview-grid .focus-dial { margin: 3px auto 12px; }
 .overview-grid .focus-dial-face { gap: 4px; }
 .overview-grid .focus-dial-face > svg, .overview-grid .focus-dial-face small { display: none; }
-.overview-grid .focus-dial-face strong { font-size: 36px; }
-.overview-grid .focus-dial-face strong.is-long { font-size: 25px; }
+.overview-grid .focus-dial-face strong { font-size: 40px; font-weight: 750; }
+.overview-grid .focus-dial-face strong.is-long { font-size: 27px; }
 .overview-grid .focus-card-copy { min-height: 0; text-align: center; }
 .overview-grid .focus-card-copy h3 { font-size: 14px; }
 .overview-grid .focus-card-copy p { font-size: 11px; }
 .overview-grid .focus-card-actions { flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 14px; }
-.overview-grid .focus-card-actions .button.primary { flex: 1; min-width: 0; width: auto; }
+.overview-grid .focus-card-actions .button.primary { flex: 1; min-width: 0; width: auto; font-size: 13px; font-weight: 700; }
 .overview-grid .focus-card-toggle { flex-basis: 100%; }
-.overview-grid .focus-card-expand { position: static; flex: none; min-height: 42px; padding: 8px 11px; }
+.overview-grid .focus-card-expand { position: static; flex: none; min-height: 42px; padding: 8px 11px; font-size: 12px; font-weight: 700; }
 
 .today-primary-grid { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 20px; }
 .today-primary-grid .column { gap: 20px; }
@@ -157,14 +173,14 @@
   .today-primary-grid .column { gap: 16px; }
   .daily-card { padding: 20px 16px; }
   .daily-card .card-head { gap: 8px; margin-bottom: 20px; }
-  .daily-card .card-head h2 { font-size: 15px; }
+  .daily-card .card-head h2 { font-size: 18px; }
   .daily-card .neon-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .daily-card .neon-metric { text-align: center; padding: 0; border: 0; }
   .daily-card .neon-donut { width: min(225px, 100%); margin-bottom: 9px; }
   .daily-card .donut-center { padding: 20px; }
-  .daily-card .donut-center strong { font-size: clamp(27px, 7.5vw, 37.5px); letter-spacing: -.6px; }
-  .daily-card .neon-metric h3 { font-size: 11px; min-height: 32px; }
-  .daily-card .metric-detail { font-size: 10px; min-height: 30px; }
+  .daily-card .donut-center strong { font-size: clamp(30px, 7.5vw, 39px); letter-spacing: -1px; }
+  .daily-card .neon-metric h3 { font-size: 14px; min-height: 0; }
+  .daily-card .metric-detail { font-size: 11px; min-height: 30px; }
   .overview-grid .focus-card.gradient-card { min-height: 0; }
   .overview-grid .focus-card-actions { max-width: 360px; }
   .page-heading > .button { align-self: flex-start; }

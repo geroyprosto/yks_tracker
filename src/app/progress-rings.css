@@ -8,9 +8,9 @@
 .donut-aura{stroke:var(--ring-1);stroke-width:34;opacity:.07;filter:blur(5px)}
 .donut-track{stroke:var(--ring-track);stroke-width:28}
 .donut-inner-edge{stroke:var(--border);stroke-width:.7;opacity:.8}
-.donut-glow{stroke:var(--segment-color);stroke-width:30;opacity:.5;filter:blur(4.5px)}
-.donut-segment{stroke-width:28;stroke-linecap:butt}
-.donut-glow,.donut-segment{transition:stroke-dasharray .85s cubic-bezier(.22,1,.36,1),stroke-dashoffset .85s cubic-bezier(.22,1,.36,1)}
+.donut-glow{stroke:var(--segment-color);opacity:.5;filter:blur(4.5px)}
+.donut-segment{stroke-linecap:butt}
+.donut-glow,.donut-segment{transition:stroke-dasharray .85s cubic-bezier(.22,1,.36,1),stroke-dashoffset .85s cubic-bezier(.22,1,.36,1),stroke-width .85s cubic-bezier(.22,1,.36,1)}
 .donut-arc-label.is-entering{animation:donut-label-enter .4s .3s both}
 @keyframes donut-label-enter{from{opacity:0}to{opacity:1}}
 .donut-arc-label{fill:var(--ring-ink,#142b40);font-size:9px;font-weight:700;paint-order:stroke;stroke:color-mix(in srgb,var(--segment-color) 60%,transparent);stroke-width:1px;font-variant-numeric:tabular-nums}

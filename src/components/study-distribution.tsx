@@ -36,7 +36,6 @@ export function StudyDistribution({report}: {report: StudyReport}) {
     {source.length > 5 && <details className="distribution-all"><summary>Tüm dağılımı gör · {source.length} başlık</summary>
       {legend(source.map((row, index) => ({...row, key: row.key??row.label, color: Math.min(index, 4), value: row.seconds / total * 100})))}
     </details>}
-    <p className="footnote">Seçili dönemin net çalışma süresi · Molalar hariç.</p>
   </Card>;
 }
 

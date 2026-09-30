@@ -24,16 +24,19 @@
 .study-analysis-grid { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(300px,1fr); gap: 20px; align-items: stretch; }
 .study-distribution-card { display: flex; flex-direction: column; border-top: 1px solid var(--border); }
 .study-distribution-card .card-head { flex-wrap: wrap; }
-.study-distribution-select { width: auto; min-height: 33px; padding: 6px 25px 6px 10px; border-radius: 8px; font-size: 10px; background: var(--surface-raised); }
-.study-distribution-card .distribution-content { flex: 1; gap: 28px; padding: 20px 0; }
-.study-distribution-card .distribution-content > .neon-donut { width: 176px; margin: 0; }
+.study-distribution-card .card-head h2 { font-size: 18px; }
+.study-distribution-select { width: auto; min-height: 38px; padding: 7px 28px 7px 12px; border-radius: 8px; font-size: 12px; background: var(--surface-raised); }
+.study-distribution-card .distribution-content { flex: 1; gap: 32px; padding: 20px 0; }
+.study-distribution-card .distribution-content > .neon-donut { width: min(240px, 100%); margin: 0; }
 .study-distribution-card .donut-center { padding: 20px; }
-.study-distribution-card .donut-center strong { font-size: 22px; }
+.study-distribution-card .donut-center strong { font-size: 30px; }
+.study-distribution-card .donut-center span { font-size: 9px; }
 .study-distribution-card .donut-glow { opacity: .16; }
-.study-distribution-card .distribution-legend { gap: 17px; }
-.study-distribution-card .distribution-legend strong { color: var(--foreground); font-size: 12px; }
-.study-distribution-card .distribution-legend b { font-size: 11px; }
-.study-distribution-card .footnote { font-size: 10px; color: var(--muted); padding-top: 18px; border-top: 1px solid var(--border); margin-top: 10px; }
+.study-distribution-card .distribution-legend { gap: 19px; }
+.study-distribution-card .distribution-legend strong { color: var(--foreground); font-size: 15px; }
+.study-distribution-card .distribution-legend small { font-size: 12px; }
+.study-distribution-card .distribution-legend b { font-size: 14px; }
+.study-distribution-card .legend-dot { width: 9px; height: 9px; }
 .distribution-all { border-top: 1px solid var(--border); padding-top: 12px; }
 .distribution-all summary { font-size: 11px; color: var(--primary); cursor: pointer; }
 .distribution-all .distribution-legend { padding-top: 16px; max-height: 290px; overflow: auto; }
@@ -63,7 +66,7 @@
 .study-day-actions .button[aria-pressed=true] { border-color: var(--primary); background: color-mix(in srgb,var(--primary) 12%,var(--surface)); }
 .study-day-detail .footnote { margin-top: 15px; color: var(--muted); font-size: 10px; }
 @media(max-width:1280px) { .study-stats-metrics { grid-template-columns: repeat(3,minmax(0,1fr)); } .study-stat-metric > span { min-height: 0; } .study-stat-metric > strong { font-size: 25px; } }
-@media(max-width:1120px) { .study-analysis-grid { grid-template-columns: minmax(0,1fr); } .study-distribution-card .distribution-content { min-height: 220px; } }
+@media(max-width:1280px) { .study-analysis-grid { grid-template-columns: minmax(0,1fr); } .study-distribution-card .distribution-content { min-height: 220px; } }
 @media(max-width:640px) {
   .study-statistics { gap: 16px; }
   .study-stats-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
@@ -77,7 +80,8 @@
   .study-stats-period-nav { justify-content: space-between; width: 100%; }
   .study-analysis-grid { gap: 16px; }
   .study-distribution-card .distribution-content { flex-direction: column; gap: 23px; padding: 12px 0; }
-  .study-distribution-card .distribution-content > .neon-donut { width: 164px; }
+  .study-distribution-card .distribution-content > .neon-donut { width: min(220px, 100%); }
+  .study-distribution-card .donut-center strong { font-size: 26px; }
   .study-distribution-card .distribution-legend { width: 100%; }
   .study-stats-dates { gap: 7px; }
   .study-stats-dates label { min-width: 0; flex: 1; }
@@ -86,5 +90,9 @@
   .study-detail-disclosure > summary small { width: 100%; margin-left: 28px; }
   .study-detail-content { padding: 0 16px 16px; }
   .study-day-links { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:380px) {
+  .study-distribution-card .distribution-content > .neon-donut { width: min(200px, 100%); }
+  .study-distribution-card .donut-center strong { font-size: 23px; }
 }
 

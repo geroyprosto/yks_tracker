@@ -68,6 +68,48 @@ async function acceptInvitation(context: BrowserContext, link: string, errors: s
   return page;
 }
 
+async function friendPalette(page: Page) {
+  const button = page.getByRole('button', { name: /Arkadaş davet et/ }).first();
+  const colors = await button.evaluate(element => {
+    const sample = document.createElement('span');
+    sample.style.backgroundColor = 'var(--primary)';
+    document.body.appendChild(sample);
+    const primary = getComputedStyle(sample).backgroundColor;
+    sample.remove();
+    return { primary, invite: getComputedStyle(element).backgroundColor };
+  });
+  const duel = page.getByRole('region', { name: 'İkili karşılaşma' });
+  const background = await duel.evaluate(element => getComputedStyle(element).backgroundColor);
+  return { ...colors, background };
+}
+
+async function assertWideFriendsLayout(page: Page, width: number) {
+  await page.setViewportSize({ width, height: 1000 });
+  await expect(page.locator('main#main')).toHaveAttribute('data-page', 'friends');
+  const layout = await page.evaluate(() => {
+    const shell = document.querySelector('.main-shell')!.getBoundingClientRect();
+    const groupBar = document.querySelector('main#main [aria-label="Yarışma grubu"]')!;
+    const workspace = groupBar.parentElement!.getBoundingClientRect();
+    const duel = document.querySelector('main#main [aria-label="İkili karşılaşma"]')!;
+    const rail = duel.nextElementSibling!;
+    const lastRailCard = rail.lastElementChild!;
+    return {
+      shellWidth: shell.width, workspaceWidth: workspace.width,
+      left: workspace.left - shell.left, right: shell.right - workspace.right,
+      documentWidth: document.documentElement.scrollWidth,
+      cardBottomGap: Math.abs(duel.getBoundingClientRect().bottom - lastRailCard.getBoundingClientRect().bottom),
+    };
+  });
+  expect(layout.workspaceWidth).toBeGreaterThanOrEqual(layout.shellWidth * 0.8);
+  expect(layout.left).toBeGreaterThan(16);
+  expect(layout.right).toBeGreaterThan(16);
+  expect(layout.left).toBeLessThanOrEqual(160);
+  expect(layout.right).toBeLessThanOrEqual(160);
+  expect(Math.abs(layout.left - layout.right)).toBeLessThanOrEqual(16);
+  expect(layout.cardBottomGap).toBeLessThanOrEqual(2);
+  expect(layout.documentWidth).toBeLessThanOrEqual(width + 1);
+}
+
 test('three students join one group, see the top two duel, and lose access when removed or leaving', async ({ browser }) => {
   test.setTimeout(150_000);
   const owner = await browser.newContext({ baseURL: origin, viewport: { width: 1440, height: 900 } });
@@ -139,6 +181,54 @@ test('three students join one group, see the top two duel, and lose access when 
     await expect(ownerPage.locator('html')).toHaveAttribute('data-appearance', 'dark');
     await expect(ownerPage.getByRole('region', { name: 'İkili karşılaşma' })).toContainText(ranking[0].display_name);
     await ownerPage.screenshot({ path: 'tmp/friends-dark.png', fullPage: true, animations: 'disabled' });
+
+    const navigation = ownerPage.getByRole('navigation', { name: 'Ana gezinme' });
+    await navigation.getByRole('button', { name: 'Ayarlar' }).click();
+    await ownerPage.getByRole('button', { name: 'Okyanus', exact: true }).click();
+    await expect(ownerPage.locator('html')).toHaveAttribute('data-theme', 'ocean');
+    await navigation.getByRole('button', { name: 'Arkadaşlar' }).click();
+    await expect(ownerPage.getByRole('region', { name: 'İkili karşılaşma' })).toContainText(ranking[0].display_name);
+    const ocean = await friendPalette(ownerPage);
+    expect(ocean.invite).toBe(ocean.primary);
+    await assertWideFriendsLayout(ownerPage, 1920);
+    await ownerPage.screenshot({ path: 'tmp/friends-wide-1920.png', fullPage: true, animations: 'disabled' });
+
+    await navigation.getByRole('button', { name: 'Ayarlar' }).click();
+    await ownerPage.getByRole('button', { name: 'Açık', exact: true }).click();
+    await expect(ownerPage.locator('html')).toHaveAttribute('data-appearance', 'light');
+    await navigation.getByRole('button', { name: 'Arkadaşlar' }).click();
+    await expect(ownerPage.getByRole('region', { name: 'İkili karşılaşma' })).toContainText(ranking[0].display_name);
+    const oceanLight = await friendPalette(ownerPage);
+    expect(oceanLight.invite).toBe(oceanLight.primary);
+    await ownerPage.screenshot({ path: 'tmp/friends-wide-1920-light.png', fullPage: true, animations: 'disabled' });
+
+    await navigation.getByRole('button', { name: 'Ayarlar' }).click();
+    await ownerPage.getByRole('button', { name: 'Mercan / Gül', exact: true }).click();
+    await ownerPage.getByRole('button', { name: 'Koyu', exact: true }).click();
+    await expect(ownerPage.locator('html')).toHaveAttribute('data-theme', 'rose');
+    await navigation.getByRole('button', { name: 'Arkadaşlar' }).click();
+    await expect(ownerPage.getByRole('region', { name: 'İkili karşılaşma' })).toContainText(ranking[0].display_name);
+    const rose = await friendPalette(ownerPage);
+    expect(rose.invite).toBe(rose.primary);
+    expect(rose.invite).not.toBe(ocean.invite);
+    expect(rose.background).not.toBe(ocean.background);
+    await assertWideFriendsLayout(ownerPage, 2560);
+    await ownerPage.screenshot({ path: 'tmp/friends-wide-2560.png', fullPage: true, animations: 'disabled' });
+
+    // Exercise every current picker theme. The four flexible palettes support
+    // both appearance modes; white and black fix their own background modes.
+    for (const [theme, appearance] of [
+      ['ocean', 'dark'], ['ocean', 'light'], ['rose', 'dark'], ['rose', 'light'],
+      ['plum', 'dark'], ['plum', 'light'], ['pastel', 'dark'], ['pastel', 'light'],
+      ['white', 'light'], ['black', 'dark'],
+    ] as const) {
+      await ownerPage.evaluate(({ theme, appearance }) => {
+        document.documentElement.dataset.theme = theme;
+        document.documentElement.dataset.appearance = appearance;
+      }, { theme, appearance });
+      const palette = await friendPalette(ownerPage);
+      expect(palette.invite, theme + '/' + appearance).toBe(palette.primary);
+    }
 
     await memberPage.reload();
     const periodTabs = memberPage.getByRole('group', { name: 'Yarışma dönemi' });

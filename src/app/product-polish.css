@@ -15,6 +15,12 @@
 .topbar { height: 64px; background: var(--background); }
 .page-heading h1 { font-size: clamp(25px, 2.4vw, 32px); }
 .page-heading > div > p:last-child { font-size: 13px; line-height: 1.6; }
+@media (min-width: 1280px) {
+  main#main[data-page=friends] {
+    max-width: 2200px;
+    padding-inline: clamp(24px, 2.5vw, 72px);
+  }
+}
 .card .soft-copy, .card .empty p { font-size: 13px; line-height: 1.7; }
 .card .footnote, .form-grid small, .setting-row p, .task-meta, .task-tags,
 .task-description > p, .topic-details, .session-row small { font-size: 12px; line-height: 1.6; }

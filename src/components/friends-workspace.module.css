@@ -1,16 +1,13 @@
 .workspace{
-  --f-bg:#fbf5f3;--f-surface:#fff;--f-surface2:#f6ebe9;--f-line:#ecdcd8;
-  --f-text:#2a1c20;--f-muted:#7d676d;--f-you:#d9546a;--f-you-ink:#fff;
-  --f-rival:#7a5fd6;--f-gold:#c9891a;
-  max-width:960px;margin:0 auto;padding:24px 20px 30px;border-radius:26px;
-  background:var(--f-bg);color:var(--f-text);
-  font-family:'Plus Jakarta Sans',system-ui,-apple-system,'Segoe UI',sans-serif;line-height:1.45;
+  --f-bg:var(--background);--f-surface:var(--surface);--f-surface2:var(--surface-raised);--f-line:var(--border);
+  --f-text:var(--foreground);--f-muted:var(--muted);--f-you:var(--primary);--f-you-ink:var(--on-primary);
+  --f-rival:var(--accent);--f-gold:var(--warning);
+  width:100%;min-width:0;margin:0;padding:0 0 16px;
+  color:var(--f-text);font-family:inherit;line-height:1.5;
 }
-:global(:root[data-appearance=dark]) .workspace{
-  --f-bg:#1c1618;--f-surface:#282024;--f-surface2:#33292d;--f-line:#46383d;
-  --f-text:#f6ecee;--f-muted:#b9a8ad;--f-you:#f7a8b0;--f-you-ink:#3a1a20;
-  --f-rival:#b9a4f5;--f-gold:#f5c76b;
-}
+.raceGrid{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start}
+.scoreRail{display:grid;gap:20px;min-width:0;align-content:start}
+.scoreRail>.card{margin-top:0}
 .workspace button,.workspace input,.workspace select{font-family:inherit}
 .eyebrow{margin:0;font-size:11px;letter-spacing:.14em;font-weight:700;text-transform:uppercase;color:var(--f-muted)}
 .srOnly{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
@@ -30,7 +27,7 @@
 .toolbarRight>span{white-space:nowrap}
 .refreshButton{width:33px;height:33px;display:grid;place-items:center;flex:none;border:1px solid var(--f-line);border-radius:50%;background:var(--f-surface);color:var(--f-muted)}
 .refreshButton:hover{color:var(--f-you);background:var(--f-surface2)}
-.inviteButton{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:999px;background:var(--f-you);color:var(--f-you-ink);padding:9px 16px;min-height:38px;font-size:13px;font-weight:800;white-space:nowrap}
+.inviteButton{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;border-radius:999px;background:var(--f-you);color:var(--f-you-ink);padding:9px 16px;min-height:38px;font-size:13px;font-weight:700;white-space:nowrap}
 .inviteButton:hover{filter:brightness(.94)}
 .noticeError{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 15px;margin:0 0 14px;border:1px solid var(--f-you);border-radius:12px;color:var(--f-text);background:var(--f-surface);font-size:12px}
 .noticeError button{border:0;background:none;color:var(--f-you);font-size:12px;font-weight:700;white-space:nowrap}
@@ -46,60 +43,60 @@
 .inviteControls button:hover{border-color:var(--f-you)}
 .inviteExpiry,.inviteFeedback{margin-top:9px;font-size:11px;color:var(--f-muted)}
 .inviteFeedback{color:var(--f-you)}
-.duel{position:relative;overflow:hidden;border:1px solid var(--f-line);border-radius:28px;padding:26px 24px 22px;background:radial-gradient(520px 240px at 0% 0%,color-mix(in srgb,var(--f-rival) 26%,transparent),transparent 70%),radial-gradient(520px 240px at 100% 100%,color-mix(in srgb,var(--f-you) 28%,transparent),transparent 70%),var(--f-surface);box-shadow:0 18px 50px -24px color-mix(in srgb,var(--f-you) 60%,transparent)}
+.duel{position:relative;overflow:hidden;min-width:0;border:1px solid var(--f-line);border-radius:22px;padding:28px;background:radial-gradient(560px 280px at 0% 0%,color-mix(in srgb,var(--f-rival) 12%,transparent),transparent 70%),radial-gradient(560px 280px at 100% 100%,color-mix(in srgb,var(--f-you) 10%,transparent),transparent 70%),var(--f-surface);box-shadow:var(--shadow)}
 .duelTop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
-.duelTop h2{margin:4px 0 0;font-size:24px;font-weight:800;letter-spacing:-.01em;color:var(--f-text)}
+.duelTop h2{margin:4px 0 0;font-size:24px;font-weight:700;letter-spacing:-.01em;color:var(--f-text)}
 .pill{font-size:12px;font-weight:700;background:var(--f-surface2);border:1px solid var(--f-line);border-radius:999px;padding:6px 12px;white-space:nowrap}
-.vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:center;margin:26px 0 20px;text-align:center}
+.vs{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:16px;align-items:center;width:100%;max-width:920px;margin:32px auto 24px;text-align:center}
 .player{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0}
 .first{color:var(--f-rival)}
 .second{color:var(--f-you)}
-.avatar{width:68px;height:68px;position:relative;border:3px solid currentColor;border-radius:50%;display:grid;place-items:center;background:var(--f-surface2);font-size:25px;font-weight:800}
+.avatar{width:68px;height:68px;position:relative;border:3px solid currentColor;border-radius:50%;display:grid;place-items:center;background:var(--f-surface2);font-size:25px;font-weight:700}
 .crown{position:absolute;top:-22px;font-size:22px;line-height:1}
 .playerName{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--f-text);font-size:15px;font-weight:700}
-.youChip{display:inline-block;margin-left:6px;vertical-align:middle;padding:2px 7px;border-radius:6px;background:var(--f-you);color:var(--f-you-ink);font-size:10px;font-weight:800}
-.playerTime{font-size:30px;font-weight:800;letter-spacing:-.02em;line-height:1.1;color:var(--f-text);white-space:nowrap;font-variant-numeric:tabular-nums}
+.youChip{display:inline-block;margin-left:6px;vertical-align:middle;padding:2px 7px;border-radius:6px;background:var(--f-you);color:var(--f-you-ink);font-size:10px;font-weight:700}
+.playerTime{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1;color:var(--f-text);white-space:nowrap;font-variant-numeric:tabular-nums}
 .playerTag{font-size:12px;font-weight:600;color:var(--f-muted)}
-.vsBadge{display:grid;place-items:center;width:44px;height:44px;border:1px dashed var(--f-line);border-radius:50%;color:var(--f-muted);font-size:13px;font-weight:800}
+.vsBadge{display:grid;place-items:center;width:44px;height:44px;border:1px dashed var(--f-line);border-radius:50%;color:var(--f-muted);font-size:13px;font-weight:700}
 .waitingPlayer{opacity:.76}
 .tug{display:flex;gap:3px;height:16px;border-radius:999px;overflow:hidden;background:var(--f-surface2)}
 .tug span{display:block;height:100%;transform-origin:left;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
 .tugFirst{background:var(--f-rival);border-radius:999px 0 0 999px}
 .tugSecond{background:var(--f-you);border-radius:0 999px 999px 0;animation-delay:.15s!important}
 @keyframes grow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
-.gap{text-align:center;margin:14px 0 0;font-size:14px;font-weight:700}
+.gap{text-align:center;margin:16px 0 0;font-size:14px;font-weight:500;color:var(--f-muted)}
 .mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:20px}
 .miniStat{border:1px solid var(--f-line);border-radius:16px;padding:12px;text-align:center;background:color-mix(in srgb,var(--f-surface) 70%,transparent)}
 .miniStat small{display:block;font-size:11px;color:var(--f-muted);font-weight:700}
-.miniStat strong{display:block;font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+.miniStat strong{display:block;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
 .miniStat strong span{color:var(--f-rival)}
 .miniStat strong em{font-style:normal;color:var(--f-you)}
 .miniStat strong i{font-style:normal;color:var(--f-muted)}
 .miniLead{display:block;margin-top:4px;color:var(--f-you);font-size:10px;font-weight:700}
-.card{border:1px solid var(--f-line);border-radius:22px;padding:22px;margin-top:16px;background:var(--f-surface)}
-.card h2{font-size:18px;font-weight:800;margin:4px 0 14px;color:var(--f-text)}
+.card{min-width:0;border:1px solid var(--f-line);border-radius:18px;padding:22px;margin-top:20px;background:var(--f-surface)}
+.card h2{font-size:18px;font-weight:700;margin:4px 0 14px;color:var(--f-text)}
 .rankList{list-style:none;margin:0;padding:0}
 .rank{display:flex;align-items:center;gap:14px;padding:12px;border-radius:16px;min-width:0}
 .rank+.rank{margin-top:6px}
 .youRow{background:var(--f-surface2);border:1px solid var(--f-line)}
-.rankBadge{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:12px;background:var(--f-surface2);font-size:16px;font-weight:800;color:var(--f-gold)}
+.rankBadge{display:grid;place-items:center;flex:none;width:38px;height:38px;border-radius:12px;background:var(--f-surface2);font-size:16px;font-weight:700;color:var(--f-gold)}
 .rankInfo{flex:1;min-width:0}
-.rankInfo>strong{font-size:13px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rankInfo>strong{font-size:14px;font-weight:700;overflow-wrap:anywhere}
 .rankInfo p{font-size:12px;color:var(--f-muted);margin-top:2px}
 .rankTrack{height:6px;border-radius:99px;background:var(--f-line);margin-top:8px;overflow:hidden}
 .rankTrack span{display:block;height:100%;border-radius:99px;transform-origin:left;animation:grow 1s .2s both}
 .trackOther{background:var(--f-rival)}
 .trackYou{background:var(--f-you)}
-.rankTime{font-size:15px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.rankTime{font-size:15px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
 .removeButton{display:grid;place-items:center;flex:none;width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:var(--f-muted)}
 .removeButton:hover{background:var(--f-line);color:var(--f-you)}
 .stats{display:grid;grid-template-columns:1.3fr repeat(3,minmax(0,1fr));gap:10px}
 .stat{border:1px solid var(--f-line);border-radius:16px;padding:14px;min-width:0}
 .statHighlight{background:var(--f-surface2)}
 .stat small{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--f-muted);font-weight:700}
-.stat strong{display:block;font-size:26px;font-weight:800;letter-spacing:-.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
+.stat strong{display:block;font-size:26px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;font-variant-numeric:tabular-nums}
 .inviteFooter{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
-.inviteFooter strong{font-size:14px;font-weight:800}
+.inviteFooter strong{font-size:14px;font-weight:700}
 .inviteFooter p{font-size:13px;color:var(--f-muted);margin-top:2px;max-width:570px}
 .foot{text-align:center;color:var(--f-muted);font-size:13px;margin:22px 0 0}
 .loading{display:grid;gap:12px}
@@ -118,8 +115,22 @@
 .dialogActions{display:flex;justify-content:flex-end;gap:9px;border-top:1px solid var(--border);padding-top:16px}
 .dialogActions button{border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--foreground);min-height:40px;padding:9px 14px;font-size:12px;font-weight:700}
 .dialogActions .confirmRemove{border-color:var(--danger);background:color-mix(in srgb,var(--danger) 12%,var(--surface));color:var(--danger)}
-@media(max-width:720px){.workspace{padding:18px 14px}.toolbar{flex-wrap:wrap}.toolbarRight{margin-left:auto}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat strong{font-size:22px}}
-@media(max-width:600px){.workspace{padding:16px 10px;border-radius:17px}.groupBar{align-items:flex-start}.groupMeta{width:100%;margin-left:26px}.toolbarRight{flex-wrap:wrap;justify-content:flex-end}.duel{padding:22px 16px 18px;border-radius:24px}.duelTop h2{font-size:21px}.vs{margin:24px 0 18px;gap:4px}.avatar{width:56px;height:56px;font-size:21px}.playerTime{font-size:22px}.playerName{font-size:12px}.playerTag{font-size:10px}.vsBadge{width:36px;height:36px;font-size:11px}.gap{font-size:12px}.mini{gap:6px}.miniStat{padding:10px 5px;border-radius:12px}.miniStat small{font-size:9px}.miniStat strong{font-size:15px}.miniLead{font-size:9px}.card{padding:17px}.rank{gap:9px;padding:10px 5px}.rankBadge{width:32px;height:32px;font-size:13px}.rankInfo p{font-size:10px}.rankTime{font-size:12px}.stat{padding:11px}.stat small{font-size:10px}.inviteFooter .inviteButton{width:100%}.inviteControls{flex-wrap:wrap}.inviteControls input{flex-basis:100%}.inviteControls button{flex:1}.inviteLink{padding:15px}}
+@media(min-width:1280px){
+  .raceGrid{grid-template-columns:minmax(0,1fr) clamp(360px,28vw,560px);gap:24px;align-items:stretch}
+  .duel{display:flex;flex-direction:column}
+  .duel .vs{flex:1}
+  .duel .tug{flex-shrink:0}
+  .scoreRail .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .scoreRail .stat strong{font-size:24px;white-space:normal}
+  .scoreRail .rankList{max-height:420px;overflow-y:auto;scrollbar-width:thin}
+  .duelTop h2{font-size:26px}
+  .avatar{width:80px;height:80px;font-size:30px}
+  .playerTime{font-size:36px}
+  .playerName{font-size:16px}
+  .vs{margin-block:40px 28px}
+}
+@media(max-width:720px){.toolbar{flex-wrap:wrap}.toolbarRight{margin-left:auto}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.stat strong{font-size:22px}}
+@media(max-width:600px){.groupBar{align-items:flex-start}.groupMeta{width:100%;margin-left:26px}.toolbarRight{flex-wrap:wrap;justify-content:flex-end}.duel{padding:22px 16px 18px;border-radius:18px}.duelTop h2{font-size:21px}.vs{margin:24px auto 18px;gap:4px}.avatar{width:56px;height:56px;font-size:21px}.playerTime{font-size:22px}.playerName{font-size:12px}.playerTag{font-size:10px}.vsBadge{width:36px;height:36px;font-size:11px}.gap{font-size:12px}.mini{gap:6px}.miniStat{padding:10px 5px;border-radius:12px}.miniStat small{font-size:9px}.miniStat strong{font-size:15px}.miniLead{font-size:9px}.card{padding:17px}.rank{gap:9px;padding:10px 5px}.rankBadge{width:32px;height:32px;font-size:13px}.rankInfo p{font-size:10px}.rankTime{font-size:12px}.stat{padding:11px}.stat small{font-size:10px}.inviteFooter .inviteButton{width:100%}.inviteControls{flex-wrap:wrap}.inviteControls input{flex-basis:100%}.inviteControls button{flex:1}.inviteLink{padding:15px}}
 @media(max-width:390px){.toolbarRight{gap:6px}.toolbarRight>span{font-size:10px}.tabs button{padding:7px 12px;font-size:11px}.inviteButton{font-size:11px;padding:8px 11px}.playerTime{font-size:16px}.stat strong{font-size:clamp(16px,5vw,20px);line-height:1.2;white-space:normal}.mini{grid-template-columns:1fr}.miniStat{display:flex;align-items:center;justify-content:space-between;padding:9px}.miniStat strong{margin-left:auto;margin-right:8px}.miniLead{min-width:86px;text-align:right}.rank{flex-wrap:wrap}.rankInfo{flex-basis:calc(100% - 48px)}.rankTime{margin-left:41px}.removeButton{margin-left:auto}}
 @media(prefers-reduced-motion:reduce){.tug span,.rankTrack span,.loading div{animation:none}}
 :global(:root[data-reduced=true]) .tug span,:global(:root[data-reduced=true]) .rankTrack span,:global(:root[data-reduced=true]) .loading div{animation:none}

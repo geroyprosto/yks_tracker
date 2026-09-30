@@ -186,7 +186,7 @@ export function Dashboard(){
    {mobileMenu&&<button className="menu-scrim" aria-label="Menüyü kapat" onClick={()=>setMobileMenu(false)}/>}
    <div className="main-shell">
      <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':busy?'Kaydediliyor…':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
-     <main id="main">
+     <main id="main" data-page={page}>
        {state?.authenticated&&<StudentClassroom state={state}/>}
        <div className="page-heading"><div><p className="eyebrow">{page==='today'?(today?formatDay(today):'Bugün'):'YKSim / '+navigation.find(n=>n.id===page)?.label}</p><h1>{title}</h1><p>{descriptions[page]}</p></div>{page==='today'&&(profile?.modules.tasks??true)&&<button className="button secondary" onClick={()=>{setPage('tasks');setNewTask(true)}}><ListTodo size={17}/>Günü planla<ArrowUpRight size={16}/></button>}</div>
        {!state?.configured&&<div className="setup-banner"><ShieldCheck size={22}/><div><strong>Kişisel alanın kurulum için hazır.</strong><p>Veritabanı bağlantısı henüz kurulmadı. Kayıtların oluşmadan önce hesabını bağlamalısın.</p></div><button className="text-button" onClick={()=>go('settings')}>Kurulum bilgileri<ChevronRight size={16}/></button></div>}

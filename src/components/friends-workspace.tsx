@@ -323,9 +323,13 @@ export function FriendsWorkspace() {
     {error && <div className={styles.noticeError} role="alert"><span>{error}</span><button type="button" onClick={() => void loadScores(activeGroup.current)}>Tekrar dene</button></div>}
 
     {(loading && (!scores || switchingGroup)) ? <div className={styles.loading} role="status" aria-label="Arkadaş grubun yükleniyor"><div/><div/><div/></div> : scores ? <>
-      <Duel participants={participants} period={period} meId={scores.me.user_id} memberCount={group?.member_count ?? 1}/>
-      <Ranking participants={participants} period={period} meId={scores.me.user_id} canRemove={isOwner} onRemove={person => { setRemoveError(''); setRemoving({ person, kind: 'remove' }); }}/>
-      <MyStats me={scores.me} period={period}/>
+      <div className={styles.raceGrid}>
+        <Duel participants={participants} period={period} meId={scores.me.user_id} memberCount={group?.member_count ?? 1}/>
+        <div className={styles.scoreRail}>
+          <Ranking participants={participants} period={period} meId={scores.me.user_id} canRemove={isOwner} onRemove={person => { setRemoveError(''); setRemoving({ person, kind: 'remove' }); }}/>
+          <MyStats me={scores.me} period={period}/>
+        </div>
+      </div>
       <section className={`${styles.card} ${styles.inviteFooter}`}><div><strong>Küçük bir çalışma yarışı</strong><p>{group ? 'Yeni katılan herkes bu gruptaki üyelerin günlük ve haftalık çalışma özetini görebilir.' : 'Arkadaşlarınla bugünkü ve haftalık emeğini yan yana gör. Her adım kendi hızında değerli.'}</p></div><button type="button" className={styles.inviteButton} disabled={inviteBusy || loading || switchingGroup} onClick={() => void createInvite()}>Arkadaş davet et</button></section>
       <p className={styles.foot}>Bugün az çalışmış olmak geri kalmak demek değil. Yarın yeni bir gün. ✦</p>
     </> : !loading && <section className={styles.unavailable}><UsersRound size={28}/><h2>Yarışma alanı açılamadı</h2><p>Biraz sonra yeniden deneyebilirsin.</p><button type="button" onClick={() => void loadScores(activeGroup.current)}>Tekrar dene</button></section>}

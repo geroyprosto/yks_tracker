@@ -1,5 +1,6 @@
+import { z } from 'zod';
 import { requireStudyUser, publicClassroomClient } from '@/lib/server/classroom';
-import { ApiError, errorResponse, json, sameOrigin } from '@/lib/server/http';
+import { ApiError, errorResponse, json, readJson, sameOrigin } from '@/lib/server/http';
 import { databaseError } from '@/lib/server/service';
 
 export const dynamic = 'force-dynamic';
@@ -20,8 +21,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     sameOrigin(request);
+    const input = z.object({ group_id: z.string().uuid().optional() }).strict().safeParse(request.body ? await readJson(request, 1024) : {});
+    if (!input.success) throw new ApiError(400, 'INVALID_INPUT', 'Grup seçimi geçerli değil.');
     const client = await requireStudyUser();
-    const { data, error } = await client.rpc('friend_invite_create');
+    const { data, error } = await client.rpc('friend_invite_create', { p_group_id: input.data.group_id ?? null });
     if (error) databaseError(error);
     return json(data, 201);
   } catch (error) {

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Check, HeartHandshake, UsersRound } from 'lucide-react';
 import styles from './friend-invitation.module.css';
 
-type Preview = { display_name: string; expires_at: string };
+type Preview = { display_name: string; expires_at: string; group_name: string; member_count: number };
 type Account = { name: string; role: 'student' | 'teacher' | 'admin'; status: string };
 
 function message(body: { error?: { message?: string } }, fallback: string) {
@@ -20,6 +20,7 @@ export function FriendInvitation() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [joined, setJoined] = useState(false);
+  const [groupId, setGroupId] = useState('');
 
   useEffect(() => {
     const value = new URLSearchParams(window.location.search).get('token') ?? '';
@@ -69,6 +70,7 @@ export function FriendInvitation() {
       });
       const body = await response.json();
       if (!response.ok) throw new Error(message(body, 'Davet kabul edilemedi.'));
+      setGroupId(body.group_id);
       setJoined(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Davet kabul edilemedi.');
@@ -80,12 +82,13 @@ export function FriendInvitation() {
     <span className={styles.icon}><UsersRound size={24} /></span>
     <p className="eyebrow">ARKADAŞ DAVETİ</p>
     <h1>{joined ? 'Artık birlikte çalışıyorsunuz!' : preview ? `${preview.display_name} seni davet etti.` : 'Birlikte daha keyifli.'}</h1>
-    <p>Günlük ve haftalık çalışma özetlerinizi yan yana görebilir, birbirinize tatlı bir motivasyon verebilirsiniz.</p>
+    <p>Aynı grupta günlük ve haftalık çalışma özetlerinizi görebilir, birlikte tatlı bir yarışa katılabilirsiniz.</p>
     {loading && <p role="status">Davet kontrol ediliyor…</p>}
     {error && <p role="alert" className="error-text">{error}</p>}
-    {joined && <Link className="button primary wide" href="/?page=friends"><Check size={17} />Arkadaşlar alanına git</Link>}
+    {joined && <Link className="button primary wide" href={`/?page=friends&group=${encodeURIComponent(groupId)}`}><Check size={17} />Arkadaşlar alanına git</Link>}
     {!joined && preview && !loading && <>
-      <p className={styles.privacy}>Yalnızca çalışma süresi, soru ve test sayısı ile tamamlanan görev sayısı paylaşılır. Arkadaşlığı istediğiniz zaman kaldırabilirsiniz.</p>
+      <p><strong>{preview.group_name}</strong> · {preview.member_count} kişi</p>
+      <p className={styles.privacy}>Katıldığında bu gruptaki herkes birbirinin çalışma süresini, soru ve test sayısını ve tamamlanan görev sayısını görür. Daha sonra davetle katılan üyeler de aynı sıralamada yer alır. Gruptan istediğin zaman ayrılabilirsin.</p>
       {account?.role === 'student' && account.status === 'approved' && <button className="button primary wide" disabled={busy} onClick={() => void accept()}><HeartHandshake size={18} />{busy ? 'Katılım kaydediliyor…' : 'Daveti kabul et'}</button>}
       {account?.role === 'student' && account.status !== 'approved' && <div className={styles.notice}><p>Öğrenci hesabının onaylanması gerekiyor. Onaylandıktan sonra bu bağlantıyı yeniden açabilirsin.</p><Link href="/classroom">Başvuru durumuma git</Link></div>}
       {account && account.role !== 'student' && <div className={styles.notice}><p>Arkadaş yarışmasına katılmak için onaylı öğrenci hesabı gerekiyor.</p><Link href="/classroom">Hesabıma git</Link></div>}

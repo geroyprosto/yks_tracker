@@ -1,56 +1,178 @@
-import { expect, test, type BrowserContext } from '@playwright/test';
-import { DEMO_STUDENT_IDS } from '../../src/lib/classroom/demo-seed';
+import { randomUUID } from 'node:crypto';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
+import { CLASSROOM_DEMO_ACCOUNTS, DEMO_STUDENT_IDS } from '../../src/lib/classroom/demo-seed';
 
 const origin = 'http://127.0.0.1:3200';
+const headers = { Origin: origin };
+
+type Score = { user_id: string; display_name: string; today_seconds: number; week_seconds: number };
+type Group = { id: string; name: string; owner_id: string; member_count: number };
+type Competition = {
+  today: string; week_start: string; me: Score; friends: Score[];
+  groups: Group[]; group: Group | null;
+};
 
 async function login(context: BrowserContext, id: string) {
-  const response = await context.request.post('/api/demo', {
-    headers: { Origin: origin }, data: { account_id: id },
+  await expect(await context.request.post('/api/demo', { headers, data: { account_id: id } })).toBeOK();
+}
+
+async function competition(context: BrowserContext, groupId?: string): Promise<Competition> {
+  const path = '/api/friends' + (groupId ? '?group_id=' + groupId : '');
+  const response = await context.request.get(path);
+  await expect(response).toBeOK();
+  return response.json();
+}
+
+async function addStudy(context: BrowserContext, date: string, minutes: number) {
+  const response = await context.request.post('/api/command', {
+    headers,
+    data: {
+      request_id: randomUUID(), type: 'manual_study.create',
+      payload: { confirmed_by_user: true, study_date: date, subject: 'Arkadaş yarışması testi', minutes },
+    },
   });
   await expect(response).toBeOK();
 }
 
-test('students share a one-time link, compare daily and weekly summaries, then remove friendship', async ({ browser }) => {
-  const inviter = await browser.newContext({ baseURL: origin, viewport: { width: 1440, height: 900 } });
-  const invited = await browser.newContext({ baseURL: origin, viewport: { width: 375, height: 812 } });
+async function finishDemoTimer(context: BrowserContext) {
+  const response = await context.request.get('/api/state');
+  await expect(response).toBeOK();
+  const state = await response.json() as { sessions: { id: string; status: string; revision: number }[] };
+  for (const session of state.sessions.filter(item => item.status !== 'finished')) {
+    await expect(await context.request.post('/api/command', {
+      headers,
+      data: {
+        request_id: randomUUID(), type: 'timer.finish',
+        payload: { id: session.id, expected_revision: session.revision },
+      },
+    })).toBeOK();
+  }
+}
+
+async function inviteLink(page: Page) {
+  await page.getByRole('button', { name: 'Arkadaş davet et' }).first().click();
+  const link = await page.getByRole('textbox', { name: 'Davet bağlantısı' }).inputValue();
+  expect(link).toMatch(/^http:\/\/127\.0\.0\.1:3200\/friend-invite\?token=[a-f0-9]{64}$/);
+  return link;
+}
+
+async function acceptInvitation(context: BrowserContext, link: string, errors: string[], label: string) {
+  const page = await context.newPage();
+  page.on('pageerror', error => errors.push(label + ': ' + error.message));
+  await page.goto(link);
+  await expect(page.getByRole('heading', { name: /seni davet etti/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Daveti kabul et' }).click();
+  await expect(page.getByRole('heading', { name: 'Artık birlikte çalışıyorsunuz!' })).toBeVisible();
+  await page.getByRole('link', { name: 'Arkadaşlar alanına git' }).click();
+  await expect(page).toHaveURL(/\?page=friends&group=[a-f0-9-]{36}$/);
+  return page;
+}
+
+test('three students join one group, see the top two duel, and lose access when removed or leaving', async ({ browser }) => {
+  test.setTimeout(150_000);
+  const owner = await browser.newContext({ baseURL: origin, viewport: { width: 1440, height: 900 } });
+  const member = await browser.newContext({ baseURL: origin, viewport: { width: 375, height: 812 } });
+  const third = await browser.newContext({ baseURL: origin, viewport: { width: 1440, height: 900 } });
+  const errors: string[] = [];
+  const names = DEMO_STUDENT_IDS.slice(1, 4).map(id => CLASSROOM_DEMO_ACCOUNTS.find(account => account.id === id)!.name);
   try {
-    // These seeded students have no teacher alert dialog that covers the workspace.
-    await login(inviter, DEMO_STUDENT_IDS[1]);
-    await login(invited, DEMO_STUDENT_IDS[2]);
-    const inviterPage = await inviter.newPage();
-    await inviterPage.goto('/?page=friends');
-    await expect(inviterPage.getByRole('heading', { name: 'Küçük bir çalışma yarışı' })).toBeVisible();
-    await expect(inviterPage.getByText('Henüz arkadaşın yok.')).toBeVisible();
-    await inviterPage.getByRole('button', { name: 'Arkadaş davet et' }).click();
-    const link = await inviterPage.getByRole('textbox', { name: 'Davet bağlantısı' }).inputValue();
-    expect(link).toMatch(/^http:\/\/127\.0\.0\.1:3200\/friend-invite\?token=[a-f0-9]{64}$/);
+    await login(owner, DEMO_STUDENT_IDS[1]);
+    await login(member, DEMO_STUDENT_IDS[2]);
+    await login(third, DEMO_STUDENT_IDS[3]);
+    await finishDemoTimer(owner);
+    await finishDemoTimer(member);
+    const ownerPage = await owner.newPage();
+    ownerPage.on('pageerror', error => errors.push('owner: ' + error.message));
+    await ownerPage.goto('/?page=friends');
 
-    const invitedPage = await invited.newPage();
-    await invitedPage.goto(link);
-    await expect(invitedPage.getByRole('heading', { name: /seni davet etti/ })).toBeVisible();
-    await invitedPage.getByRole('button', { name: 'Daveti kabul et' }).click();
-    await expect(invitedPage.getByRole('heading', { name: 'Artık birlikte çalışıyorsunuz!' })).toBeVisible();
-    await invitedPage.getByRole('link', { name: 'Arkadaşlar alanına git' }).click();
-    await expect(invitedPage).toHaveURL(`${origin}/?page=friends`);
-    await expect(invitedPage.getByText('1 arkadaş', { exact: true })).toBeVisible();
-    await invitedPage.getByRole('button', { name: 'Bu hafta' }).click();
-    await expect(invitedPage.getByRole('heading', { name: 'Bu haftanın sıralaması' })).toBeVisible();
-    expect(await invitedPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    const firstLink = await inviteLink(ownerPage);
+    const firstState = await competition(owner);
+    const groupId = firstState.group?.id;
+    expect(groupId).toMatch(/^[a-f0-9-]{36}$/);
+    expect(firstState.group?.owner_id).toBe(DEMO_STUDENT_IDS[1]);
+    expect((await third.request.get('/api/friends?group_id=' + groupId)).status()).toBe(404);
 
-    await inviterPage.getByRole('button', { name: 'Skorları yenile' }).click();
-    await expect(inviterPage.getByText('1 arkadaş', { exact: true })).toBeVisible();
-    await invitedPage.getByRole('button', { name: /adlı arkadaşı kaldır/ }).click();
-    await expect(invitedPage.getByRole('dialog', { name: 'Arkadaşı kaldır' })).toBeVisible();
-    await invitedPage.getByRole('dialog').getByRole('button', { name: 'Arkadaşı kaldır' }).click();
-    await expect(invitedPage.getByText('0 arkadaş', { exact: true })).toBeVisible();
-    await inviterPage.getByRole('button', { name: 'Skorları yenile' }).click();
-    await expect(inviterPage.getByText('0 arkadaş', { exact: true })).toBeVisible();
-    const token = new URL(link).searchParams.get('token');
-    expect((await invited.request.get(`/api/friends/invite?token=${token}`)).status()).toBe(404);
-    await invitedPage.goto(link);
-    await expect(invitedPage.getByText('Davet bağlantısı geçersiz veya süresi dolmuş.')).toBeVisible();
+    // Ensure the owner ranks third, regardless of the demo data's original totals.
+    await addStudy(member, firstState.today, 600);
+    await addStudy(third, firstState.today, 720);
+
+    const memberPage = await acceptInvitation(member, firstLink, errors, 'member');
+    const firstToken = new URL(firstLink).searchParams.get('token');
+    expect((await member.request.get('/api/friends/invite?token=' + firstToken)).status()).toBe(404);
+    const secondLink = await inviteLink(memberPage);
+    await acceptInvitation(third, secondLink, errors, 'third');
+
+    for (const [context, ownId] of [[owner, DEMO_STUDENT_IDS[1]], [member, DEMO_STUDENT_IDS[2]], [third, DEMO_STUDENT_IDS[3]]] as const) {
+      const state = await competition(context, groupId);
+      expect(state.group?.id).toBe(groupId);
+      expect(state.group?.member_count).toBe(3);
+      expect(state.groups.map(group => group.id)).toContain(groupId);
+      expect(state.me.user_id).toBe(ownId);
+      expect(state.friends.map(friend => friend.user_id).sort()).toEqual(DEMO_STUDENT_IDS.slice(1, 4).filter(id => id !== ownId).sort());
+    }
+
+    await ownerPage.reload();
+    const scores = await competition(owner, groupId);
+    await expect(ownerPage.getByText(scores.group?.name ?? '', { exact: true }).first()).toBeVisible();
+    for (const name of names) await expect(ownerPage.getByText(name, { exact: true }).first()).toBeVisible();
+    const ranking = [scores.me, ...scores.friends].sort((a, b) =>
+      b.today_seconds - a.today_seconds || a.display_name.localeCompare(b.display_name, 'tr'));
+    expect(ranking[2].user_id).toBe(DEMO_STUDENT_IDS[1]);
+    const duel = ownerPage.getByRole('region', { name: 'İkili karşılaşma' });
+    await expect(duel).toContainText(ranking[0].display_name);
+    await expect(duel).toContainText(ranking[1].display_name);
+    await expect(duel).not.toContainText(names[0]);
+    await ownerPage.screenshot({ path: 'tmp/friends-desktop.png', fullPage: true, animations: 'disabled' });
+    await ownerPage.evaluate(() => {
+      localStorage.setItem('yksim-theme', 'white');
+      localStorage.setItem('yksim-appearance', 'light');
+    });
+    await ownerPage.reload();
+    await expect(ownerPage.locator('html')).toHaveAttribute('data-appearance', 'light');
+    await expect(ownerPage.getByRole('region', { name: 'İkili karşılaşma' })).toContainText(ranking[0].display_name);
+    await ownerPage.screenshot({ path: 'tmp/friends-light.png', fullPage: true, animations: 'disabled' });
+    await ownerPage.evaluate(() => {
+      localStorage.setItem('yksim-theme', 'black');
+      localStorage.setItem('yksim-appearance', 'dark');
+    });
+    await ownerPage.reload();
+    await expect(ownerPage.locator('html')).toHaveAttribute('data-appearance', 'dark');
+    await expect(ownerPage.getByRole('region', { name: 'İkili karşılaşma' })).toContainText(ranking[0].display_name);
+    await ownerPage.screenshot({ path: 'tmp/friends-dark.png', fullPage: true, animations: 'disabled' });
+
+    await memberPage.reload();
+    const periodTabs = memberPage.getByRole('group', { name: 'Yarışma dönemi' });
+    await periodTabs.getByRole('button', { name: 'Bu hafta' }).click();
+    await expect(periodTabs.getByRole('button', { name: 'Bu hafta' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(memberPage.getByRole('region', { name: 'İkili karşılaşma' })).toBeVisible();
+    expect(await memberPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await memberPage.screenshot({ path: 'tmp/friends-mobile.png', fullPage: true, animations: 'disabled' });
+    await memberPage.setViewportSize({ width: 320, height: 720 });
+    expect(await memberPage.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1)).toBe(true);
+    await memberPage.screenshot({ path: 'tmp/friends-mobile-320.png', fullPage: true, animations: 'disabled' });
+    await memberPage.setViewportSize({ width: 375, height: 812 });
+    await periodTabs.getByRole('button', { name: 'Bugün' }).click();
+    await expect(periodTabs.getByRole('button', { name: 'Bugün' })).toHaveAttribute('aria-pressed', 'true');
+
+    const deniedRemoval = await member.request.delete('/api/friends', {
+      headers, data: { friend_id: DEMO_STUDENT_IDS[3], group_id: groupId },
+    });
+    expect(deniedRemoval.status()).toBe(403);
+    await ownerPage.getByRole('button', { name: names[2] + ' adlı üyeyi çıkar' }).click();
+    const removeDialog = ownerPage.getByRole('dialog');
+    await expect(removeDialog).toBeVisible();
+    await removeDialog.getByRole('button', { name: /çıkar/i }).last().click();
+    await expect.poll(async () => (await competition(owner, groupId)).group?.member_count).toBe(2);
+    expect((await third.request.get('/api/friends?group_id=' + groupId)).status()).toBe(404);
+
+    await memberPage.getByRole('button', { name: 'Gruptan ayrıl' }).click();
+    const leaveDialog = memberPage.getByRole('dialog');
+    await expect(leaveDialog).toBeVisible();
+    await leaveDialog.getByRole('button', { name: /ayrıl/i }).last().click();
+    await expect.poll(async () => (await competition(owner, groupId)).group?.member_count).toBe(1);
+    expect((await member.request.get('/api/friends?group_id=' + groupId)).status()).toBe(404);
+    expect(errors).toEqual([]);
   } finally {
-    await inviter.close();
-    await invited.close();
+    await Promise.all([owner.close(), member.close(), third.close()]);
   }
 });

@@ -58,7 +58,6 @@
 }
 .ambient-card .empty,
 .ambient-card .compact-empty,
-.ambient-card .journal-preview-body,
 .ambient-card .connection-empty,
 .ambient-card .topic-summary {
   border: 1px solid #ffffff25;
@@ -103,8 +102,6 @@
 .ambient-card .status-1 { background: #f0c17f; }
 .ambient-card .status-3 { background: color-mix(in srgb, var(--primary) 65%, white); }
 .ambient-card .status-4 { background: #9de4c3; }
-.ambient-card .journal-preview-body { padding: 15px 17px; }
-.ambient-card .journal-preview-body .soft-copy { margin-bottom: 9px; }
 .ambient-card .card-bottom { border-top-color: #ffffff30; }
 .ambient-card .card-bottom > span { color: #e4dfea; }
 .ambient-card .mini-tabs { border-bottom-color: #ffffff30; color: #e4dfea; }

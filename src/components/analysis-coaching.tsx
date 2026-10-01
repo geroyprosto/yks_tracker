@@ -96,11 +96,12 @@ function RepetitionRow({item, onOpenTasks}: {item: unknown; onOpenTasks?: () => 
   const skipped = status === 'skipped_past' || status === 'skipped' || (taskIds.length === 0 && !retry && stages.length > 0 && stages.every(stage => stage.status === 'skipped_past'));
   const newlyAdded = !retry && !skipped && status === 'created' && taskIds.length > 0;
   const copy = retry ? 'Eklenemedi, yeniden deneniyor.' : skipped ? 'Tekrar tarihleri geçti; yeni görev eklenmedi.'
-    : newlyAdded ? `${name} konusu tekrar görevlerine eklendi.`
-      : taskIds.length > 0 ? `${name} için mevcut tekrar görevleri Görevlerim’de.` : message ?? 'Tekrar işlemi doğrulanıyor.';
+    : newlyAdded ? 'konusu tekrar görevlerine eklendi.'
+      : taskIds.length > 0 ? 'için mevcut tekrar görevleri Görevlerim’de.' : message ?? 'Tekrar işlemi doğrulanıyor.';
+  const showName = retry || skipped || taskIds.length > 0;
   return <div className={styles.repetitionRow}>
     {retry ? <TriangleAlert size={18} aria-hidden="true"/> : taskIds.length > 0 ? <CheckCircle2 size={18} aria-hidden="true"/> : <Clock3 size={18} aria-hidden="true"/>}
-    <span>{copy}</span>
+    <span>{showName && <><strong>{name}</strong> </>}{copy}</span>
     {taskIds.length > 0 && onOpenTasks && <button type="button" onClick={onOpenTasks}>Görevlerim’de gör <ArrowRight size={14} aria-hidden="true"/></button>}
   </div>;
 }

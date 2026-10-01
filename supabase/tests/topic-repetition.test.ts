@@ -15,7 +15,9 @@ async function createDatabase(beforeReviewMigration = false) {
     grant execute on function auth.uid() to anon,authenticated;
     insert into auth.users values('${owner}');`);
   const migrations = new URL('../migrations/', import.meta.url);
-  for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql') && (!beforeReviewMigration || !name.includes('topic_spaced_repetition'))).sort()) {
+  for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql') && (!beforeReviewMigration ||
+    !['topic_spaced_repetition', 'remove_historical_topic_review_backfill',
+      'purge_removed_review_plan_snapshots', 'restore_topic_review_schedule_identity'].some(part => name.includes(part)))).sort()) {
     await db.exec(await readFile(new URL(name, migrations), 'utf8'));
   }
   await db.exec(`insert into public.owner_allowlist(user_id) values('${owner}');

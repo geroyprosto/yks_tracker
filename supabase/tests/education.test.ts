@@ -50,6 +50,8 @@ test('migration keeps existing YKS topics, mastery, net, intervals and time with
  const after=await snapshot();
  const originalTaskIds=new Set(before.tasks.map(task=>task.id));
  assert.deepEqual({...after,tasks:after.tasks.filter(task=>originalTaskIds.has(task.id))},before);
+ // This fixture changes mastery seconds before the migration, so the targeted
+ // correction deliberately preserves its short-lag review tasks.
  assert.equal(after.tasks.filter(task=>!originalTaskIds.has(task.id)).length,5);
  assert.equal((await state()).needs_onboarding,false);
  const counts=(await state()).courses;assert.ok(counts.some(c=>c.context==='yks'&&c.exam==='TYT'&&c.name==='Matematik'));

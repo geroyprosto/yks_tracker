@@ -81,6 +81,27 @@ test("MCP advertises only the ten scoped tools with correct behavior hints", asy
   }
 });
 
+test("MCP initialize exposes the coach instructions to connected clients", async () => {
+  const [{ createMcpHandler }, { createStudyMcpServer }] = await Promise.all([
+    import("@modelcontextprotocol/server"), import("../src/lib/server/mcp-tools"),
+  ]);
+  const handler = createMcpHandler(() => createStudyMcpServer({} as never, ownerId, "https://study.example.com/"), { responseMode: "json" });
+  const response = await handler.fetch(new Request("https://study.example.com/api/mcp", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "initialize", params: {
+      protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "test", version: "1" },
+    } }),
+  }));
+  assert.equal(response.status, 200);
+  const raw = await response.text();
+  const payload = raw.startsWith("event:") ? raw.split(/\r?\n/).find(line => line.startsWith("data: "))?.slice(6) : raw;
+  assert.ok(payload);
+  const body = JSON.parse(payload);
+  assert.match(body.result.instructions, /get_analysis_sources/);
+  assert.match(body.result.instructions, /beş düşük öncelikli pazar pekiştirmesi/);
+});
+
 test("MCP exam creation accepts only confirmed, structured results", () => {
   const basic = {
     request_id: requestId, confirmed_by_user: true, name: "TYT denemesi",

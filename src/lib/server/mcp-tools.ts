@@ -109,7 +109,8 @@ async function safely<T>(work: () => Promise<T>) {
 
 /** The caller is already authenticated and owner-checked before this factory runs. */
 export function createStudyMcpServer(client: SupabaseClient, userId: string, appUrl: string) {
-  const server = new McpServer({ name: "yksim-study", version: "0.1.0" });
+  const server = new McpServer({ name: "yksim-study", version: "0.1.0" }, { instructions:
+    "YKSim'de YKS eğitim koçu olarak öğrencinin durumunu sormadan önce get_analysis_sources, list_topics ve gerektiğinde list_tasks ile gerçek kayıtları incele. Bulunduğu aya, konu düzeylerine, deneme sonuçlarına ve güncel görevlerine göre şimdi başlayacağı tek somut çalışmayı emir kipinde söyle; kayıtlı hedef ayına göre gerçek bir gecikme varsa açık ve net uyar. Örnek hedefleri veya kullanıcı ayarındaki sınav gününü resmî tarih sayma. İyi giden dersin yanında ihmal edilen dersi gerçek güncel konusuyla dengele. Haftalık yüksek öncelikli görev oranını tamamlanan yüksek öncelikli / planlanan yüksek öncelikli olarak hesapla; bugünün açık görevini kaçınma kanıtı sayma, kaçınmayı yalnız yeterli gecikme ve konu kanıtıyla olasılık olarak sor. Günlük analizi açıksa kayıtlı günlük alanlarıyla aynı günün çalışma süresini birlikte değerlendir; günlük alanını veya kayıtlarını değiştirme, az veriden sebep sonuç çıkarma. Öğrenci bir konuyu yeni bitirdiğini açıkça bildirirse önce tam konuyu bul, gerekirse update_topic_status ile düzeyi 2 veya üstüne geçir; bu ilk geçiş Görevlerim'de beş düşük öncelikli pazar pekiştirmesini otomatik oluşturur. Eskiden tamamlanmış konunun bitiş tarihini uydurma; oluşturulmamış görevi oluşturuldu diye sunma. Yazma araçlarında kullanıcının açık isteğine, tam kimlik ve sürüme uy." });
 
   server.registerTool("get_study_summary", {
     title: "Çalışma özeti",

@@ -12,6 +12,15 @@ test("analysis source tool defaults to 14 days and includes complete saved journ
   state.server_now = "2026-09-25T12:00:00Z";
   state.manual_study_entries = [{ id: "study-1", study_date: "2026-09-24", subject: "TYT Fizik",
     duration_seconds: 3000, created_at: "2026-09-24T12:00:00Z" }];
+  state.topics = [{ id: "topic-1", exam: "TYT", subject: "Matematik", name: "Problemler",
+    parent_id: null, mastery: 1, notes: "Gizli konu notu", review_requested: false, source: "user",
+    next_step: "Temel sorular", revision: 1, updated_at: "2026-09-24T12:00:00Z" }];
+  state.tasks = [0, 1].map((progress, index) => ({ id: `task-${index}`, title: "Matematik çalış",
+    plan_date: `2026-09-${24 + index}`, exam: "TYT" as const, subject: "Matematik", topic_id: null,
+    resource: "", completion_criteria: "", planned_minutes: 30, difficulty: "medium" as const, progress,
+    weight_override: null, priority: "high" as const, position: index, notes: "",
+    study_type: "Soru çözümü" as const, steps: [], revision: 1,
+    created_at: "2026-09-24T12:00:00Z", updated_at: "2026-09-24T12:00:00Z" }));
   state.journal_entries = [{ id: "journal-1", journal_date: "2026-09-24",
     original_text: "PRIVATE-NOTES-DO-NOT-SEND", structured_fields: { mood: "iyi", food_drink: "özel" },
     exclude_from_analysis: false, ai_shared_fields: ["mood"], revision: 1,
@@ -37,6 +46,10 @@ test("analysis source tool defaults to 14 days and includes complete saved journ
   const result = JSON.parse(JSON.parse(payload).result.content[0].text);
   assert.deepEqual(result.period, { start: "2026-09-12", end: "2026-09-25", timezone: "Europe/Istanbul" });
   assert.equal(result.summary.total_seconds, 3000);
+  assert.equal(result.coaching.topic_status_by_subject[0].next_topics[0].name, "Problemler");
+  assert.equal(result.coaching.weekly_task_priority.overall.high.completion_rate_percent, 50);
+  assert.equal(result.coaching.timing_guidance.as_of, "2026-09-25");
+  assert.ok(!JSON.stringify(result).includes("Gizli konu notu"));
   assert.deepEqual(result.days.find((day: { date: string }) => day.date === "2026-09-24").journal,
     { date: "2026-09-24", fields: { original_text: "PRIVATE-NOTES-DO-NOT-SEND", mood: "iyi", food_drink: "özel" } });
   assert.deepEqual(result.days.find((day: { date: string }) => day.date === "2026-09-23").journal,

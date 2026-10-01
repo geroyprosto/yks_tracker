@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import type { AppState } from "../domain/types";
-import { buildAnalysisSnapshot } from "../analysis-snapshot";
+import { buildAnalysisSnapshot, buildSixInsightSnapshot } from "../analysis-snapshot";
 import { localDate } from "../ui";
 
 export const analysisSourcesInput = z.object({
@@ -18,7 +18,7 @@ function daysBefore(day: string, days: number) {
 export function registerAnalysisSourcesTool(server: McpServer, loadState: () => Promise<AppState>) {
   server.registerTool("get_analysis_sources", {
     title: "Son günlerin analiz kaynakları",
-    description: "Varsayılan son 14 günün gerçek çalışma, görev, soru, test ve deneme kayıtlarını getirir. Hesapta günlük analizi açıksa seçilen dönemdeki kaydedilmiş günlük metni ve doldurulmuş alanlar da eklenir; kapalıysa günlük içeriği verilmez. Eksik günler sıfır sayılmaz. En çok 31 gün istenebilir. Bu araç rapor yazmaz veya ücretli model çağrısı yapmaz.",
+    description: "Varsayılan son 14 günün çalışma, görev, soru, test, deneme ve izin verilmiş günlük kayıtlarını; ayrıca mevcut konu ilerlemesini, ders/öncelik bazlı görev oranlarını ve bugünün dönemini getirir. Koçlukta öğrenciden bu kayıtları yeniden istemeden önce bu verileri incele. Eksik günler sıfır sayılmaz. En çok 31 gün istenebilir. Bu araç rapor yazmaz veya ücretli model çağrısı yapmaz.",
     inputSchema: analysisSourcesInput,
     annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     _meta: { securitySchemes: [{ type: "oauth2", scopes: [] }] },
@@ -26,8 +26,15 @@ export function registerAnalysisSourcesTool(server: McpServer, loadState: () => 
     try {
       const state = await loadState();
       const today = localDate(Date.parse(state.server_now), state.settings?.timezone ?? "Europe/Istanbul");
-      const { snapshot } = buildAnalysisSnapshot(state, daysBefore(today, lookback_days - 1), today);
-      return { content: [{ type: "text" as const, text: JSON.stringify(snapshot) }] };
+      const start = daysBefore(today, lookback_days - 1);
+      const { snapshot } = buildAnalysisSnapshot(state, start, today);
+      const { snapshot: coaching } = buildSixInsightSnapshot(state, start, today, today);
+      return { content: [{ type: "text" as const, text: JSON.stringify({ ...snapshot, coaching: {
+        topic_status_by_subject: coaching.topic_status_by_subject,
+        weekly_task_priority: coaching.weekly_task_priority,
+        task_priority_by_subject: coaching.task_priority_by_subject,
+        timing_guidance: coaching.timing_guidance,
+      } }) }] };
     } catch {
       return { isError: true, content: [{ type: "text" as const,
         text: "Analiz kaynakları getirilemedi. Hesap verilerini ve tarih aralığını kontrol edin." }] };

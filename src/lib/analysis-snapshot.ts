@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { AppState, JournalEntry, Task } from './domain/types';
+import type { AppState, JournalEntry, Task, Topic } from './domain/types';
 import { taskCompletion } from './progress';
 import { buildStudyReport } from './study-report';
 import { localDate } from './ui';
@@ -124,6 +124,63 @@ export function buildStudentAnalysisSnapshot(state:AppState,start:string,end:str
 function shiftDay(day:string,amount:number){
   const value=new Date(`${day}T12:00:00Z`);value.setUTCDate(value.getUTCDate()+amount);return value.toISOString().slice(0,10);
 }
+function weekBounds(day:string){
+  const weekday=new Date(`${day}T12:00:00Z`).getUTCDay();
+  const weekStart=shiftDay(day,-((weekday+6)%7));
+  return {weekStart,weekEnd:shiftDay(weekStart,6)};
+}
+function percent(numerator:number,denominator:number){return denominator?Math.round(numerator/denominator*1000)/10:null;}
+
+function topicStatusBySubject(topics:Topic[]){
+  type Counts={not_started:number;learning:number;instruction_finished:number;solving_questions:number;mastered:number};
+  const groups=new Map<string,{exam:Topic['exam'];subject:string;total:number;mastery_counts:Counts;topics:Topic[]}>();
+  const masteryKeys=(['not_started','learning','instruction_finished','solving_questions','mastered'] as const);
+  for(const topic of topics){
+    const key=JSON.stringify([topic.exam,topic.subject]);
+    let group=groups.get(key);
+    if(!group){group={exam:topic.exam,subject:topic.subject,total:0,
+      mastery_counts:{not_started:0,learning:0,instruction_finished:0,solving_questions:0,mastered:0},topics:[]};groups.set(key,group)}
+    group.total++;
+    const mastery=Number.isInteger(topic.mastery)&&topic.mastery>=0&&topic.mastery<=4?topic.mastery:0;
+    group.mastery_counts[masteryKeys[mastery]]++;
+    group.topics.push(topic);
+  }
+  return [...groups.values()].sort((a,b)=>a.exam.localeCompare(b.exam)||a.subject.localeCompare(b.subject,'tr'))
+    .map(({exam,subject,total,mastery_counts,topics:groupTopics})=>{
+      const unfinished=groupTopics.filter(topic=>topic.mastery<4)
+        .sort((a,b)=>Number(b.review_requested)-Number(a.review_requested)
+          ||Number(a.mastery===0)-Number(b.mastery===0)
+          ||b.updated_at.localeCompare(a.updated_at)
+          ||a.name.localeCompare(b.name,'tr')||a.id.localeCompare(b.id));
+      return {exam,subject,total,mastery_counts,
+        next_topics:unfinished.slice(0,5).map(topic=>({id:topic.id,name:topic.name,mastery:topic.mastery,
+          next_step:topic.next_step,review_requested:topic.review_requested})),
+        omitted_next_topics_count:Math.max(0,unfinished.length-5)};
+    });
+}
+
+function taskPrioritySummary(tasks:Task[]){
+  type Priority=Task['priority'];
+  const priorities:Priority[]=['high','normal','low'];
+  const groups=new Map<string,{exam:Task['exam'];subject:Task['subject'];priority:Priority;total:number;done:number}>();
+  const overall={high:{total:0,done:0},normal:{total:0,done:0},low:{total:0,done:0}};
+  for(const task of tasks){
+    const done=taskCompletion(task)===1?1:0;
+    const priority=task.priority;
+    const key=JSON.stringify([task.exam,task.subject,priority]);
+    let group=groups.get(key);
+    if(!group){group={exam:task.exam,subject:task.subject,priority,total:0,done:0};groups.set(key,group)}
+    group.total++;group.done+=done;
+    overall[priority].total++;overall[priority].done+=done;
+  }
+  const totalDone=priorities.reduce((sum,priority)=>sum+overall[priority].done,0);
+  return {by_subject:[...groups.values()].sort((a,b)=>(a.exam??'').localeCompare(b.exam??'')
+    ||(a.subject??'').localeCompare(b.subject??'','tr')||priorities.indexOf(a.priority)-priorities.indexOf(b.priority))
+    .map(group=>({...group,completion_rate_percent:percent(group.done,group.total)})),
+    overall:{total_done:totalDone,...Object.fromEntries(priorities.map(priority=>[priority,{
+      ...overall[priority],completion_rate_percent:percent(overall[priority].done,overall[priority].total),
+      share_of_completed_percent:percent(overall[priority].done,totalDone)}])) as Record<Priority,{total:number;done:number;completion_rate_percent:number|null;share_of_completed_percent:number|null}>}};
+}
 function preparationPhase(daysUntilExam:number|null,month:number){
   if(daysUntilExam===null){
     if(month>=9&&month<=11)return 'Takvime göre temel ve düzen (örnek)';
@@ -177,6 +234,12 @@ export function buildSixInsightSnapshot(state:AppState,start:string,end:string,g
     ?Math.round((Date.parse(`${examDate}T12:00:00Z`)-Date.parse(`${asOf}T12:00:00Z`))/86400000):null;
   const yksGoal=base.snapshot.education.yks_goal!==false;
   const phase=yksGoal?preparationPhase(daysUntilExam,Number(asOf.slice(5,7))):'Ders planı ve düzen';
+  const periodTasks=state.tasks.filter(task=>task.plan_date>=start&&task.plan_date<=end);
+  const periodPriority=taskPrioritySummary(periodTasks);
+  const {weekStart,weekEnd}=weekBounds(asOf);
+  const weekPriority=taskPrioritySummary(state.tasks.filter(task=>task.plan_date>=weekStart&&task.plan_date<=asOf));
+  const pastDueThrough=shiftDay(asOf,-1);
+  const pastDuePriority=taskPrioritySummary(state.tasks.filter(task=>task.plan_date>=weekStart&&task.plan_date<=pastDueThrough));
   const sharedDayCount=current.filter(day=>day.journal!==null).length;
   const currentStudySeconds=current.reduce((sum,day)=>sum+day.seconds,0);
   const reportMetrics={
@@ -184,16 +247,21 @@ export function buildSixInsightSnapshot(state:AppState,start:string,end:string,g
     regularity:{days:current.slice(-7).map(day=>({date:day.date,seconds:day.seconds>0||day.status==='zero'?day.seconds:null,status:day.status}))},
     journal:{shared_day_count:sharedDayCount},
     wins:{current:{observed_days:observed(current),study_seconds:currentStudySeconds},previous:{observed_days:priorObserved,study_seconds:previous.totalSeconds}},
-    improvements:{task_done:state.tasks.filter(task=>task.plan_date>=start&&task.plan_date<=end&&taskCompletion(task)===1).length,
-      task_count:state.tasks.filter(task=>task.plan_date>=start&&task.plan_date<=end).length},
+    improvements:{task_done:periodPriority.overall.total_done,task_count:periodTasks.length,priority:periodPriority.overall},
     timing:{month:Number(asOf.slice(5,7)),phase,as_of:asOf},
   };
   const snapshot={...base.snapshot,schema_version:REPORT_SCHEMA_VERSION,
     summary:{...base.snapshot.summary,source_days:sourceDays,data_days:sourceDays.length},evidence,
     topic_progress:topicProgress,omitted_topic_progress_count:allProgress.length-topicProgress.length,
+    topic_status_by_subject:topicStatusBySubject(state.topics),
+    task_priority_by_subject:periodPriority.by_subject,
+    weekly_task_priority:{week_start:weekStart,week_end:weekEnd,observed_through:asOf,...weekPriority,
+      past_due:{through:pastDueThrough,...pastDuePriority}},
     prior_period:{start:priorStart,end:priorEnd,observed_days:priorObserved,worked_days:previous.workedDays,
       study_seconds:previous.totalSeconds,exam_count:previous.days.reduce((sum,day)=>sum+day.exams,0)},
-    timing_guidance:{as_of:asOf,exam_date:daysUntilExam===null?null:examDate,days_until_exam:daysUntilExam,
+    timing_guidance:{as_of:asOf,exam_date:daysUntilExam===null?null:examDate,
+      exam_date_source:daysUntilExam===null?null:'user_setting' as const,days_until_exam:daysUntilExam,
+      target_rank:state.settings?.target_rank??null,
       phase,month:Number(asOf.slice(5,7)),sources:yksGoal?GUIDANCE_SOURCES.map(source=>({title:source.title,url:source.url,principle:source.principle})):[]},
     report_metrics:reportMetrics};
   return {snapshot,sourceHash:createHash('sha256').update(JSON.stringify(snapshot)).digest('hex')};

@@ -22,17 +22,7 @@
 .journal-fields textarea { resize: vertical; }
 .journal-fields .span-2 { grid-column: 1/-1; }
 .journal-optional .footnote { margin: 11px 0 0; color: #ddd8e2; }
-.journal-privacy { display: grid; gap: 10px; padding: 14px; border: 1px solid #ffffff2c; border-radius: 10px; background: #ffffff0b; }
-.journal-exclude { display: flex; gap: 10px; align-items: start; color: #fff; }
-.journal-exclude input { margin-top: 4px; }
-.journal-exclude span { display: grid; gap: 2px; }
-.journal-exclude strong { font-size: 11px; }
-.journal-exclude small { color: #dfdae3; font-size: 9px; line-height: 1.4; }
-.journal-privacy details { border-top: 1px solid #ffffff22; padding-top: 9px; color: #e9e4ea; font-size: 10px; }
-.journal-privacy summary { cursor: pointer; font-weight: 600; }
-.journal-privacy details p { color: #dfd9e3; font-size: 9px; line-height: 1.5; }
-.journal-share-options { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
-.journal-share-options label { display: flex; align-items: center; gap: 5px; min-width: 0; font-size: 9px; }
+.journal-analysis-note { margin: 0; padding: 14px; border: 1px solid #ffffff2c; border-radius: 10px; background: #ffffff0b; color: #e9e4ea; font-size: 14px; line-height: 1.5; }
 .journal-form-bottom { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #ffffff2b; padding-top: 14px; }
 .journal-form-bottom > span { color: #ddd7e0; font-size: 9px; }
 .journal-form-bottom > div { display: flex; align-items: center; gap: 11px; }
@@ -48,7 +38,7 @@
 .journal-history-card .footnote { color: #ded8e2; }
 @media(max-width:1000px) { .journal-layout { grid-template-columns: 1fr; } }
 @media(max-width:620px) { .journal-intro { padding: 16px; } .journal-layout .card-head { align-items: start; flex-wrap: wrap; gap: 10px; } .journal-form-bottom { flex-direction: column; align-items: stretch; } .journal-form-bottom > div { justify-content: space-between; } }
-@media(max-width:380px) { .journal-fields { grid-template-columns: 1fr; } .journal-fields .span-2 { grid-column: auto; } .journal-share-options { grid-template-columns: 1fr; } .journal-date-nav input { width: 120px; } }
+@media(max-width:380px) { .journal-fields { grid-template-columns: 1fr; } .journal-fields .span-2 { grid-column: auto; } .journal-date-nav input { width: 120px; } }
 
 .journal-ai-tool { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:15px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
 .journal-ai-tool strong { color:var(--foreground); font-size:12px; }

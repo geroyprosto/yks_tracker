@@ -9,6 +9,8 @@ export function Preferences({state,command,busy,theme,appearance,reduced,simple,
  const [tab,setTab]=useState<'appearance'|'plan'|'connections'|'account'>(initialTab);
  const [notice,setNotice]=useState('');
  const settings=state.settings;
+ const [journalAnalysisPending,setJournalAnalysisPending]=useState<boolean|null>(null);
+ const journalAnalysisEnabled=journalAnalysisPending??settings?.journal_analysis_enabled??false;
  const yks=state.education?.profile?.yks_goal??true;
  const fixedBase=theme==='white'||theme==='black';
  return <>
@@ -22,7 +24,14 @@ export function Preferences({state,command,busy,theme,appearance,reduced,simple,
  <p className="footnote span-2">Sıfır süre hedefi “tanımlı değil” olarak işlenir. Plan değişiklikleri sürümlenir; geçmiş günler yeni varsayılanlarla yeniden yazılmaz.</p>
  <div className="form-actions span-2"><button className="button primary" disabled={busy||!state.authenticated}>Hedefleri kaydet</button></div></form></Card>}
  {tab==='connections'&&<div className="integration-grid"><GoogleCalendarSettings authenticated={state.authenticated}/></div>}
- {tab==='account'&&<><Card title="Kişisel hesap" action={<ShieldCheck size={22}/>}><p className="soft-copy">{state.authenticated?'Hesabınla giriş yaptın. Planların, çalışma kayıtların ve denemelerin bu hesaba bağlı saklanır. Öğretmenin olmasa da çalışma alanını kullanabilirsin.':'Çalışmalarını hesabına kaydetmek için giriş yap veya bireysel öğrenci hesabı oluştur.'}</p><p className="footnote"><a href="/classroom">Hesap ve sınıf durumunu gör</a> · <a href="/forgot-password">Şifremi unuttum</a></p>{state.authenticated&&<button className="button secondary" onClick={async()=>{try{const response=await fetch('/api/logout',{method:'POST'});if(!response.ok){const data=await response.json();setNotice(data.error?.message??'Çıkış yapılamadı.');return}location.reload()}catch{setNotice('Bağlantı kurulamadı; çıkış tamamlanmadı.')}}}><LogOut size={17}/>Çıkış yap</button>}</Card><Card title="Cihazına kur"><p className="soft-copy">Tarayıcının menüsündeki “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğiyle YKSim’e daha hızlı ulaşabilirsin.</p><p className="footnote">Kayıtlarını görüntülemek ve kaydetmek için internet bağlantısı gerekir.</p></Card></>}
+ {tab==='account'&&<>
+  <Card title="Günlük ve analiz" action={<ShieldCheck size={22}/>}>
+   <label className="setting-row"><div><h3>Günlük kayıtlarını AI analizlerinde kullan</h3><p>Açıkken eski ve yeni günlüklerinin metni ve doldurduğun alanlar sonraki analizlere dahil edilir. Kapattığında günlük içeriği sonraki analizlere ve YKSim analiz aracına verilmez.</p></div><input type="checkbox" checked={journalAnalysisEnabled} disabled={busy||!state.authenticated||!settings} onChange={async event=>{const enabled=event.target.checked;setJournalAnalysisPending(enabled);setNotice('');if(await command('settings.journal_analysis.set',{expected_revision:settings?.revision??0,enabled}))setNotice(enabled?'Günlük analizi açıldı.':'Günlük analizi kapatıldı.');setJournalAnalysisPending(null)}}/></label>
+   <p className="footnote">Çok uzun kayıtlar için analiz sırasında daha kısa bir dönem seçmen istenebilir. Önceden oluşturulmuş raporlar hesap geçmişinde kalır.</p>
+  </Card>
+  <Card title="Kişisel hesap"><p className="soft-copy">{state.authenticated?'Hesabınla giriş yaptın. Planların, çalışma kayıtların ve denemelerin bu hesaba bağlı saklanır. Öğretmenin olmasa da çalışma alanını kullanabilirsin.':'Çalışmalarını hesabına kaydetmek için giriş yap veya bireysel öğrenci hesabı oluştur.'}</p><p className="footnote"><a href="/classroom">Hesap ve sınıf durumunu gör</a> · <a href="/forgot-password">Şifremi unuttum</a></p>{state.authenticated&&<button className="button secondary" onClick={async()=>{try{const response=await fetch('/api/logout',{method:'POST'});if(!response.ok){const data=await response.json();setNotice(data.error?.message??'Çıkış yapılamadı.');return}location.reload()}catch{setNotice('Bağlantı kurulamadı; çıkış tamamlanmadı.')}}}><LogOut size={17}/>Çıkış yap</button>}</Card>
+  <Card title="Cihazına kur"><p className="soft-copy">Tarayıcının menüsündeki “Uygulamayı yükle” veya “Ana ekrana ekle” seçeneğiyle YKSim’e daha hızlı ulaşabilirsin.</p><p className="footnote">Kayıtlarını görüntülemek ve kaydetmek için internet bağlantısı gerekir.</p></Card>
+ </>}
  </>;
 }
 

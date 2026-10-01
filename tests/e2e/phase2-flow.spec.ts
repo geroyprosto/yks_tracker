@@ -186,17 +186,53 @@ test('replacing an old overall net requires complete subject answers',async({pag
  expect(requests[0].payload).not.toHaveProperty('score');
 });
 
-test('journal keeps original writing and excludes private fields from future AI sharing',async({page})=>{
+test('journal saves original writing without filling optional fields or analysis checkboxes',async({page})=>{
  const value=state();const requests:Record<string,unknown>[]=[];
  await page.route('**/api/command',route=>{requests.push(route.request().postDataJSON());return route.fulfill({json:{ok:true,state:value}})});
  await open(page,value);await navigate(page,'Günlüğüm');
  await page.getByLabel('Bugün aklında neler kaldı?').fill('  Kendi cümlem.\nİkinci satır.  ');
- await page.getByRole('button',{name:'İsteğe bağlı alanlar'}).click();
- await page.getByLabel('Ruh hâli').fill('İyi');
- await page.getByRole('checkbox',{name:/Analize dahil etme/}).check();
+ await expect(page.getByRole('checkbox',{name:/Analize dahil etme/})).toHaveCount(0);
+ await expect(page.getByText('Gelecekteki AI analiziyle paylaşılabilecek alanlar')).toHaveCount(0);
  await page.getByRole('button',{name:'Günlüğü kaydet'}).click();
  expect(requests).toHaveLength(1);
- expect(requests[0]).toMatchObject({type:'journal.create',payload:{journal_date:'2026-09-24',original_text:'  Kendi cümlem.\nİkinci satır.  ',structured_fields:{mood:'İyi'},exclude_from_analysis:true,ai_shared_fields:[]}});
+ expect(requests[0]).toMatchObject({type:'journal.create',payload:{journal_date:'2026-09-24',original_text:'  Kendi cümlem.\nİkinci satır.  ',structured_fields:{}}});
+ expect(requests[0].payload).not.toHaveProperty('exclude_from_analysis');
+ expect(requests[0].payload).not.toHaveProperty('ai_shared_fields');
+});
+
+test('editing an old journal removes stale legacy share keys without showing share controls',async({page})=>{
+ const value=state();const requests:Record<string,unknown>[]=[];
+ value.journal_entries=[{id:'old-journal',journal_date:'2026-09-24',original_text:'Önceki not',
+  structured_fields:{mood:'iyi'},exclude_from_analysis:false,ai_shared_fields:['original_text','mood'],
+  revision:1,created_at:now,updated_at:now}];
+ await page.route('**/api/command',route=>{requests.push(route.request().postDataJSON());return route.fulfill({json:{ok:true,state:value}})});
+ await open(page,value);await navigate(page,'Günlüğüm');
+ await page.getByLabel('Ruh hâli').fill('');
+ await page.getByRole('button',{name:'Günlüğü kaydet'}).click();
+ expect(requests[0]).toMatchObject({type:'journal.update',payload:{id:'old-journal',ai_shared_fields:['original_text']}});
+ await expect(page.getByText('Gelecekteki AI analiziyle paylaşılabilecek alanlar')).toHaveCount(0);
+});
+
+test('account settings keep journal analysis on by default and let the owner turn it off',async({page})=>{
+ const value=state();const requests:Record<string,unknown>[]=[];
+ value.settings={display_name:'Sümeyra',exam_year:2027,exam_date:null,target_rank:null,
+  timezone:'Europe/Istanbul',daily_target_minutes:360,task_share:.7,
+  difficulty_factors:{easy:1,medium:1.25,hard:1.5},weekday_targets:Array(7).fill(360),
+  theme:'ocean',appearance:'dark',reduced_motion:false,simple_view:false,
+  journal_analysis_enabled:true,revision:1};
+ await page.route('**/api/command',route=>{
+  const request=route.request().postDataJSON();requests.push(request);
+  value.settings={...value.settings!,journal_analysis_enabled:request.payload.enabled,revision:2};
+  return route.fulfill({json:{ok:true,state:value}});
+ });
+ await open(page,value);await navigate(page,'Ayarlar');
+ await page.getByRole('button',{name:'Hesap',exact:true}).click();
+ const toggle=page.getByRole('checkbox',{name:'Günlük kayıtlarını AI analizlerinde kullan'});
+ await expect(toggle).toBeChecked();
+ await toggle.uncheck();
+ expect(requests).toHaveLength(1);
+ expect(requests[0]).toMatchObject({type:'settings.journal_analysis.set',payload:{expected_revision:1,enabled:false}});
+ await expect(toggle).not.toBeChecked();
 });
 
 test('study report marks a day explicitly and opens its matching journal date',async({page})=>{
@@ -236,6 +272,5 @@ test('journal AI suggestion stays a review draft until explicit save',async({pag
  expect(commands).toHaveLength(1);
  expect(commands[0]).toMatchObject({type:'journal.create',payload:{
   original_text:original,structured_fields:{wake_at:'07:30',mood:'İyi'},
-  exclude_from_analysis:false,ai_shared_fields:[],
  }});
 });

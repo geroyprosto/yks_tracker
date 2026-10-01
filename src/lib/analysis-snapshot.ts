@@ -7,7 +7,6 @@ import {GUIDANCE_SOURCES,REPORT_SCHEMA_VERSION} from './ai-report';
 import {secondsByDay} from './timing';
 
 const DAY=/^\d{4}-\d{2}-\d{2}$/;
-const JOURNAL_FIELDS=new Set(['original_text','sleep_at','wake_at','sleep_quality','mood','energy','stress','environment','interruptions','activities','people_tags','food_drink','thoughts']);
 
 export function validAnalysisRange(start:string,end:string,today:string):boolean {
   if(!DAY.test(start)||!DAY.test(end)||start>end||end>today)return false;
@@ -18,11 +17,9 @@ export function validAnalysisRange(start:string,end:string,today:string):boolean
 }
 
 function permittedJournal(entry:JournalEntry) {
-  if(entry.exclude_from_analysis)return null;
-  const allowed=new Set(entry.ai_shared_fields.filter(field=>JOURNAL_FIELDS.has(field)));
   const fields:Record<string,unknown>={};
-  if(allowed.has('original_text')&&entry.original_text.trim())fields.original_text=entry.original_text.slice(0,4000);
-  for(const [name,value] of Object.entries(entry.structured_fields))if(allowed.has(name))fields[name]=value;
+  if(entry.original_text.trim())fields.original_text=entry.original_text;
+  for(const [name,value] of Object.entries(entry.structured_fields))fields[name]=value;
   return Object.keys(fields).length?{date:entry.journal_date,fields}:null;
 }
 
@@ -43,7 +40,8 @@ export function buildAnalysisSnapshot(state:AppState,start:string,end:string,now
   const report=buildStudyReport(state,{start,end},now);
   const latestPlans=new Map<string,(typeof state.day_plans)[number]>();
   for(const plan of state.day_plans){const old=latestPlans.get(plan.plan_date);if(!old||old.version<plan.version)latestPlans.set(plan.plan_date,plan)}
-  const journalByDate=new Map(state.journal_entries.filter(entry=>entry.journal_date>=start&&entry.journal_date<=end)
+  const journalByDate=new Map((state.settings?.journal_analysis_enabled===true?state.journal_entries:[])
+    .filter(entry=>entry.journal_date>=start&&entry.journal_date<=end)
     .map(entry=>[entry.journal_date,permittedJournal(entry)]));
   const days=report.days.map(day=>{
     const plan=latestPlans.get(day.date);

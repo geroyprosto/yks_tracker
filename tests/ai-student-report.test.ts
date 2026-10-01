@@ -44,16 +44,17 @@ test('AI kill switch and missing config fail closed; account cap cannot be incre
     assert.equal(getAnalysisProviderConfig(),null);process.env.AI_ENABLED='true';assert.equal(getAnalysisProviderConfig()?.monthlyRequests,4);delete process.env.AI_MONTHLY_BUDGET_USD;assert.equal(getAnalysisProviderConfig(),null);assert.equal(schedulerReady(),false);
   }finally{process.env=saved;}
 });
-test('student snapshot keeps course IDs, scales and sharing boundaries; source changes invalidate its versioned hash',()=>{
+test('student snapshot keeps course IDs, scales and saved journal data; source changes invalidate its versioned hash',()=>{
   const stamp='2026-09-25T12:00:00Z',education=emptyEducation();
   education.profile={education_level:'university',yks_goal:true,grade:null,department:'İktisat',university_year:'1',yks_track:'undecided',modules:{...defaultModules},active_term_id:'term',revision:1,onboarding_completed_at:stamp};
   education.courses=[{id:'school',term_id:'term',name:'Matematik',normalized_name:'matematik',context:'school',exam:null,archived:false,revision:1,created_at:stamp,updated_at:stamp},{id:'tyt',term_id:null,name:'Matematik',normalized_name:'matematik',context:'yks',exam:'TYT',archived:false,revision:1,created_at:stamp,updated_at:stamp}];
   education.results=[{id:'result',course_id:'school',term_id:'term',course_name:'Matematik',exam_date:'2026-09-24',assessment_type:'Vize',assessment_name:'',score:16,scale:20,revision:1,created_at:stamp,updated_at:stamp}];
   const state={...emptyState(true),server_now:stamp,education,journal_entries:[{id:'journal',journal_date:'2026-09-24',original_text:'ÖZEL PAYLAŞILMAYAN METİN',structured_fields:{mood:'sakin'},exclude_from_analysis:false,ai_shared_fields:['mood'],revision:1,created_at:stamp,updated_at:stamp}]};
+  state.settings={journal_analysis_enabled:true} as typeof state.settings;
   const initial=buildStudentAnalysisSnapshot(state,'2026-09-12','2026-09-25');
   assert.equal(initial.snapshot.schema_version,2);assert.equal(initial.snapshot.results[0].percentage,80);assert.equal(initial.snapshot.results[0].scale,20);
   assert.deepEqual(initial.snapshot.courses.map(course=>course.id),['school','tyt']);assert.deepEqual(initial.snapshot.course_study.map(course=>course.context),['school','yks']);
-  assert.ok(!JSON.stringify(initial.snapshot).includes('ÖZEL PAYLAŞILMAYAN METİN'));assert.ok(!('topics' in initial.snapshot));
+  assert.ok(JSON.stringify(initial.snapshot).includes('ÖZEL PAYLAŞILMAYAN METİN'));assert.ok(!('topics' in initial.snapshot));
   education.courses[0].name='Yeni Matematik';const renamed=buildStudentAnalysisSnapshot(state,'2026-09-12','2026-09-25');assert.notEqual(initial.sourceHash,renamed.sourceHash);assert.equal(education.results[0].course_name,'Matematik');
   education.results[0].score=17;assert.notEqual(renamed.sourceHash,buildStudentAnalysisSnapshot(state,'2026-09-12','2026-09-25').sourceHash);
   education.profile.yks_goal=false;assert.equal(buildStudentAnalysisSnapshot(state,'2026-09-12','2026-09-25').snapshot.education.yks_goal,false);

@@ -6,7 +6,8 @@ export type Settings = {
   display_name: string; exam_year: number; exam_date: string | null; target_rank: number | null;
   timezone: string; daily_target_minutes: number; task_share: number;
   difficulty_factors: Record<Difficulty, number>; weekday_targets: number[];
-  theme: Theme; appearance: "dark" | "light" | "system"; reduced_motion: boolean; simple_view: boolean; revision: number;
+  theme: Theme; appearance: "dark" | "light" | "system"; reduced_motion: boolean; simple_view: boolean;
+  journal_analysis_enabled?: boolean; revision: number;
 };
 export type TaskStep = { id: string; title: string; completed: boolean };
 export type Task = {

@@ -35,7 +35,25 @@ async function command(type:string,payload:Record<string,unknown>,request_id:str
 async function ageActive(seconds:number){await admin("update public.study_sessions set started_at=started_at-make_interval(secs=>$1),active_since=active_since-make_interval(secs=>$1) where status='running'",[seconds]);await admin("update public.study_intervals set started_at=started_at-make_interval(secs=>$1) where ended_at is null",[seconds]);}
 
 test("first owner load has settings and editable zero-progress topics, no invented records",async()=>{
- const value=await state();assert.equal(value.settings?.display_name,"Sümeyra");assert.ok(value.topics.length>60);assert.ok(value.topics.every(t=>t.mastery===0));assert.equal(value.tasks.length,0);assert.equal(value.sessions.length,0);assert.equal(value.practice_entries.length,0);assert.equal(value.day_plans.length,1);
+ const value=await state();assert.equal(value.settings?.display_name,"Sümeyra");assert.equal(value.settings?.journal_analysis_enabled,true);assert.ok(value.topics.length>60);assert.ok(value.topics.every(t=>t.mastery===0));assert.equal(value.tasks.length,0);assert.equal(value.sessions.length,0);assert.equal(value.practice_entries.length,0);assert.equal(value.day_plans.length,1);
+});
+test("journal analysis setting is owner-controlled, versioned and can be turned off and on",async()=>{
+ const initial=(await state()).settings!;
+ const requestId=randomUUID();
+ const payload={expected_revision:initial.revision,enabled:false};
+ const parsed=commandSchema.parse({request_id:requestId,type:"settings.journal_analysis.set",payload});
+ await command(parsed.type,parsed.payload,requestId);
+ assert.equal((await state()).settings?.journal_analysis_enabled,false);
+ assert.equal((await command(parsed.type,parsed.payload,requestId)).replayed,true);
+ await assert.rejects(()=>command(parsed.type,payload),/CONFLICT/);
+ const next=(await state()).settings!;
+ await command(parsed.type,{expected_revision:next.revision,enabled:true});
+ assert.equal((await state()).settings?.journal_analysis_enabled,true);
+ await assert.rejects(()=>command(parsed.type,{expected_revision:next.revision+1,enabled:"yes"}),/INVALID_INPUT/);
+ await db.exec(`select set_config('request.jwt.claim.sub','${OTHER}',false)`);
+ try { await assert.rejects(()=>command(parsed.type,{expected_revision:1,enabled:false}),/OWNER_REQUIRED/); }
+ finally { await asOwner(); }
+ await admin("update public.profiles set revision=$1 where user_id=$2",[initial.revision,OWNER]);
 });
 test("an anonymous or non-owner account cannot read records or call the service",async()=>{
  await db.exec(`select set_config('request.jwt.claim.sub','${OTHER}',false)`);

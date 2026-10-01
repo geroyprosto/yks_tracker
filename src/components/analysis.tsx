@@ -225,7 +225,7 @@ function ReportChart({kind, metrics, startDate, endDate}: {kind: InsightKey; met
     </div>;
   })();
   const captions: Record<InsightKey, string> = {
-    topics: 'Konu kayıtları', regularity: 'Son günlerde çalışma · dakika', journal: 'Analize paylaşılan günlük günleri',
+    topics: 'Konu kayıtları', regularity: 'Son günlerde çalışma · dakika', journal: 'Analize alınan günlük günleri',
     wins: 'Kayıtlı çalışma süresi', improvements: 'Tamamlanan görevler', timing: 'Önerinin hazırlandığı ay',
   };
   return <figure className={styles.reportChart} data-testid={`report-chart-${kind}`}><figcaption>{captions[kind]}</figcaption>{content}</figure>;
@@ -254,7 +254,7 @@ function LegacyReportCards({report}:{report:LegacyReport}) {
   </section>)}</div>;
 }
 
-export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
+export function Analysis({onOpenDay,journalAnalysisEnabled}: {onOpenDay: (date: string) => void;journalAnalysisEnabled: boolean}) {
   const day = localDate();
   const [data, setData] = useState<AnalysisResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -337,7 +337,7 @@ export function Analysis({onOpenDay}: {onOpenDay: (date: string) => void}) {
       <div>
         <p className={styles.eyebrow}>KAYITLARINDAN GÖZLEMLER</p>
         <h2 id="analysis-intro-title">Dönemini birlikte incele.</h2>
-        <p>Çalışma süren, görevlerin, denemelerin ve analize izin verdiğin günlük alanları seçtiğin dönem için değerlendirilir.</p>
+        <p>Çalışma süren, görevlerin ve denemelerin seçtiğin dönem için değerlendirilir. {journalAnalysisEnabled?'Günlük metnin ve doldurduğun alanlar da analize eklenir.':'Günlük içeriği hesap ayarında kapalı olduğu için analize eklenmez.'}</p>
       </div>
       <span className={styles.heroAccent} aria-hidden="true"/>
     </section>

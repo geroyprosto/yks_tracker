@@ -28,24 +28,22 @@ test('report instructions map every section and keep diary, comparison, and cale
   assert.match(REPORT_INSTRUCTIONS,/Kasım.*zorunlu/);
   assert.match(REPORT_INSTRUCTIONS,/sebep-sonuç/);
   assert.match(REPORT_INSTRUCTIONS,/as_of/);
-  assert.match(REPORT_INSTRUCTIONS,/omitted_day_details/);
+  assert.match(REPORT_INSTRUCTIONS,/günlük/);
 });
 
-test('oversized prompts retain bounded shared journal excerpts and disclose omitted days',()=>{
+test('oversized prompts are rejected before any journal excerpt is dropped',()=>{
   const days=Array.from({length:16},(_,index)=>({date:`2026-11-${String(index+1).padStart(2,'0')}`,
-    journal:{date:`2026-11-${String(index+1).padStart(2,'0')}`,fields:{original_text:`Late wake ${index}. `+'x'.repeat(3000)}}}));
-  const payload=providerPayload({period:{start:'2026-11-01',end:'2026-11-16'},summary:{data_days:16},days});
-  const parsed=JSON.parse(payload);
-  assert.ok(Buffer.byteLength(payload,'utf8')<=32000);
-  assert.equal(parsed.omitted_journal_days,4);
-  assert.equal(parsed.truncated_journal_details,true);
-  assert.equal(parsed.days[0].journal,null);
-  assert.match(parsed.days[15].journal.fields.original_text,/Late wake 15/);
+    journal:{date:`2026-11-${String(index+1).padStart(2,'0')}`,fields:{original_text:`Late wake ${index}. `+'x'.repeat(10000)}}}));
+  assert.throws(()=>providerPayload({period:{start:'2026-11-01',end:'2026-11-16'},summary:{data_days:16},days}),/daha kısa bir dönem seç/);
+  const short=providerPayload({period:{start:'2026-11-15',end:'2026-11-16'},summary:{data_days:2},days:days.slice(-2)});
+  assert.ok(short.includes('Late wake 14'));
+  assert.ok(short.includes('Late wake 15'));
 });
 
 test('six insight snapshot uses dated topic transitions, shared journals, comparable prior period, and frozen guidance date',()=>{
   const state=emptyState(true);
   state.server_now='2026-11-16T12:00:00Z';
+  state.settings={journal_analysis_enabled:true} as typeof state.settings;
   state.topics=[{id:'algebra',exam:'TYT',subject:'Matematik',name:'Denklemler',parent_id:null,mastery:2,notes:'private',review_requested:false,source:'user',next_step:'',revision:2,updated_at:'2026-11-10T12:00:00Z'},
     {id:'geometry',exam:'TYT',subject:'Matematik',name:'Üçgenler',parent_id:null,mastery:2,notes:'private',review_requested:false,source:'user',next_step:'',revision:1,updated_at:'2026-11-01T12:00:00Z'}];
   state.topic_history=[{id:'h1',topic_id:'algebra',old_mastery:1,new_mastery:2,changed_at:'2026-11-10T12:00:00Z'},
@@ -67,7 +65,7 @@ test('six insight snapshot uses dated topic transitions, shared journals, compar
   assert.equal(snapshot.timing_guidance.as_of,'2026-11-16');
   assert.equal(snapshot.report_metrics.timing.phase,'Takvime göre temel ve düzen (örnek)');
   assert.ok(JSON.stringify(snapshot).includes('Bugün geç kalktım.'));
-  assert.ok(!JSON.stringify(snapshot).includes('GİZLİ GÜNLÜK'));
+  assert.ok(JSON.stringify(snapshot).includes('GİZLİ GÜNLÜK'));
   assert.ok(!JSON.stringify(snapshot).includes('private'));
   assert.equal(snapshot.report_metrics.regularity.days.find(day=>day.date==='2026-11-11')?.seconds,null);
   state.server_now='2026-11-17T12:00:00Z';

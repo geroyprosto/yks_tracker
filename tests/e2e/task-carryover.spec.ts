@@ -55,6 +55,60 @@ test('task form saves on the creation day and preserves values removed from the 
   for (const field of ['plan_date', 'resource', 'progress', 'weight_override']) expect(commands[1].payload).not.toHaveProperty(field);
 });
 
+test('task form saves on the selected future day and keeps that day visible', async ({page}) => {
+  await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
+  const state = {...emptyState(true), authenticated: true};
+  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  await page.route('**/api/command', route => {
+    const command = route.request().postDataJSON();
+    commands.push(command);
+    if (command.type === 'task.create') {
+      state.tasks.push(task('created', String(command.payload.title), String(command.payload.plan_date), 0));
+    }
+    return route.fulfill({json: {ok: true, state}});
+  });
+  await openTasks(page, state);
+
+  await page.getByLabel('Plan tarihi').fill(wednesday);
+  await page.getByRole('button', {name: 'Görev ekle', exact: true}).click();
+  const dialog = page.getByRole('dialog', {name: 'Yeni görev'});
+  await dialog.getByLabel('Görev başlığı').fill('Çarşamba görevi');
+  await dialog.getByRole('button', {name: 'Görevi kaydet'}).click();
+
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({type: 'task.create', payload: {title: 'Çarşamba görevi', plan_date: wednesday}});
+  await expect(page.getByLabel('Plan tarihi')).toHaveValue(wednesday);
+  await expect(page.locator('.task-item h3')).toHaveText(['Çarşamba görevi']);
+});
+
+test('clearing the plan date filter creates a task for today', async ({page}) => {
+  await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
+  const state = {...emptyState(true), authenticated: true};
+  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  await page.route('**/api/command', route => {
+    const command = route.request().postDataJSON();
+    commands.push(command);
+    if (command.type === 'task.create') {
+      state.tasks.push(task('created-after-clear', String(command.payload.title), String(command.payload.plan_date), 0));
+    }
+    return route.fulfill({json: {ok: true, state}});
+  });
+  await openTasks(page, state);
+
+  const planDate = page.getByLabel('Plan tarihi');
+  await planDate.fill(wednesday);
+  await planDate.fill('');
+  await page.getByRole('button', {name: 'Görev ekle', exact: true}).click();
+  const dialog = page.getByRole('dialog', {name: 'Yeni görev'});
+  await dialog.getByLabel('Görev başlığı').fill('Bugünün görevi');
+  await dialog.getByRole('button', {name: 'Görevi kaydet'}).click();
+
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({type: 'task.create', payload: {title: 'Bugünün görevi', plan_date: tuesday}});
+  await expect(planDate).toHaveValue(tuesday);
+  await expect(page.locator('.task-item h3')).toHaveText(['Bugünün görevi']);
+});
+
 test('task can be deleted from its edit dialog after confirmation', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-09-28T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};

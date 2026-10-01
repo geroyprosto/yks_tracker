@@ -3,7 +3,7 @@
 import {useMemo, useState} from 'react';
 import {ArrowUpRight, CalendarDays, ChartNoAxesCombined, ChevronDown, PenLine, Plus, Trash2} from 'lucide-react';
 import type {AppState, ExamFormat, ExamRecord} from '@/lib/domain/types';
-import {examRange, examSeries, type ExamGrouping, type ExamPeriod} from '@/lib/exam-analysis';
+import {examRange, examSeries, examValue, type ExamGrouping, type ExamPeriod} from '@/lib/exam-analysis';
 import {calculateExamResults, calculatePerformanceScore, type AnswerCounts} from '@/lib/exam-results';
 import {formatDay, localDate, type CommandFn} from '@/lib/ui';
 import {Card, Empty} from './primitives';
@@ -15,6 +15,33 @@ import styles from './exams-analysis.module.css';
 const tr = (value: number) => new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 2}).format(value);
 const codes = [['TYT', 'TYT genel'], ['AYT_SAYISAL', 'AYT sayısal'], ['BRANCH', 'Branş denemesi']] as const;
 type EditorResult = {section_key: string; correct: number; wrong: number; blank?: number} | {section_key: string; net: number};
+type SubjectOption = {value: string; label: string; sectionKey: string};
+
+const branchSubjectValue = (label: string) => `branch:${label.trim().toLocaleLowerCase('tr-TR')}`;
+
+function subjectOptions(exams: ExamRecord[], formats: ExamFormat[], format: ExamRecord['format_code']): SubjectOption[] {
+  const options = new Map<string, SubjectOption>();
+  if (format === 'BRANCH') {
+    for (const exam of exams) {
+      if (exam.format_code !== 'BRANCH') continue;
+      const label = exam.format_snapshot.sections.find(section => section.key === 'branch')?.label.trim();
+      if (!label) continue;
+      const value = branchSubjectValue(label);
+      if (!options.has(value)) options.set(value, {value, label, sectionKey: 'branch'});
+    }
+    return [...options.values()].sort((a, b) => a.label.localeCompare(b.label, 'tr'));
+  }
+  const snapshots = [
+    ...formats.filter(item => item.code === format).sort((a, b) => b.version - a.version),
+    ...exams.filter(item => item.format_code === format).map(item => item.format_snapshot),
+  ];
+  for (const snapshot of snapshots) {
+    for (const section of snapshot.sections) {
+      if (!options.has(section.key)) options.set(section.key, {value: section.key, label: section.label, sectionKey: section.key});
+    }
+  }
+  return [...options.values()];
+}
 
 export function Exams({state, command, busy, preview = false, initialDate}: {
   state: AppState; command: CommandFn; busy: boolean; preview?: boolean; initialDate?: string;
@@ -29,11 +56,25 @@ export function Exams({state, command, busy, preview = false, initialDate}: {
   const [customStart, setCustomStart] = useState(initialDate ?? localDate());
   const [customEnd, setCustomEnd] = useState(initialDate ?? localDate());
   const [grouping, setGrouping] = useState<ExamGrouping>('exam');
+  const [subject, setSubject] = useState('total');
+  const subjects = useMemo(() => subjectOptions(exams, formats, format), [exams, formats, format]);
+  const [previousSubjects, setPreviousSubjects] = useState(subjects);
+  if (subjects !== previousSubjects) {
+    setPreviousSubjects(subjects);
+    if (subject !== 'total' && !subjects.some(item => item.value === subject)) setSubject('total');
+  }
+  const selectedSubject = subjects.find(item => item.value === subject);
+  const activeSubject = selectedSubject?.value ?? 'total';
+  const sectionKey = selectedSubject?.sectionKey ?? 'total';
+  const selectedExams = format === 'BRANCH' && selectedSubject
+    ? exams.filter(item => item.format_code === 'BRANCH' && branchSubjectValue(item.format_snapshot.sections.find(section => section.key === 'branch')?.label ?? '') === activeSubject)
+    : exams;
   const {start, end} = examRange(period, localDate(), customStart, customEnd);
-  const filtered = exams.filter(item => item.format_code === format && item.exam_date >= start && item.exam_date <= end);
-  const points = useMemo(() => examSeries(exams, {
-    format, publisher: '', section: 'total', measure: 'net', grouping, start, end,
-  }), [exams, format, grouping, start, end]);
+  const filtered = selectedExams.filter(item => item.format_code === format && item.exam_date >= start && item.exam_date <= end);
+  const examCount = filtered.filter(item => examValue(item, sectionKey, 'net') !== null).length;
+  const points = examSeries(selectedExams, {
+    format, publisher: '', section: sectionKey, measure: 'net', grouping, start, end,
+  });
   const valid = points.filter(point => point.value !== null);
   const latest = valid.at(-1);
   const previous = valid.at(-2);
@@ -66,13 +107,14 @@ export function Exams({state, command, busy, preview = false, initialDate}: {
         <div className={styles.panel} role="tabpanel" id="exam-details-panel" aria-labelledby="exam-details-tab" hidden={analysisView !== 'details'}>
           <Card className="ambient-card exam-chart-card" title="Net gelişimi" eyebrow="DENEME ANALİZİ" action={<ChartNoAxesCombined size={18}/> }>
             <div className="exam-filters">
-              <label>Tür<select value={format} onChange={event => setFormat(event.target.value as typeof format)}>{codes.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+              <label>Tür<select value={format} onChange={event => {setFormat(event.target.value as typeof format); setSubject('total');}}>{codes.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
+              <label>Ders<select value={activeSubject} onChange={event => setSubject(event.target.value)}><option value="total">Toplam net</option>{subjects.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
               <label>Dönem<select value={period} onChange={event => setPeriod(event.target.value as ExamPeriod)}><option value="week">Bu hafta</option><option value="month">Bu ay</option><option value="two-months">Son iki ay</option><option value="all">Tüm geçmiş</option><option value="custom">Özel aralık</option></select></label>
               <label>Gösterim<select value={grouping} onChange={event => setGrouping(event.target.value as ExamGrouping)}><option value="exam">Tek denemeler</option><option value="week">Haftalık ortalama</option><option value="month">Aylık ortalama</option></select></label>
             </div>
             {period === 'custom' && <div className="exam-dates"><label>Başlangıç<input type="date" value={customStart} onChange={event => setCustomStart(event.target.value)}/></label><label>Bitiş<input type="date" value={customEnd} onChange={event => setCustomEnd(event.target.value)}/></label></div>}
-            <div className="exam-chart-summary"><div><span>Son net</span><strong>{latest?.value === null || latest?.value === undefined ? '—' : tr(latest.value)}</strong></div><div><span>Önceki sonuca göre</span><strong>{latest?.value === null || latest?.value === undefined || previous?.value === null || previous?.value === undefined ? '—' : (latest.value - previous.value >= 0 ? '+' : '') + tr(latest.value - previous.value)}</strong></div><div><span>Deneme sayısı</span><strong>{filtered.length}</strong></div></div>
-            {valid.length ? <ExamPlot key={[format, grouping, start, end].join('|')} points={points} measure="net" exams={filtered} grouping={grouping} sectionLabel="Toplam net"/> : <Empty icon={<ChartNoAxesCombined/>} title="Bu seçimde sonuç yok" text="İlk denemeni eklediğinde net grafiğin burada oluşacak."/>}
+            <div className="exam-chart-summary"><div><span>Son net</span><strong>{latest?.value === null || latest?.value === undefined ? '—' : tr(latest.value)}</strong></div><div><span>Önceki sonuca göre</span><strong>{latest?.value === null || latest?.value === undefined || previous?.value === null || previous?.value === undefined ? '—' : (latest.value - previous.value >= 0 ? '+' : '') + tr(latest.value - previous.value)}</strong></div><div><span>Deneme sayısı</span><strong>{examCount}</strong></div></div>
+            {valid.length ? <ExamPlot key={[format, activeSubject, grouping, start, end].join('|')} points={points} measure="net" exams={filtered} grouping={grouping} sectionLabel={selectedSubject ? `${selectedSubject.label} net` : 'Toplam net'}/> : <Empty icon={<ChartNoAxesCombined/>} title="Bu seçimde sonuç yok" text={selectedSubject ? 'Bu dersin netlerini görmek için denemelerindeki ders sonuçlarını gir.' : 'İlk denemeni eklediğinde net grafiğin burada oluşacak.'}/>}
           </Card>
         </div>
       </div>

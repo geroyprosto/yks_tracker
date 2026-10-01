@@ -4,8 +4,10 @@
 .exam-intro p:last-child { color: var(--muted); font-size: 12px; line-height: 1.5; }
 .exam-overview { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(310px,.8fr); gap: 18px; align-items: start; }
 .exam-page .ambient-card { min-width: 0; }
+.exam-chart-card { container-type: inline-size; }
 .exam-chart-card .card-head > svg { color: var(--primary); }
-.exam-filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+.exam-filters { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; margin-bottom: 12px; }
+@container (max-width: 650px) { .exam-filters { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 .exam-filters label,.exam-dates label { display: grid; gap: 5px; min-width: 0; color: #e8e2ea; font-size: 10px; font-weight: 600; }
 .exam-filters select,.exam-dates input { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid #ffffff35; border-radius: 9px; background: #ffffff12; color: #fff; font-size: 11px; }
 .exam-filters option { color: #15171b; }

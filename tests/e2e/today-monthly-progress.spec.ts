@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { emptyState, type AppState, type ExamRecord } from '../../src/lib/domain/types';
+import { previewExamFormats } from '../../src/lib/exam-preview';
 
 const now = '2026-09-24T09:00:00.000Z';
 const format = { code: 'TYT' as const, version: 1, label: 'TYT', total_questions: 120, wrong_divisor: 4, sections: [] };
@@ -52,7 +53,7 @@ test('monthly progress lives in Exams and Today task actions still raise the rin
   await chart.getByRole('button', {name: 'Tüm analiz'}).click();
   const detailed = page.getByRole('tabpanel', {name: 'Ayrıntılı analiz'});
   await expect(detailed.getByRole('heading', {name: 'Net gelişimi', exact: true})).toBeVisible();
-  for (const name of ['Tür', 'Dönem', 'Gösterim']) {
+  for (const name of ['Tür', 'Ders', 'Dönem', 'Gösterim']) {
     await expect(detailed.getByRole('combobox', {name, exact: true})).toBeVisible();
   }
   await page.getByRole('tab', {name: 'Aylık görünüm'}).click();
@@ -60,5 +61,90 @@ test('monthly progress lives in Exams and Today task actions still raise the rin
   await page.setViewportSize({width: 390, height: 844});
   await expect(chart.getByRole('img', {name: /net gelişimi/i})).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+});
+
+test('detailed analysis switches between TYT, AYT and total nets', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(now));
+  const tyt = previewExamFormats.find(item => item.code === 'TYT')!;
+  const ayt = previewExamFormats.find(item => item.code === 'AYT_SAYISAL')!;
+  function subjectExam(id: string, date: string, turkce: number, matematik: number): ExamRecord {
+    return {
+      ...exam(id, date, turkce + matematik),
+      format_snapshot: tyt,
+      results: tyt.sections.map(section => ({
+        section_key: section.key, correct: null, wrong: null, blank: null,
+        net: section.key === 'turkce' ? turkce : section.key === 'matematik' ? matematik : 0,
+      })),
+      reported_total_net: null,
+      total_net_source: 'sections',
+    };
+  }
+  const initial: AppState = {
+    ...emptyState(true), authenticated: true, server_now: now, exam_formats: [tyt, ayt],
+    exams: [subjectExam('TYT ilk', '2026-09-10', 18, 24), subjectExam('TYT son', '2026-09-20', 22, 26), {
+      ...exam('AYT son', '2026-09-19', 42), format_code: 'AYT_SAYISAL', format_snapshot: ayt,
+      results: ayt.sections.map(section => ({section_key: section.key, correct: null, wrong: null, blank: null,
+        net: section.key === 'matematik' ? 20 : section.key === 'fizik' ? 8 : 7})),
+      reported_total_net: null, total_net_source: 'sections',
+    }],
+  };
+  await page.route('**/api/state', route => route.fulfill({ json: initial }));
+  await page.goto('/');
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Sınav Sonuçları', exact: true}).click();
+  await page.getByRole('tab', {name: 'Ayrıntılı analiz'}).click();
+
+  const detailed = page.getByRole('tabpanel', {name: 'Ayrıntılı analiz'});
+  const subject = detailed.getByRole('combobox', {name: 'Ders', exact: true});
+  const summary = detailed.locator('.exam-chart-summary strong');
+  const plotValues = detailed.getByRole('img', {name: /net grafiği/}).locator('.exam-plot-value');
+
+  await subject.selectOption({label: 'Türkçe'});
+  await expect(summary).toHaveText(['22', '+4', '2']);
+  await expect(plotValues).toHaveText(['18', '22']);
+
+  await subject.selectOption({label: 'Toplam net'});
+  await expect(summary).toHaveText(['48', '+6', '2']);
+  await expect(plotValues).toHaveText(['42', '48']);
+
+  await detailed.getByRole('combobox', {name: 'Tür', exact: true}).selectOption('AYT_SAYISAL');
+  await expect(subject).toHaveValue('total');
+  await subject.selectOption({label: 'Fizik'});
+  await expect(summary).toHaveText(['8', '—', '1']);
+  await expect(plotValues).toHaveText(['8']);
+
+  await page.setViewportSize({width: 1101, height: 800});
+  const filters = detailed.locator('.exam-filters');
+  expect(await filters.evaluate(node => getComputedStyle(node).gridTemplateColumns.split(' ').length)).toBe(2);
+  await page.setViewportSize({width: 390, height: 844});
+  await expect(subject).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+});
+
+test('branch analysis keeps subjects with the same section key separate', async ({ page }) => {
+  await page.clock.setFixedTime(new Date(now));
+  const branch = previewExamFormats.find(item => item.code === 'BRANCH')!;
+  function branchExam(id: string, date: string, subject: string, net: number): ExamRecord {
+    return {
+      ...exam(id, date, net), format_code: 'BRANCH',
+      format_snapshot: {...branch, sections: [{key: 'branch', label: subject, question_count: 40}]},
+      results: [{section_key: 'branch', correct: null, wrong: null, blank: null, net}],
+      reported_total_net: null, total_net_source: 'sections',
+    };
+  }
+  const initial: AppState = {
+    ...emptyState(true), authenticated: true, server_now: now, exam_formats: [branch],
+    exams: [branchExam('Matematik denemesi', '2026-09-10', 'Matematik', 31),
+      branchExam('Fizik denemesi', '2026-09-20', 'Fizik', 12)],
+  };
+  await page.route('**/api/state', route => route.fulfill({ json: initial }));
+  await page.goto('/');
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Sınav Sonuçları', exact: true}).click();
+  await page.getByRole('tab', {name: 'Ayrıntılı analiz'}).click();
+
+  const detailed = page.getByRole('tabpanel', {name: 'Ayrıntılı analiz'});
+  await detailed.getByRole('combobox', {name: 'Tür', exact: true}).selectOption('BRANCH');
+  await detailed.getByRole('combobox', {name: 'Ders', exact: true}).selectOption({label: 'Matematik'});
+  await expect(detailed.locator('.exam-chart-summary strong')).toHaveText(['31', '—', '1']);
+  await expect(detailed.getByRole('img', {name: /net grafiği/}).locator('.exam-plot-value')).toHaveText(['31']);
 });
 

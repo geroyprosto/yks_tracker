@@ -122,3 +122,15 @@ test('disabled account diary analysis exposes neither observations nor structure
   assert.ok(metrics.diary_insights.every(item=>item.matched_days===0));
   assert.ok(!JSON.stringify(metrics).includes('10:08'));
 });
+
+test('text-only diary days remain visible without inferred mood or sleep measurements',()=>{
+  const state=emptyState(true);state.settings={journal_analysis_enabled:true} as typeof state.settings;
+  state.journal_entries=[{...journal('text-only','2026-09-30',{}),original_text:'Bugün iyi hissettim ama stresliydim.'}];
+  state.manual_study_entries=[{id:'study',study_date:'2026-09-30',subject:'Matematik',duration_seconds:9000,created_at:stamp}];
+  const metrics=buildCoachingReportMetrics(state,{cutoff:stamp});
+  assert.equal(metrics.diary_observations[0].study_label,'2 sa 30 dk');
+  assert.match(metrics.diary_observations[0].text,/Günlük notun: “Bugün iyi hissettim/);
+  assert.equal(metrics.diary_insights.find(item=>item.kind==='mood')!.matched_days,0);
+  state.settings!.journal_analysis_enabled=false;
+  assert.deepEqual(buildCoachingReportMetrics(state,{cutoff:stamp}).diary_observations,[]);
+});

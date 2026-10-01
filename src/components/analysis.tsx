@@ -114,6 +114,14 @@ function usd(value: number) {
   return new Intl.NumberFormat('tr-TR', {style: 'currency', currency: 'USD', minimumFractionDigits: 2, maximumFractionDigits: 4}).format(value);
 }
 
+function legacyText(value: string) {
+  return value.split('\n').filter(line => !/\b20\s*soru\b/i.test(line)).join('\n')
+    .replace(/\b(\d{1,3}(?:\.\d{3})+|\d+)\s*saniye\b/gi, (_, value: string) => {
+      const minutes = Math.round(Number(value.replaceAll('.', '')) / 60);
+      return minutes >= 60 ? `${Math.floor(minutes / 60)} sa ${minutes % 60} dk` : `${minutes} dk`;
+    }).trim();
+}
+
 function ReportText({body, sourceDays, onOpenDay}: {body: string; sourceDays: string[]; onOpenDay: (date: string) => void}) {
   return <div className={styles.reportText}>{body.split('\n').map((line, lineIndex) => {
     const fragments = line.split(/(\b20\d{2}-\d{2}-\d{2}\b)/g);
@@ -129,19 +137,21 @@ function LegacyContext({report, onOpenDay}: {report: Report; onOpenDay: (date: s
   if (structured?.schema_version === 2) {
     paragraphs = [structured.overview, ...(Array.isArray(structured.study_observations) ? structured.study_observations : []),
       ...(Array.isArray(structured.result_observations) ? structured.result_observations : []),
-      ...(Array.isArray(structured.next_actions) ? structured.next_actions : []),
-      ...(Array.isArray(structured.limitations) ? structured.limitations : [])].map(item => typeof item === 'string' ? item : record(item)?.text).filter((item): item is string => typeof item === 'string' && !!item.trim());
+      ...(Array.isArray(structured.limitations) ? structured.limitations : [])].map(item => typeof item === 'string' ? item : record(item)?.text)
+      .filter((item): item is string => typeof item === 'string' && !!item.trim()).map(legacyText).filter(Boolean);
   } else if (structured?.schema_version === 3) {
-    paragraphs = ['topics', 'regularity', 'journal', 'wins', 'improvements', 'timing'].flatMap(key => {
+    paragraphs = ['journal', 'wins'].flatMap(key => {
       const entry = record(structured[key]);
       return [entry?.headline, entry?.text].filter((item): item is string => typeof item === 'string' && !!item.trim());
-    });
+    }).map(legacyText).filter(Boolean);
   }
+  const safeBody = report.body ? legacyText(report.body) : '';
   return <section className={styles.legacyContext} aria-label="Kaydedilmiş eski rapor">
     <h4>Kaydedilmiş değerlendirme · eski rapor biçimi</h4>
-    <small>Bu metin raporun oluşturulduğu tarihte kaydedildi. Güncel görev oranı veya yeni yönlendirme yerine geçmez.</small>
+    <small>Bu tarihî kayıtta yalnız gözlemler gösterilir. Eski yönlendirme alanları güncel koçluk değerlendirmesine uymaz.</small>
     {paragraphs.length ? paragraphs.map((paragraph, index) => <p key={index}>{paragraph}</p>)
-      : report.body ? <ReportText body={report.body} sourceDays={report.summary?.source_days ?? []} onOpenDay={onOpenDay}/>
+      : structured?.schema_version === 3 ? <p>Bu eski raporda gösterilebilecek günlük veya çalışma gözlemi yok.</p>
+        : safeBody ? <ReportText body={safeBody} sourceDays={report.summary?.source_days ?? []} onOpenDay={onOpenDay}/>
         : <p>Bu raporda okunabilir değerlendirme bulunmuyor.</p>}
   </section>;
 }
@@ -246,7 +256,7 @@ export function Analysis({onOpenDay, onOpenTasks, onOpenJournal, journalAnalysis
         {reports.length === 0 ? <div className={styles.emptyHistory}><strong>Henüz rapor yok</strong><span>İlk dönem raporunu oluşturduğunda sonucu burada göreceksin.</span></div>
           : <div className={styles.reportList}>{reports.map((report, index) => {
             const coaching = coachingFrom(report.summary?.coaching);
-            return <details className={styles.reportCard} data-testid="report-card" key={report.id} open={index === 0 ? true : undefined}><summary><FileText size={18} aria-hidden="true"/><span className={styles.reportTitle}><strong>{dateLabel(report.start_date)} – {dateLabel(report.end_date)}</strong><small>{timestampLabel(report.created_at)}</small></span><span className={`${styles.pill} ${report.status === 'completed' ? styles.ready : report.status === 'failed' ? styles.failed : styles.waiting}`}>{report.status === 'completed' ? 'Tamamlandı' : report.status === 'failed' ? 'Hata' : report.status === 'uncertain' ? 'Kontrol gerekli' : 'Hazırlanıyor'}</span></summary>
+            return <details className={styles.reportCard} data-testid="report-card" key={report.id} open={index === 0 && coaching ? true : undefined}><summary><FileText size={18} aria-hidden="true"/><span className={styles.reportTitle}><strong>{dateLabel(report.start_date)} – {dateLabel(report.end_date)}</strong><small>{timestampLabel(report.created_at)}</small></span><span className={`${styles.pill} ${report.status === 'completed' ? styles.ready : report.status === 'failed' ? styles.failed : styles.waiting}`}>{report.status === 'completed' ? 'Tamamlandı' : report.status === 'failed' ? 'Hata' : report.status === 'uncertain' ? 'Kontrol gerekli' : 'Hazırlanıyor'}</span></summary>
               <div className={styles.reportBody}>
                 {report.stale && <p className={styles.staleNotice}>Bu rapordan sonra kayıtlar değişti; değerlendirme güncel olmayabilir.</p>}
                 {report.status === 'failed' && <p className={styles.failedText}>{report.error_message || 'Rapor hazırlanamadı.'}</p>}

@@ -103,8 +103,10 @@ for (const width of [360, 1280]) test(`çalışma analizi gerçek ölçütleri v
   await expect(current.getByTestId('weekly-exam-tyt')).toContainText('Coğrafya alt dersinde net düşük');
   await expect(current).toContainText('Bu hafta kayıtlı deneme yok.');
   await expect(page.getByTestId('analysis-controls')).not.toHaveAttribute('open');
-  await expect(page.getByTestId('report-card').first()).toHaveAttribute('open');
+  await expect(page.getByTestId('report-card').first()).not.toHaveAttribute('open');
+  await page.getByTestId('report-card').first().locator('summary').click();
   await expect(page.getByTestId('report-card').first()).toContainText('Kaydedilmiş değerlendirme · eski rapor biçimi');
+  await expect(page.getByTestId('report-card').first()).not.toContainText('Eski konu gözlemi');
   await expect(page.getByRole('heading', {name: 'Kayıt düzeni'})).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   expect(postCount).toBe(0);
@@ -150,6 +152,7 @@ test('güncel ölçütler ile son kaydedilmiş koçluk yönlendirmesi ayrı tari
   await expect(current).not.toContainText('Canlı görev önerisi');
   await expect(current).toContainText('30 Eylül kaydı çalışma süresiyle birlikte incelendi.');
   await expect(current).toContainText('Coğrafya netini ayrıca izle.');
+  await expect(page.getByTestId('report-card').first()).toHaveAttribute('open');
 });
 
 test('çok sayıdaki gerçek tekrar kaydı özette görünür, uzun liste kapalı başlar', async ({page}) => {
@@ -177,10 +180,10 @@ test('haftalık net grafiği iki denemenin kayıtlı alt ders ortalamasını gö
   const current = metrics();
   current.weekly_exam.TYT.exams = [
     {id: 'exam-1', date: '2026-09-29', name: 'TYT İlk', total_net: 50,
-      sections: [{key: 'matematik', label: 'Matematik', net: 10, question_count: 40},
+      sections: [{key: 'matematik', label: 'Matematik', net: 1.5, question_count: 40},
         {key: 'cografya', label: 'Coğrafya', net: -2, question_count: 5}]},
     {id: 'exam-2', date: '2026-09-30', name: 'TYT Son', total_net: 80,
-      sections: [{key: 'matematik', label: 'Matematik', net: 20, question_count: 40},
+      sections: [{key: 'matematik', label: 'Matematik', net: 2, question_count: 40},
         {key: 'turkce', label: 'Türkçe', net: 40, question_count: 40}]},
   ];
   await page.route('**/api/analysis', route => route.fulfill({json: {ok: true, configured: true, model: 'synthetic',
@@ -193,7 +196,7 @@ test('haftalık net grafiği iki denemenin kayıtlı alt ders ortalamasını gö
   await expect(chart).toContainText('2 deneme · 2 toplam net kaydı');
   await expect(chart).toContainText('65 net');
   await expect(chart).not.toContainText('TYT Son');
-  await expect(chart.getByRole('group', {name: 'Matematik: 15 net, 2 kayıt ortalaması'})).toBeVisible();
+  await expect(chart.getByRole('group', {name: 'Matematik: 1,75 net, 2 kayıt ortalaması'})).toBeVisible();
   await expect(chart.getByRole('group', {name: 'Coğrafya: -2 net, 1 kayıt ortalaması'})).toBeVisible();
   await expect(chart.getByRole('group', {name: 'Türkçe: 40 net, 1 kayıt ortalaması'})).toBeVisible();
 });

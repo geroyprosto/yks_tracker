@@ -49,6 +49,10 @@ function compactNumber(value: number) {
   return new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 1}).format(value);
 }
 
+function netNumber(value: number) {
+  return new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 2}).format(value);
+}
+
 function formatHoursMinutes(seconds: number) {
   const minutes = Math.max(0, Math.round(seconds / 60));
   const hours = Math.floor(minutes / 60);
@@ -142,9 +146,9 @@ function ExamWeek({type, period}: {type: 'TYT' | 'AYT'; period: CoachingReportMe
   const sections = [...sectionGroups.values()].map(section => ({...section, net: section.total / section.count}));
   const maximum = Math.max(1, ...sections.map(section => Math.abs(section.net)));
   return <article className={styles.examCard} data-testid={`weekly-exam-${type.toLowerCase()}`}>
-    <div className={styles.examTop}><span>{type}</span><div><strong>{multiple ? 'Haftalık ortalama' : latest.name}</strong><small>{multiple ? `${period.exams.length} deneme · ${totalNets.length} toplam net kaydı` : `${dateLabel(latest.date)} · 1 deneme`}</small></div><strong>{averageTotal === null ? 'Toplam net eksik' : `${compactNumber(averageTotal)} net`}</strong></div>
-    {sections.length ? <div className={styles.examBars}>{sections.map(section => <div className={`${styles.examBar} ${section.net < 0 ? styles.examNegative : ''}`} key={section.key} role="group" aria-label={`${section.label}: ${compactNumber(section.net)} net${multiple ? `, ${section.count} kayıt ortalaması` : ''}`}>
-      <span>{section.label}{multiple && <small>{section.count} kayıt</small>}</span><div className={styles.examTrack} aria-hidden="true"><span style={{width: `${Math.min(100, Math.abs(section.net) / maximum * 100)}%`}}/></div><strong>{compactNumber(section.net)}</strong>
+    <div className={styles.examTop}><span>{type}</span><div><strong>{multiple ? 'Haftalık ortalama' : latest.name}</strong><small>{multiple ? `${period.exams.length} deneme · ${totalNets.length} toplam net kaydı` : `${dateLabel(latest.date)} · 1 deneme`}</small></div><strong>{averageTotal === null ? 'Toplam net eksik' : `${netNumber(averageTotal)} net`}</strong></div>
+    {sections.length ? <div className={styles.examBars}>{sections.map(section => <div className={`${styles.examBar} ${section.net < 0 ? styles.examNegative : ''}`} key={section.key} role="group" aria-label={`${section.label}: ${netNumber(section.net)} net${multiple ? `, ${section.count} kayıt ortalaması` : ''}`}>
+      <span>{section.label}{multiple && <small>{section.count} kayıt</small>}</span><div className={styles.examTrack} aria-hidden="true"><span style={{width: `${Math.min(100, Math.abs(section.net) / maximum * 100)}%`}}/></div><strong>{netNumber(section.net)}</strong>
     </div>)}</div> : <p className={styles.examEmptyText}>Ders bazında net kaydı yok.</p>}
     {period.warnings.length > 0 && <div className={styles.examWarnings}><strong>Alt ders odağı</strong>{period.warnings.map((warning, index) => <p key={index}>{warning}</p>)}</div>}
   </article>;

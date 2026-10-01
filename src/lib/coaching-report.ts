@@ -149,6 +149,11 @@ function diaryMetrics(state:AppState,start:string,end:string,seconds:Record<stri
     if(typeof fields.stress==='number'&&fields.stress>=1&&fields.stress<=5)parts.push(`stres ${fields.stress}/5`);
     if(typeof fields.energy==='number'&&fields.energy>=1&&fields.energy<=5)parts.push(`enerji ${fields.energy}/5`);
     const mood=normalizedMood(fields.mood);if(mood)parts.push(mood==='good'?'olumlu ruh hâli':'olumsuz ruh hâli');
+    // Text-only diary days remain visible as the student's own words; do not infer structured mood/sleep values.
+    if(!parts.length&&entry.original_text.trim()){
+      const note=entry.original_text.trim().replace(/\s+/g,' ');
+      parts.push(`Günlük notun: “${note.slice(0,360)}${note.length>360?'…':''}”`);
+    }
     return {date:entry.journal_date,text:parts.join(', '),study_label:formatHoursMinutes(seconds[entry.journal_date]??0)};
   }).filter(item=>item.text).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,3);
   return {insights,observations};

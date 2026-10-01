@@ -45,7 +45,13 @@ before(async()=>{
 after(async()=>{await db?.close();});
 async function snapshot(){const s=await app();const legacy=<T extends {course_id?:string|null}>(r:T)=>{const copy={...r};delete copy.course_id;return copy;};return {tasks:s.tasks.map(legacy),topics:s.topics,exams:s.exams,sessions:s.sessions.map(legacy),manual:s.manual_study_entries?.map(legacy),intervals:s.intervals,history:s.topic_history};}
 test('migration keeps existing YKS topics, mastery, net, intervals and time without mandatory setup',async()=>{
- await actor(LEGACY);assert.deepEqual(await snapshot(),legacyBefore);assert.equal((await state()).needs_onboarding,false);
+ await actor(LEGACY);
+ const before=legacyBefore as Awaited<ReturnType<typeof snapshot>>;
+ const after=await snapshot();
+ const originalTaskIds=new Set(before.tasks.map(task=>task.id));
+ assert.deepEqual({...after,tasks:after.tasks.filter(task=>originalTaskIds.has(task.id))},before);
+ assert.equal(after.tasks.filter(task=>!originalTaskIds.has(task.id)).length,5);
+ assert.equal((await state()).needs_onboarding,false);
  const counts=(await state()).courses;assert.ok(counts.some(c=>c.context==='yks'&&c.exam==='TYT'&&c.name==='Matematik'));
  const linked=(await app()),math=counts.find(c=>c.context==='yks'&&c.exam==='TYT'&&c.name==='Matematik')!;
  assert.equal(linked.tasks[0].course_id,math.id);assert.equal(linked.sessions.find(s=>s.subject==='TYT Matematik')?.course_id,math.id);

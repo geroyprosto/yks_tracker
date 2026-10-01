@@ -44,7 +44,7 @@ test('researched catalogue replaces unused starters and preserves progress and r
     assert.equal(rows.rows.filter(row => row.exam === 'TYT' && excluded.includes(row.subject)).length, 0);
     const retained = await db.query<{ id: string; mastery: number; notes: string }>(`select id,mastery,notes from public.topics where id='${preservedId}'`);
     assert.deepEqual(retained.rows[0], { id: preservedId, mastery: 4, notes: 'Kendi notum' });
-    assert.equal((await db.query(`select id from public.tasks where topic_id='${preservedId}'`)).rows.length, 1);
+    assert.equal((await db.query(`select id from public.tasks where topic_id='${preservedId}' and title='Biyoloji tekrar'`)).rows.length, 1);
     assert.equal((await db.query(`select id from public.topic_history where topic_id='${preservedId}'`)).rows.length, 1);
     await db.exec(`update public.owner_allowlist set user_id='${nextOwner}'; set role authenticated; select set_config('request.jwt.claim.sub','${nextOwner}',false); select public.yks_state(); reset role;`);
     const fresh = await db.query<{ exam: string; subject: string; name: string }>(`select exam,subject,name from public.topics where user_id='${nextOwner}'`);

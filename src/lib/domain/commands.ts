@@ -4,7 +4,7 @@ const text = (max: number) => z.string().trim().max(max);
 const id = z.uuid();
 const date = z.iso.date();
 const revision = z.number().int().positive();
-const studyType = z.enum(["Konu anlatımı", "Soru çözümü", "Tekrar", "Hızlı gözden geçirme", "Yanlış analizi", "Hâkimiyet kontrolü"]);
+const studyType = z.enum(["Konu anlatımı", "Soru çözümü", "Tekrar", "Hızlı gözden geçirme", "Yanlış analizi", "Hâkimiyet kontrolü", "Aralıklı tekrar"]);
 const exam = z.enum(["TYT", "AYT"]);
 const factors = z.object({easy:z.number().min(0.1).max(10),medium:z.number().min(0.1).max(10),hard:z.number().min(0.1).max(10)}).strict();
 const step = z.object({id, title:text(240).min(1),completed:z.boolean()}).strict();

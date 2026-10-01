@@ -1,7 +1,7 @@
 import type { EducationState } from '../education';
 export type Difficulty = "easy" | "medium" | "hard";
 export type Theme = "graphite" | "rose" | "ocean" | "aurora" | "forest" | "burgundy" | "plum" | "pastel" | "steel" | "white" | "black";
-export type StudyType = "Konu anlatımı" | "Soru çözümü" | "Tekrar" | "Hızlı gözden geçirme" | "Yanlış analizi" | "Hâkimiyet kontrolü";
+export type StudyType = "Konu anlatımı" | "Soru çözümü" | "Tekrar" | "Hızlı gözden geçirme" | "Yanlış analizi" | "Hâkimiyet kontrolü" | "Aralıklı tekrar";
 export type Settings = {
   display_name: string; exam_year: number; exam_date: string | null; target_rank: number | null;
   timezone: string; daily_target_minutes: number; task_share: number;

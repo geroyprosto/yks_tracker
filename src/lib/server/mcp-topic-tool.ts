@@ -16,7 +16,7 @@ export const updateTopicStatusInput = z.object({
 export function registerTopicStatusTool(server: McpServer, client: SupabaseClient, userId: string, appUrl: string) {
   server.registerTool("update_topic_status", {
     title: "Konu öğrenme düzeyini güncelle",
-    description: "Kullanıcının açıkça istediği öğrenme düzeyini, list_topics ile bulunan tam konu kimliği ve sürümüyle kaydeder. Düzeyler: 0 başlanmadı, 1 öğreniliyor, 2 konu anlatımı tamamlandı, 3 bağımsız soru çözülebiliyor, 4 konuya hâkimim. İlk kez 2 veya üstüne geçişte uygulama Görevlerim'e beş düşük öncelikli pazar pekiştirmesi ekler; mevcut düzeyden geçmişteki bitiş tarihi uydurma. Konu belirsizse önce kullanıcıya sor. Yeniden denemede aynı request_id UUID değerini kullan.",
+    description: "Kullanıcının açıkça istediği öğrenme düzeyini, list_topics ile bulunan tam konu kimliği ve sürümüyle kaydeder. Düzeyler: 0 başlanmadı, 1 öğreniliyor, 2 konu anlatımı tamamlandı, 3 bağımsız soru çözülebiliyor, 4 konuya hâkimim. İlk 0/1→2 veya üstü geçişin tarihi saklanır. Analiz oluşturulurken uygulama bu yeni olay için Görevlerim'e beş düşük öncelikli aralıklı tekrar ekler: ilk pazar, +14 gün, ardından sırayla +1 ay, +2 ay, +3 ay. Mevcut düzeyden geçmişteki bitiş tarihi uydurma. Konu belirsizse önce kullanıcıya sor. Yeniden denemede aynı request_id UUID değerini kullan.",
     inputSchema: updateTopicStatusInput,
     annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     _meta: { securitySchemes: [{ type: "oauth2", scopes: [] }] },

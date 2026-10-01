@@ -1,5 +1,5 @@
 export const masteryLabels=['Başlanmadı','Öğreniliyor','Konu anlatımı tamamlandı','Bağımsız soru çözülebiliyor','Konuya hâkimim'];
-export const studyTypes=['Konu anlatımı','Soru çözümü','Tekrar','Hızlı gözden geçirme','Yanlış analizi','Hâkimiyet kontrolü'];
+export const studyTypes=['Konu anlatımı','Soru çözümü','Tekrar','Hızlı gözden geçirme','Yanlış analizi','Hâkimiyet kontrolü','Aralıklı tekrar'];
 export const themes=[
  {id:'rose',accents:["#ff6c99","#63dfaa"],pair:'Pembe + adaçayı yeşili',name:'Mercan / Gül',colors:['#590D22','#800F2F','#A4133C','#C9184A','#FF4D6D','#FF758F','#FF8FA3','#FFB3C1','#FFCCD5','#FFF0F3']},
  {id:'ocean',accents:["#40d7f6","#ff967d"],pair:'Turkuaz + mercan',name:'Okyanus',colors:['#03045E','#023E8A','#0077B6','#0096C7','#00B4D8','#48CAE4','#90E0EF','#ADE8F4','#CAF0F8']},

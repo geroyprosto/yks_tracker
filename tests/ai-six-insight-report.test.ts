@@ -23,12 +23,14 @@ test('six required cards have strict, bounded text and verified evidence',()=>{
   assert.throws(()=>validateStructuredReport(report,[],[]));
 });
 
-test('report instructions map every section and keep diary, comparison, and calendar claims conditional',()=>{
-  for(const key of ['topics','regularity','journal','wins','improvements','timing'])assert.match(REPORT_INSTRUCTIONS,new RegExp(key));
+test('current coach instructions use saved plan and verified metrics while retaining legacy validation separately',()=>{
+  for(const key of ['annual_plan','coaching.context.current_cutoff','priority_summary','homework_results',
+    'repetition_results','diary_insights','weekly_exam'])assert.match(REPORT_INSTRUCTIONS,new RegExp(key.replaceAll('.','\\.')));
   assert.match(REPORT_INSTRUCTIONS,/Kasım.*zorunlu/);
   assert.match(REPORT_INSTRUCTIONS,/sebep-sonuç/);
-  assert.match(REPORT_INSTRUCTIONS,/as_of/);
-  assert.match(REPORT_INSTRUCTIONS,/günlük/);
+  assert.match(REPORT_INSTRUCTIONS,/En çok üç directions/);
+  assert.match(REPORT_INSTRUCTIONS,/Şimdi 20 soru çöz.*verme/);
+  assert.match(REPORT_INSTRUCTIONS,/Eski topics, regularity, journal, wins, improvements, timing kartlarını üretme/);
 });
 
 test('oversized prompts are rejected before any journal excerpt is dropped',()=>{

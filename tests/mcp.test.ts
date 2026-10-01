@@ -99,7 +99,7 @@ test("MCP initialize exposes the coach instructions to connected clients", async
   assert.ok(payload);
   const body = JSON.parse(payload);
   assert.match(body.result.instructions, /get_analysis_sources/);
-  assert.match(body.result.instructions, /beş düşük öncelikli pazar pekiştirmesi/);
+  assert.match(body.result.instructions, /beş düşük öncelikli pekiştirme/);
 });
 
 test("MCP exam creation accepts only confirmed, structured results", () => {

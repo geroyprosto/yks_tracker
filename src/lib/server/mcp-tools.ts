@@ -5,6 +5,7 @@ import { buildStudyReport, studyReportRange } from "../study-report";
 import { localDate } from "../ui";
 import { getMcpOwnerState, executeMcpOwnerCommand } from "./mcp-gateway";
 import { registerAnalysisSourcesTool } from "./mcp-analysis-tool";
+import {loadCoachingContext} from './coaching';
 import { ApiError } from "./http";
 import { registerTopicStatusTool } from "./mcp-topic-tool";
 
@@ -110,7 +111,7 @@ async function safely<T>(work: () => Promise<T>) {
 /** The caller is already authenticated and owner-checked before this factory runs. */
 export function createStudyMcpServer(client: SupabaseClient, userId: string, appUrl: string) {
   const server = new McpServer({ name: "yksim-study", version: "0.1.0" }, { instructions:
-    "YKSim'de YKS eğitim koçu olarak öğrencinin durumunu sormadan önce get_analysis_sources, list_topics ve gerektiğinde list_tasks ile gerçek kayıtları incele. Bulunduğu aya, konu düzeylerine, deneme sonuçlarına ve güncel görevlerine göre şimdi başlayacağı tek somut çalışmayı emir kipinde söyle; kayıtlı hedef ayına göre gerçek bir gecikme varsa açık ve net uyar. Örnek hedefleri veya kullanıcı ayarındaki sınav gününü resmî tarih sayma. İyi giden dersin yanında ihmal edilen dersi gerçek güncel konusuyla dengele. Haftalık yüksek öncelikli görev oranını tamamlanan yüksek öncelikli / planlanan yüksek öncelikli olarak hesapla; bugünün açık görevini kaçınma kanıtı sayma, kaçınmayı yalnız yeterli gecikme ve konu kanıtıyla olasılık olarak sor. Günlük analizi açıksa kayıtlı günlük alanlarıyla aynı günün çalışma süresini birlikte değerlendir; günlük alanını veya kayıtlarını değiştirme, az veriden sebep sonuç çıkarma. Öğrenci bir konuyu yeni bitirdiğini açıkça bildirirse önce tam konuyu bul, gerekirse update_topic_status ile düzeyi 2 veya üstüne geçir; bu ilk geçiş Görevlerim'de beş düşük öncelikli pazar pekiştirmesini otomatik oluşturur. Eskiden tamamlanmış konunun bitiş tarihini uydurma; oluşturulmamış görevi oluşturuldu diye sunma. Yazma araçlarında kullanıcının açık isteğine, tam kimlik ve sürüme uy." });
+    "YKSim'de öğrencinin mevcut durumunu sormadan önce get_analysis_sources, list_topics ve list_tasks ile gerçek kayıtları incele. Kayıtlı kişisel yıllık plan ve güncel ay üzerinden haftalık konu bitirme hedefleri ver: bu hafta anlatımı bitir, önkoşullar tamamlanınca sonraki hafta bağımsız çözümü tamamla. Şimdi 20 soru çöz gibi anlık genel emir kullanma. Kayıtlı hedef ayına göre gecikme varsa açıkça uyar, hedef tarih uydurma. Kullanıcı ödev eklenmesini istemişse somut haftalık görevleri Görevlerim'e gerçekten yaz; yalnız başarılı araç sonucu varsa eklendi de. Haftalık oran tamamlanan yüksek öncelikli / Pazartesi-Pazar planlanan tüm yüksek öncelikli görevlerdir. Bugün ve gelecekteki açık görevi gecikmiş sayma. Ders bazlı oran ve konu ilerlemesi beraber kaçınma gösterebilir; kesin kişilik hükmü verme. Günlük alanlarını ve kayıtlarını koru, uyanma, uyku, stres ve ruh halini aynı günün çalışmasıyla karşılaştır; güçlü ilişki için en az14 eşleşmiş gün ve her grupta5 gün gerekir. Süreleri saat ve dakika göster. TYT/AYT alt ders netlerini ayrı incele; Sosyal toplamı yüksekken Coğrafya sıfırsa o eksikliği belirt, eksik veriyi sıfır sayma. Anlatım tamamlanması ilk 0/1→2+ geçişidir. Tekrarlar analiz sırasında hizmet tarafından beş düşük öncelikli pekiştirme olarak kaydedilir: ilk pazar, ardından14 gün, sonra önceki tekrara1ay,2ay,3ay. Son üçü pazar olmak zorunda değildir. Geçmişte kalmış aşamaları geriye dönük görev yazma, mevcut gecikmiş görevi silme, yeniden analizde kopya oluşturma. Hiç oluşturulmamış göreve eklendi deme. Kullanıcının açık isteğiyle tam kimlik ve sürümü kullan." });
 
   server.registerTool("get_study_summary", {
     title: "Çalışma özeti",
@@ -254,7 +255,7 @@ export function createStudyMcpServer(client: SupabaseClient, userId: string, app
       status: command.replayed ? "already_saved" : "saved", replayed: command.replayed, app_url: appUrl };
   }));
   registerTopicStatusTool(server, client, userId, appUrl);
-  registerAnalysisSourcesTool(server, () => getMcpOwnerState(client, userId));
+  registerAnalysisSourcesTool(server, () => getMcpOwnerState(client, userId),()=>loadCoachingContext(client,userId));
   return server;
 }
 

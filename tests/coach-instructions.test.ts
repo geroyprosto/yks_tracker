@@ -7,7 +7,8 @@ test('coach instructions use recorded progress, weekly priority ratios and journ
   assert.match(REPORT_INSTRUCTIONS,/weekly_task_priority/);
   assert.match(REPORT_INSTRUCTIONS,/tamamlanan yüksek öncelikli.*planlanan yüksek öncelikli/);
   assert.match(REPORT_INSTRUCTIONS,/uyanma.*stres/);
-  assert.match(REPORT_INSTRUCTIONS,/Şimdi.*başla/);
+  assert.match(REPORT_INSTRUCTIONS,/bu hafta konu anlatımını bitir/);
+  assert.match(REPORT_INSTRUCTIONS,/Şimdi 20 soru çöz.*verme/);
   assert.match(REPORT_INSTRUCTIONS,/kaçıyor olabilir misin/);
   assert.match(REPORT_INSTRUCTIONS,/planlama tarihi/);
   assert.match(REPORT_INSTRUCTIONS,/resmî.*sınav tarihi/);

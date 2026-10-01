@@ -18,7 +18,7 @@ test('correction removes only untouched delayed reviews and refreshes their day 
       grant execute on function auth.uid() to anon,authenticated,service_role;
       insert into auth.users values('${owner}');`);
     const migrations = new URL('../migrations/', import.meta.url);
-    for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql') && name !== correction && name !== snapshotCleanup).sort()) {
+    for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql') && name !== correction && name !== snapshotCleanup && !name.includes('topic_review_series_reconcile')).sort()) {
       await db.exec(await readFile(new URL(name, migrations), 'utf8'));
     }
     await db.exec(`insert into public.owner_allowlist(user_id) values('${owner}');

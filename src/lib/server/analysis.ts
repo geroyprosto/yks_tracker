@@ -1,12 +1,14 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { AppState } from '../domain/types';
 import { buildAnalysisSnapshot, buildSixInsightSnapshot, buildStudentAnalysisSnapshot } from '../analysis-snapshot';
-import { GUIDANCE_SOURCES, REPORT_SCHEMA_VERSION } from '../ai-report';
+import { buildCoachingReportMetrics } from '../coaching-report';
+import { coachingRpc,loadCoachingContext,prepareCoachingRun,receiptDirections,type TaskReceipt } from './coaching';
+import {createHash} from 'node:crypto';
 import { localDate } from '../ui';
 import { getState } from './service';
 import { getConfiguration } from './auth';
 import { ApiError } from './http';
-import { analysisServiceConfigured, formatAnalysis, getAnalysisProviderConfig, providerPayload, requestAnalysis, reservedCostUsd, schedulerReady, verifyAnalysisModel } from './analysis-provider';
+import { analysisServiceConfigured, getAnalysisProviderConfig, providerPayload, requestCoachingAnalysis, reservedCostUsd, schedulerReady, verifyAnalysisModel } from './analysis-provider';
 
 type ReportRow={id:string;user_id:string;start_date:string;end_date:string;source_hash:string;
   status:'pending'|'running'|'completed'|'failed'|'uncertain';body:string|null;summary:Record<string,unknown>|null;
@@ -35,11 +37,15 @@ export async function getAnalysisStatus(client:SupabaseClient){
   ]);
   if(settings.error||reports.error||usage.error)throw databaseSetupError();
   const rows=reports.data as ReportRow[];
+  const state=await getState(client);
+  const admin=analysisServiceConfigured()?analysisAdmin():null;
+  const context=admin?await loadCoachingContext(admin,id):null;
+  const repetition=(admin?await coachingRpc<{results:TaskReceipt[];current_cutoff?:string}|null>(admin,'topic_review_receipt',{p_user_id:id}):null)??{results:[]};
+  const currentCoaching=buildCoachingReportMetrics(state,{cutoff:state.server_now,previous:context?.previous_metrics,previousAnalysisId:context?.previous_report_id});
   const current=rows.filter(row=>row.status==='completed');
   const hashes=new Map<string,string>();
   if(current.length){
-    const state=await getState(client);
-    for(const row of current){const version=row.summary?.schema_version??1;
+    for(const row of current.filter(item=>item.summary?.schema_version!==4)){const version=row.summary?.schema_version??1;
       const asOf=version===3&&typeof row.summary?.guidance_as_of==='string'?row.summary.guidance_as_of:'';
       const key=row.start_date+'/'+row.end_date+'/'+version+'/'+asOf;
       if(!hashes.has(key)){
@@ -52,8 +58,10 @@ export async function getAnalysisStatus(client:SupabaseClient){
   const config=getAnalysisProviderConfig();
   return {ok:true,configured:Boolean(config&&analysisServiceConfigured()&&(usage.data as UsageRow)?.enabled),model:process.env.OPENAI_MODEL?.trim()||null,
     scheduler_ready:schedulerReady(),schedule:settings.data as ScheduleRow,
+    current_coaching:{...currentCoaching,directions:receiptDirections(context?.homework_results??[]),homework_results:context?.homework_results??[]},
+    current_repetition_results:repetition.results,current_repetition_cutoff:'current_cutoff' in repetition?repetition.current_cutoff:null,annual_plan:context?.plan??null,
     reports:rows.map(row=>({id:row.id,start_date:row.start_date,end_date:row.end_date,status:row.status,body:row.body,
-      created_at:row.created_at,stale:row.status==='completed'&&hashes.get(row.start_date+'/'+row.end_date+'/'+(row.summary?.schema_version??1)+'/'+
+      created_at:row.created_at,stale:row.summary?.schema_version===4?false:row.status==='completed'&&hashes.get(row.start_date+'/'+row.end_date+'/'+(row.summary?.schema_version??1)+'/'+
         (row.summary?.schema_version===3&&typeof row.summary?.guidance_as_of==='string'?row.summary.guidance_as_of:''))!==row.source_hash,
       error_message:row.error_message,summary:row.summary,usage:row.usage})),
     resets_at:(usage.data as UsageRow)?.resets_at??null,
@@ -73,44 +81,55 @@ export async function generateAnalysisForState(options:{owner:string;state:AppSt
 }){
   const config=getAnalysisProviderConfig();
   if(!config)throw new ApiError(503,'ANALYSIS_SETUP_REQUIRED','OpenAI API anahtarı, model ve maliyet sınırları henüz kurulmadı.');
-  const {snapshot,sourceHash}=buildSixInsightSnapshot(options.state,options.start,options.end);
-  if(snapshot.summary.data_days===0)throw new ApiError(400,'ANALYSIS_NO_DATA','Bu aralıkta değerlendirilecek kayıt yok. AI hakkı kullanılmadı.');
-  const prompt=providerPayload(snapshot);
-  const reservation=reservedCostUsd(config,prompt);
-  if(reservation>config.monthlyUsd)throw new ApiError(429,'ANALYSIS_BUDGET','Tek rapor maliyet üst sınırı aylık bütçeyi aşıyor.');
-  await verifyAnalysisModel(config);
-  const params={p_request_id:options.requestId,p_start_date:options.start,p_end_date:options.end,
-    p_source_hash:sourceHash,p_max_requests:config.monthlyRequests,p_monthly_budget_usd:config.monthlyUsd,
-    p_reserved_cost_usd:reservation};
-  const claim=await analysisAdmin().rpc('analysis_report_claim_for_owner',{p_user_id:options.owner,...params});
-  if(claim.error){
-    if(claim.error.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
-    if(claim.error.message.includes('AI_DISABLED'))throw new ApiError(503,'AI_DISABLED','AI sunucuda kapalı; çalışma kayıtların kullanılabilir.');
-    if(/AI_LIMIT_REACHED|AI_APP_BUDGET_REACHED/.test(claim.error.message))throw new ApiError(429,'ANALYSIS_BUDGET','Bu ayki 4 AI kullanımı veya uygulama bütçesi doldu.');
-    throw databaseSetupError();
-  }
-  const value=claim.data as {report:ReportRow;claimed:boolean};
-  if(!value?.claimed)return value?.report;
   const admin=analysisAdmin();
+  const cached=await admin.from('analysis_reports').select('*').eq('user_id',options.owner).eq('request_id',options.requestId).eq('status','completed').maybeSingle();
+  if(cached.error)throw databaseSetupError();
+  if(cached.data)return cached.data as ReportRow;
+  let report:ReportRow|null=null;
+  let ownsRun=false;
   try{
-    const marked=await admin.rpc('ai_mark_sent',{p_user_id:options.owner,p_kind:'report',p_id:value.report.id,p_request_id:options.requestId});
+    const prepared=await prepareCoachingRun(admin,options.owner,options.requestId,options.start,options.end);
+    ownsRun=true;
+    const {snapshot}=buildSixInsightSnapshot(prepared.state,options.start,options.end);
+    if(snapshot.summary.data_days===0)throw new ApiError(400,'ANALYSIS_NO_DATA','Bu aralıkta değerlendirilecek kayıt yok. AI hakkı kullanılmadı.');
+    const prompt=providerPayload({...snapshot,weekly_task_priority:prepared.coaching.priority_summary,
+      task_priority_by_subject:prepared.coaching.priority_summary.by_subject,coaching:{...prepared.coaching,
+      repetition_results:prepared.coaching.repetition_results.map(({title,topic_id,status,task_ids})=>({title,topic_id,status,task_ids}))},annual_plan:prepared.plan});
+    const sourceHash=createHash('sha256').update(prompt).digest('hex');
+    const reservation=reservedCostUsd(config,prompt);
+    if(reservation>config.monthlyUsd)throw new ApiError(429,'ANALYSIS_BUDGET','Tek rapor maliyet üst sınırı aylık bütçeyi aşıyor.');
+    await verifyAnalysisModel(config);
+    const claim=await admin.rpc('analysis_report_claim_for_owner',{p_user_id:options.owner,
+      p_request_id:options.requestId,p_start_date:options.start,p_end_date:options.end,p_source_hash:sourceHash,
+      p_max_requests:config.monthlyRequests,p_monthly_budget_usd:config.monthlyUsd,p_reserved_cost_usd:reservation});
+    if(claim.error){
+      if(claim.error.message.includes('STUDENT_REQUIRED'))throw new ApiError(403,'STUDENT_REQUIRED','Hesap artık analiz için uygun değil.');
+      if(claim.error.message.includes('AI_DISABLED'))throw new ApiError(503,'AI_DISABLED','AI sunucuda kapalı; çalışma kayıtların kullanılabilir.');
+      if(/AI_LIMIT_REACHED|AI_APP_BUDGET_REACHED/.test(claim.error.message))throw new ApiError(429,'ANALYSIS_BUDGET','Bu ayki 4 AI kullanımı veya uygulama bütçesi doldu. Görev kayıtları korundu.');
+      throw databaseSetupError();
+    }
+    const value=claim.data as {report:ReportRow;claimed:boolean};
+    if(!value?.claimed){await admin.rpc('coaching_run_fail',{p_user_id:options.owner,p_run_id:options.requestId});return value?.report;}
+    report=value.report;
+    const marked=await admin.rpc('ai_mark_sent',{p_user_id:options.owner,p_kind:'report',p_id:report.id,p_request_id:options.requestId});
     if(marked.error)throw databaseSetupError();
-    const generated=await requestAnalysis(config,prompt);
-    const summary={...snapshot.summary,schema_version:REPORT_SCHEMA_VERSION,structured_report:generated.analysis,
-      evidence:snapshot.evidence,report_metrics:snapshot.report_metrics,guidance_as_of:snapshot.timing_guidance.as_of,
-      guidance_sources:snapshot.education.yks_goal===false?[]:GUIDANCE_SOURCES.map(source=>({title:source.title,url:source.url}))};
-    const result=await admin.rpc('analysis_report_finalize',{p_user_id:options.owner,p_report_id:value.report.id,
-      p_request_id:options.requestId,p_body:formatAnalysis(generated.analysis),p_summary:summary,
-      p_usage:generated.usage,p_actual_cost_usd:generated.cost});
-    if(result.error)throw databaseSetupError();
-    return result.data as ReportRow;
+    const taskIds=[...prepared.coaching.homework_results,...prepared.coaching.repetition_results].flatMap(item=>item.task_ids??[]);
+    const generated=await requestCoachingAnalysis(config,prompt,prepared.state.topics.map(topic=>topic.id),taskIds);
+    const coaching={...prepared.coaching,context:{...prepared.coaching.context,current_analysis_id:report.id},
+      directions:generated.analysis.directions,journal_note:generated.analysis.journal_note,exam_note:generated.analysis.exam_note};
+    const summary={...snapshot.summary,schema_version:4,coaching,structured_report:generated.analysis,
+      evidence:snapshot.evidence,report_metrics:snapshot.report_metrics,guidance_as_of:coaching.context.cutoff_local_date};
+    return await coachingRpc<ReportRow>(admin,'coaching_report_finalize',{p_user_id:options.owner,p_run_id:options.requestId,
+      p_report_id:report.id,p_body:[...coaching.directions.map(item=>item.title+'\n'+item.text),coaching.journal_note,coaching.exam_note].filter(Boolean).join('\n\n'),
+      p_summary:summary,p_usage:generated.usage,p_actual_cost_usd:generated.cost});
   }catch(error){
-    const message=error instanceof ApiError?error.message:'AI raporu tamamlanamadı.';
-    await admin.rpc('analysis_report_fail',{p_user_id:options.owner,p_report_id:value.report.id,
-      p_request_id:options.requestId,p_error_message:message});
+    if(report)await admin.rpc('analysis_report_fail',{p_user_id:options.owner,p_report_id:report.id,
+      p_request_id:options.requestId,p_error_message:error instanceof ApiError?error.message:'AI raporu tamamlanamadı.'});
+    if(ownsRun)await admin.rpc('coaching_run_fail',{p_user_id:options.owner,p_run_id:options.requestId});
     throw error;
   }
 }
+
 export async function generateManualAnalysis(client:SupabaseClient,start:string,end:string,requestId:string){
   const state=await getState(client);
   return generateAnalysisForState({owner:await ownerId(client),state,start,end,requestId});

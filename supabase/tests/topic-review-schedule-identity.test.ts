@@ -17,7 +17,7 @@ test('historical first completion restores missing schedule identity without add
       grant execute on function auth.uid() to anon,authenticated;
       insert into auth.users values('${owner}');`);
     const migrations = new URL('../migrations/', import.meta.url);
-    for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql') && name !== repair).sort()) {
+    for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql') && name !== repair && !name.includes('topic_review_series_reconcile')).sort()) {
       await db.exec(await readFile(new URL(name, migrations), 'utf8'));
     }
     await db.exec(`insert into public.owner_allowlist(user_id) values('${owner}');

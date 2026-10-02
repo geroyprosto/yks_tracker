@@ -13,10 +13,17 @@ export async function requireEducationUser() {
 export async function getEducation(client:SupabaseClient):Promise<EducationState>{
   const {data,error}=await client.rpc('education_state');if(error)databaseError(error);return data as EducationState;
 }
-export async function executeEducationCommand(client:SupabaseClient,input:unknown){
+export type EducationCommandReceipt={ok:true;result:{id:string;request_id:string;replayed:boolean}};
+export type EducationCommandResponse=EducationCommandReceipt&{state:EducationState};
+export async function executeEducationCommand(client:SupabaseClient,input:unknown):Promise<EducationCommandResponse>;
+export async function executeEducationCommand(client:SupabaseClient,input:unknown,options:{minimal:true}):Promise<EducationCommandReceipt>;
+export async function executeEducationCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean}):Promise<EducationCommandReceipt|EducationCommandResponse>;
+export async function executeEducationCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean}={minimal:false}):Promise<EducationCommandReceipt|EducationCommandResponse>{
   const parsed=educationCommandSchema.safeParse(input);
   if(!parsed.success)throw new ApiError(400,'INVALID_INPUT',parsed.error.issues[0]?.message??'Alanları kontrol edin.');
   const {data,error}=await client.rpc('education_command',{request_id:parsed.data.request_id,command_type:parsed.data.type,payload:parsed.data.payload});
   if(error)databaseError(error);
-  return {ok:true as const,result:data as {id:string;request_id:string;replayed:boolean},state:await getEducation(client)};
+  const receipt:EducationCommandReceipt={ok:true,result:data as EducationCommandReceipt['result']};
+  if(options.minimal)return receipt;
+  return {...receipt,state:await getEducation(client)};
 }

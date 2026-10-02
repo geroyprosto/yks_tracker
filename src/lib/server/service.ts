@@ -46,13 +46,33 @@ export async function getState(client:SupabaseClient):Promise<AppState>{
  const {data,error}=await client.rpc("yks_state");if(error)databaseError(error);
  return {...emptyState(true),...data,configured:true,authenticated:true} as AppState;
 }
-export async function executeCommand(client:SupabaseClient,input:unknown):Promise<{ok:true;id:string;request_id:string;replayed:boolean;state:AppState}>{
+export async function authorizeStudyCommand(client:SupabaseClient):Promise<SupabaseClient>{
+ const {data,error}=await client.rpc('classroom_identity');
+ if(error){
+  // The database verifies the JWT for the usual path. An Auth check on failure
+  // preserves the existing sign-in error when the token cannot be refreshed.
+  const verified=await client.auth.getUser();
+  if(verified.error||!verified.data.user)throw new ApiError(401,'SIGN_IN_REQUIRED','Devam etmek için giriş yapın.');
+  databaseError(error);
+ }
+ const account=data as {status:string;role:string}|null;
+ if(!account||account.status!=='approved'||account.role!=='student')throw new ApiError(403,'STUDENT_REQUIRED','Çalışma verilerine erişmek için onaylı öğrenci hesabı gerekir.');
+ return client;
+}
+export type CommandReceipt = {ok:true;id:string;request_id:string;replayed:boolean};
+export type CommandResponse = CommandReceipt & {state:AppState};
+export async function executeCommand(client:SupabaseClient,input:unknown):Promise<CommandResponse>;
+export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:true}):Promise<CommandReceipt>;
+export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean}):Promise<CommandReceipt|CommandResponse>;
+export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean}={minimal:false}):Promise<CommandReceipt|CommandResponse>{
  const parsed=commandSchema.safeParse(input);
  if(!parsed.success)throw new ApiError(400,"INVALID_INPUT",parsed.error.issues[0]?.message??"Alanları kontrol edin.");
  const {data,error}=await client.rpc("yks_command",{request_id:parsed.data.request_id,command_type:parsed.data.type,payload:parsed.data.payload});
  if(error)databaseError(error);
  const result=data as {id:string;request_id:string;replayed:boolean};
- return {...result,ok:true,state:await getState(client)};
+ const receipt:CommandReceipt={...result,ok:true};
+ if(options.minimal)return receipt;
+ return {...receipt,state:await getState(client)};
 }
 
 

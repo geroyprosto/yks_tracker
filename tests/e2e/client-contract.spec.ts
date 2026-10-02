@@ -39,6 +39,81 @@ test("mocked write conflict preserves draft and remains visible after state refr
   await expect(page.getByRole("alert").filter({ hasText: "Plan başka bir cihazda değişti." })).toBeVisible();
 });
 
+test("task completion changes immediately, then reconciles after a delayed save", async ({ page }) => {
+  const state = authenticatedState();
+  const taskId = '22222222-2222-4222-8222-222222222222';
+  state.tasks = [{id: taskId, title: 'Hız testi', plan_date: localDate(), exam: null, subject: null,
+    topic_id: null, resource: '', completion_criteria: '', planned_minutes: 40, difficulty: 'medium',
+    progress: 0, weight_override: null, priority: 'normal', position: 0, notes: '', study_type: 'Tekrar',
+    steps: [], revision: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString()}];
+  await mockState(page, state);
+  let finish!: () => void;
+  const held = new Promise<void>(resolve => {finish = resolve;});
+  let prefer = '';
+  await page.route('**/api/command', async route => {
+    prefer = route.request().headers()['prefer'] ?? '';
+    await held;
+    state.tasks[0] = {...state.tasks[0], progress: 1, revision: 2};
+    await route.fulfill({json: {ok: true, id: taskId, request_id: route.request().postDataJSON().request_id, replayed: false}});
+  });
+  await page.goto('/');
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Görevlerim', exact: true}).click();
+  await page.getByRole('button', {name: 'Hız testi görevini tamamla'}).click();
+  await expect(page.getByRole('button', {name: 'Hız testi tamamlamasını geri al'})).toBeVisible();
+  await expect(page.locator('.sync-status')).toContainText('Kaydediliyor');
+  expect(prefer).toBe('return=minimal');
+  finish();
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(page.getByRole('button', {name: 'Hız testi tamamlamasını geri al'})).toBeVisible();
+});
+
+test("a rejected save restores the previous task state", async ({ page }) => {
+  const state = authenticatedState();
+  state.tasks = [{id: '22222222-2222-4222-8222-222222222222', title: 'Geri alma testi',
+    plan_date: localDate(), exam: null, subject: null, topic_id: null, resource: '', completion_criteria: '',
+    planned_minutes: 40, difficulty: 'medium', progress: 0, weight_override: null, priority: 'normal',
+    position: 0, notes: '', study_type: 'Tekrar', steps: [], revision: 1,
+    created_at: new Date().toISOString(), updated_at: new Date().toISOString()}];
+  await mockState(page, state);
+  let reject!: () => void;
+  const held = new Promise<void>(resolve => {reject = resolve;});
+  await page.route('**/api/command', async route => {
+    await held;
+    await route.fulfill({status: 409, json: {ok: false, error: {code: 'CONFLICT', message: 'Kayıt başka yerde değişti.'}}});
+  });
+  await page.goto('/');
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Görevlerim', exact: true}).click();
+  await page.getByRole('button', {name: 'Geri alma testi görevini tamamla'}).click();
+  await expect(page.getByRole('button', {name: 'Geri alma testi tamamlamasını geri al'})).toBeVisible();
+  reject();
+  await expect(page.getByRole('button', {name: 'Geri alma testi görevini tamamla'})).toBeVisible();
+  await expect(page.getByRole('alert').filter({hasText: 'Kayıt başka yerde değişti.'})).toBeVisible();
+});
+
+test('a journal entry appears before its delayed save response', async ({page}) => {
+  const state = authenticatedState();
+  await mockState(page, state);
+  let finish!: () => void;
+  const held = new Promise<void>(resolve => {finish = resolve;});
+  await page.route('**/api/command', async route => {
+    const command = route.request().postDataJSON();
+    await held;
+    state.journal_entries = [{id: 'saved-journal', journal_date: command.payload.journal_date,
+      original_text: command.payload.original_text, structured_fields: {}, exclude_from_analysis: false,
+      ai_shared_fields: [], revision: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString()}];
+    await route.fulfill({json: {ok: true, id: 'saved-journal', request_id: command.request_id, replayed: false}});
+  });
+  await page.goto('/');
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Günlüğüm'}).click();
+  await page.getByLabel('Bugün aklında neler kaldı?').fill('Hızlı kayıt');
+  await page.getByRole('button', {name: 'Günlüğü kaydet'}).click();
+  await expect(page.getByText('Son kayıt:', {exact: false})).toBeVisible();
+  await expect(page.locator('.sync-status')).toContainText('Kaydediliyor');
+  finish();
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(page.getByLabel('Bugün aklında neler kaldı?')).toHaveValue('Hızlı kayıt');
+});
+
 test("mocked failed timer finish keeps the active session dialog open", async ({ page }) => {
   const state = authenticatedState();
   state.sessions = [{ id: "active-session", title: "Devam eden çalışma", task_id: null, topic_id: null, subject: null, study_type: "Tekrar", mode: "stopwatch", target_seconds: null, status: "running", started_at: new Date(Date.now() - 600_000).toISOString(), active_since: new Date(Date.now() - 600_000).toISOString(), accumulated_seconds: 0, finished_at: null, revision: 1 }];

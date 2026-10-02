@@ -24,6 +24,8 @@ import {EducationSettings} from './education-settings';
 import {SchoolResults} from './school-results';
 import type {EducationCommand} from '@/lib/education-ui';
 import {levelLabels} from '@/lib/education-ui';
+import {optimisticCommand} from '@/lib/optimistic-command';
+import {optimisticEducationCommand} from '@/lib/optimistic-education';
 
 const navigation=[
  {id:'today',label:'Bugün',icon:LayoutDashboard},
@@ -48,6 +50,7 @@ export function Dashboard(){
  const [linkedDate,setLinkedDate]=useState<string|null>(null);
  const [settingsInitialTab,setSettingsInitialTab]=useState<'appearance'|'plan'|'connections'>('appearance');
  const [busy,setBusy]=useState(false);
+ const [reconciling,setReconciling]=useState(false);
  const [error,setError]=useState('');
  const [online,setOnline]=useState(true);
  const [mobileMenu,setMobileMenu]=useState(false);
@@ -74,18 +77,19 @@ export function Dashboard(){
    setState(s);
    if(s.settings&&!preferenceDirty.current){setTheme(normalizeTheme(s.settings.theme)??'ocean');setReduced(s.settings.reduced_motion);setSimple(s.settings.simple_view)}
  },[]);
- const refresh=useCallback(async(allowPending=false)=>{
+ const refresh=useCallback(async(allowPending=false):Promise<boolean>=>{
    const epoch=mutationEpoch.current;
    const sequence=++readSequence.current;
    try{
      const response=await fetch('/api/state',{cache:'no-store'});
      const body=await response.json();
-     if(epoch!==mutationEpoch.current||sequence!==readSequence.current||(pending.current&&!allowPending))return;
-     if(body.redirect){window.location.assign(body.redirect);return;}
+     if(epoch!==mutationEpoch.current||sequence!==readSequence.current||(pending.current&&!allowPending))return false;
+     if(body.redirect){window.location.assign(body.redirect);return false;}
      if(!response.ok&&response.status!==401)throw new Error(body.error?.message??'Veriler yüklenemedi.');
      installState(body);
      setError('');
-   }catch(e){setError(e instanceof Error?e.message:'Bağlantı kurulamadı.')}
+     return true;
+   }catch(e){setError(e instanceof Error?e.message:'Bağlantı kurulamadı.');return false}
  },[installState]);
  useEffect(()=>{
    queueMicrotask(()=>setToday(localDate()));
@@ -113,36 +117,74 @@ export function Dashboard(){
    if(pending.current)return false;
    if(!state?.authenticated){setError('Kayıt oluşturmak için önce hesap kurulumunu tamamlayıp giriş yapmalısın.');return false}
    if(!navigator.onLine){setError('Şu anda çevrimdışısın. Değişiklik henüz kaydedilmedi; tekrar bağlanınca yeniden dene.');return false}
-   pending.current=true;setBusy(true);setError('');
+   pending.current=true;setBusy(true);setReconciling(false);setError('');
    mutationEpoch.current++;
    const fingerprint=JSON.stringify({type,payload});
    const requestId=retries.current.get(fingerprint)??crypto.randomUUID();
    retries.current.set(fingerprint,requestId);
+   const previous=state;
+   const minimal=!type.startsWith('timer.');
+   const optimistic=minimal?optimisticCommand(state,type,payload,requestId,new Date().toISOString()):null;
+   if(optimistic)setState(optimistic);
+   let syncing=false;
    try{
-     const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId,type,payload})});
+     const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json',...(minimal?{Prefer:'return=minimal'}:{})},body:JSON.stringify({request_id:requestId,type,payload})});
      const data=await response.json();
      if(!response.ok){if(response.status<500)retries.current.delete(fingerprint);throw new Error(data.error?.message??'İşlem kaydedilemedi.');}
-     retries.current.delete(fingerprint);
      if(type==='settings.update'&&payload.theme)preferenceDirty.current=false;
-     mutationEpoch.current++;installState(data.state);return true;
-   }catch(e){await refresh(true);setError(e instanceof Error?e.message:'İşlem kaydedilemedi.');return false}
-   finally{pending.current=false;setBusy(false)}
+     mutationEpoch.current++;
+     if(minimal&&!data.state){
+       syncing=true;
+       setReconciling(true);
+       void refresh(true).then(ok=>{
+         if(ok)retries.current.delete(fingerprint);
+         else{if(optimistic)setState(previous);setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');}
+       }).finally(()=>{pending.current=false;setBusy(false);setReconciling(false)});
+     }else{retries.current.delete(fingerprint);installState(data.state);}
+     return true;
+   }catch(e){
+     if(optimistic)setState(previous);
+     await refresh(true);
+     setError(e instanceof Error?e.message:'İşlem kaydedilemedi.');
+     return false;
+   }finally{if(!syncing){pending.current=false;setBusy(false)}}
  };
  const educationCommand:EducationCommand=async(type,payload,explicitRequestId)=>{
    if(pending.current)return false;
    if(!state?.authenticated){setError('Önce öğrenci hesabınla giriş yap.');return false;}
    if(!navigator.onLine){setError('Çevrimdışısın. Seçimlerin henüz kaydedilmedi.');return false;}
-   pending.current=true;mutationEpoch.current++;setBusy(true);setError('');
+   pending.current=true;mutationEpoch.current++;setBusy(true);setReconciling(false);setError('');
    const fingerprint=JSON.stringify({education:type,payload});
-   const requestId=explicitRequestId??retries.current.get(fingerprint)??crypto.randomUUID();
+   const requestId=retries.current.get(fingerprint)??explicitRequestId??crypto.randomUUID();
    retries.current.set(fingerprint,requestId);
+   const previous=state.education;
+   const optimistic=previous?optimisticEducationCommand(previous,type,payload,requestId,new Date().toISOString()):null;
+   if(optimistic)setState(current=>current?{...current,education:optimistic}:current);
+   let syncing=false;
    try{
-     const response=await fetch('/api/education',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request_id:requestId,type,payload})});
+     const response=await fetch('/api/education',{method:'POST',headers:{'Content-Type':'application/json',...(optimistic?{Prefer:'return=minimal'}:{})},body:JSON.stringify({request_id:requestId,type,payload})});
      const data=await response.json();
      if(!response.ok){if(response.status<500)retries.current.delete(fingerprint);throw new Error(data.error?.message??'Seçimlerin kaydedilemedi.');}
-     retries.current.delete(fingerprint);mutationEpoch.current++;setState(current=>current?{...current,education:data.state}:current);return true;
-   }catch(cause){setError(cause instanceof Error?cause.message:'Kayıt tamamlanamadı; aynı işlemi yeniden deneyebilirsin.');return false;}
-   finally{pending.current=false;setBusy(false);}
+     mutationEpoch.current++;
+     if(optimistic&&!data.state){
+       syncing=true;
+       setReconciling(true);
+       void (async()=>{
+         const response=await fetch('/api/education',{cache:'no-store'});
+         const current=await response.json();
+         if(!response.ok)throw new Error(current.error?.message??'Görünüm güncellenemedi.');
+         setState(state=>state?{...state,education:current}:state);
+         retries.current.delete(fingerprint);
+       })().catch(()=>{
+         setState(current=>current?{...current,education:previous}:current);
+         setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');
+       }).finally(()=>{pending.current=false;setBusy(false);setReconciling(false)});
+     }else{retries.current.delete(fingerprint);setState(current=>current?{...current,education:data.state}:current);}
+     return true;
+   }catch(cause){
+     if(optimistic)setState(current=>current?{...current,education:previous}:current);
+     setError(cause instanceof Error?cause.message:'Kayıt tamamlanamadı; aynı işlemi yeniden deneyebilirsin.');return false;
+   }finally{if(!syncing){pending.current=false;setBusy(false);}}
  };
  const go=(p:PageId,settingsTab?:'plan'|'connections')=>{if(p==='stats')setStatisticsView('study');if(p==='settings')setSettingsInitialTab(settingsTab??'appearance');setLinkedDate(null);setPage(p);setMobileMenu(false);const url=new URL(window.location.href);if(p==='friends')url.searchParams.set('page','friends');else url.searchParams.delete('page');if(p==='settings'&&settingsTab==='connections')url.searchParams.set('settings','connections');else url.searchParams.delete('settings');window.history.replaceState(window.history.state,'',url)};
  const goFromReport=(p:PageId,date?:string)=>{go(p);if(date&&(p==='journal'||p==='exams'||p==='stats'))setLinkedDate(date)};
@@ -185,7 +227,7 @@ export function Dashboard(){
    </aside>
    {mobileMenu&&<button className="menu-scrim" aria-label="Menüyü kapat" onClick={()=>setMobileMenu(false)}/>}
    <div className="main-shell">
-     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':busy?'Kaydediliyor…':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
+     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite">{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':busy?reconciling?'Görünüm güncelleniyor…':'Kaydediliyor…':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
      <main id="main" data-page={page}>
        {state?.authenticated&&<StudentClassroom state={state}/>}
        <div className="page-heading"><div><p className="eyebrow">{page==='today'?(today?formatDay(today):'Bugün'):'YKSim / '+navigation.find(n=>n.id===page)?.label}</p><h1>{title}</h1><p>{descriptions[page]}</p></div>{page==='today'&&(profile?.modules.tasks??true)&&<button className="button secondary" onClick={()=>{setPage('tasks');setNewTask(true)}}><ListTodo size={17}/>Günü planla<ArrowUpRight size={16}/></button>}</div>

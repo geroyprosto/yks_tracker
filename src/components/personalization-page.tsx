@@ -26,7 +26,7 @@ export function PersonalizationPage({initialEducation}:{initialEducation:Educati
  },[]);
  const command:EducationCommand=async(type,payload,requestId)=>{
    if(pending.current)return false;
-   const key=JSON.stringify({type,payload});const id=requestId??requests.current.get(key)??crypto.randomUUID();requests.current.set(key,id);
+   const key=JSON.stringify({type,payload});const id=requests.current.get(key)??requestId??crypto.randomUUID();requests.current.set(key,id);
    pending.current=true;setBusy(true);setError('');
    const previous=education;
    const optimistic=optimisticEducationCommand(education,type,payload,id,new Date().toISOString());
@@ -35,7 +35,6 @@ export function PersonalizationPage({initialEducation}:{initialEducation:Educati
    try{
      const response=await fetch('/api/education',{method:'POST',headers:{'Content-Type':'application/json',...(optimistic?{Prefer:'return=minimal'}:{})},body:JSON.stringify({type,payload,request_id:id})});
      const body=await response.json();if(!response.ok){if(response.status<500)requests.current.delete(key);throw new Error(body.error?.message??'Kaydedilemedi.');}
-     requests.current.delete(key);
      if(optimistic){
        syncing=true;
        void (async()=>{
@@ -44,10 +43,11 @@ export function PersonalizationPage({initialEducation}:{initialEducation:Educati
            const current=await refreshed.json();
            if(!refreshed.ok)throw new Error(current.error?.message??'Güncel bilgiler yüklenemedi.');
            setEducation(current as EducationState);
+           requests.current.delete(key);
          }catch{setError('Kayıt tamamlandı, ancak güncel görünüm yüklenemedi. Sayfayı yenile.');}
          finally{pending.current=false;setBusy(false);}
        })();
-     }else setEducation(body.state);
+     }else{requests.current.delete(key);setEducation(body.state);}
      return true;
    }catch(cause){if(optimistic)setEducation(previous);setError(cause instanceof Error?cause.message:'Bağlantı kurulamadı.');return false;}
    finally{if(!syncing){pending.current=false;setBusy(false);}}

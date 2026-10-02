@@ -42,6 +42,65 @@ async function openResults(page: Page, state: AppState, failFirst = false) {
   return sent;
 }
 
+test('school result is shown while the save request is still pending', async ({page}) => {
+  const state = fixture();
+  await page.clock.setFixedTime(new Date(stamp));
+  await page.route('**/api/state', route => route.fulfill({json: state}));
+  let finish!: () => void;
+  const held = new Promise<void>(resolve => {finish = resolve;});
+  let prefer = '';
+  await page.route('**/api/education', async route => {
+    if (route.request().method() === 'GET') return route.fulfill({json: state.education});
+    prefer = route.request().headers()['prefer'] ?? '';
+    const command = route.request().postDataJSON() as Request;
+    await held;
+    state.education!.results.push({...command.payload.rows![0], id: 'saved-result', term_id: termId,
+      course_name: 'Matematik', revision: 1, created_at: stamp, updated_at: stamp});
+    await route.fulfill({json: {ok: true, result: {id: 'saved-result', request_id: command.request_id, replayed: false}}});
+  });
+  await page.goto('/');
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Sınav Sonuçları', exact: true}).click();
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini aç'}).click();
+  await page.getByLabel('Matematik puanı', {exact: true}).fill('72');
+  await page.getByRole('button', {name: 'Tümünü kaydet', exact: true}).click();
+  await expect(page.getByRole('button', {name: /Matematik 1 sonuç 72 \/ 100/})).toBeVisible();
+  expect(prefer).toBe('return=minimal');
+  finish();
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(page.getByRole('button', {name: /Matematik 1 sonuç 72 \/ 100/})).toBeVisible();
+});
+
+test('a failed background refresh reuses the saved batch identity on retry', async ({page}) => {
+  const state = fixture(), sent: Request[] = [];
+  await page.clock.setFixedTime(new Date(stamp));
+  await page.route('**/api/state', route => route.fulfill({json: state}));
+  let failRefresh = true;
+  await page.route('**/api/education', async route => {
+    if (route.request().method() === 'GET') {
+      if (failRefresh) {failRefresh = false; return route.fulfill({status: 503, json: {error: {message: 'Geçici hata'}}});}
+      return route.fulfill({json: state.education});
+    }
+    const command = route.request().postDataJSON() as Request;
+    sent.push(command);
+    if (sent.length === 1) state.education!.results.push({...command.payload.rows![0], id: 'saved-result',
+      term_id: termId, course_name: 'Matematik', revision: 1, created_at: stamp, updated_at: stamp});
+    return route.fulfill({json: {ok: true, result: {id: 'saved-result', request_id: command.request_id,
+      replayed: sent.length > 1}}});
+  });
+  await page.goto('/');
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Sınav Sonuçları', exact: true}).click();
+  await page.getByRole('button', {name: 'Hızlı sonuç girişini aç'}).click();
+  await page.getByLabel('Matematik puanı', {exact: true}).fill('72');
+  await page.getByRole('button', {name: 'Tümünü kaydet', exact: true}).click();
+  await expect(page.getByRole('alert').filter({hasText: 'Kayıt tamamlandı, ancak görünüm güncellenemedi.'})).toBeVisible();
+  await page.getByLabel('Matematik puanı', {exact: true}).fill('72');
+  await page.getByRole('button', {name: 'Tümünü kaydet', exact: true}).click();
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  expect(sent).toHaveLength(2);
+  expect(sent[1].request_id).toBe(sent[0].request_id);
+  expect(state.education!.results).toHaveLength(1);
+});
+
 test('quick table skips blanks, keeps zero/decimal, Enter advances, failed response retries one atomic request', async ({page}) => {
   const state = fixture(), sent = await openResults(page, state, true);
   await expect(page.getByRole('button', {name: 'Konularım', exact: true})).toHaveCount(0);

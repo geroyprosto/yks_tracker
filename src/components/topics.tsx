@@ -93,7 +93,7 @@ export function Topics({state,command,busy}:{state:AppState;command:CommandFn;bu
     </button></h3>
     <div className={styles.groupBody} id={'topic-group-'+index} hidden={!isOpen}>{group.topics.map(t=>
    <div className="topic-row" key={t.id}>
-    <div><div className={styles.topicMeta}><span className="eyebrow">{t.exam} · {t.subject}</span>{t.source.startsWith('Düzenlenebilir başlangıç listesi')&&<span className={styles.legacyBadge}>Önceki plan</span>}</div><button className="topic-name" onClick={()=>{setSubjectError('');setSelected(t)}}>{t.name}<ArrowUpRight size={15}/></button>{t.parent_id&&<small>Alt konu</small>}</div>
+    <div><div className={styles.topicMeta}><span className="eyebrow">{t.exam} · {t.subject}</span>{t.source.startsWith('Düzenlenebilir başlangıç listesi')&&<span className={styles.legacyBadge}>Önceki plan</span>}</div><button className="topic-name" disabled={busy} onClick={()=>{setSubjectError('');setSelected(t)}}>{t.name}<ArrowUpRight size={15}/></button>{t.parent_id&&<small>Alt konu</small>}</div>
     <div className={styles.masteryControl} data-topic-mastery-control data-level={t.mastery}>
      <button type="button" className={styles.masteryTrigger} aria-label={`${t.name} öğrenme düzeyi: ${masteryLabels[t.mastery]}`} aria-expanded={openMasteryId===t.id} aria-controls={openMasteryId===t.id?`mastery-options-${t.id}`:undefined} disabled={busy} onClick={e=>{openTrigger.current=e.currentTarget;setOpenMasteryId(current=>current===t.id?null:t.id)}}>
       <span className={styles.masteryDot}/><span className={styles.masteryLabel}>{shortMasteryLabels[t.mastery]??masteryLabels[t.mastery]}</span><ChevronDown size={15} aria-hidden="true"/>

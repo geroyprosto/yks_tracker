@@ -71,7 +71,8 @@ test('finishing a study timer grows the time ring while only task and time rings
   const timeMiddle = await dashLength(page, 'Net çalışma süresi');
   expect(timeMiddle).toBeGreaterThan(5);
   expect(timeMiddle).toBeLessThan(100);
-  await expect.poll(() => dashLength(page, 'Net çalışma süresi')).toBeGreaterThan(106);
+  // Rounded ring caps reserve part of the arc, so a quarter ring draws about 82 units.
+  await expect.poll(() => dashLength(page, 'Net çalışma süresi')).toBeGreaterThan(81);
   await expect(time.locator('.donut-center strong')).toHaveText('%25');
   await expect(metric(page, 'Günlük ilerleme')).toHaveCount(0);
 });

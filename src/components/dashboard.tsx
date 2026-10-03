@@ -26,6 +26,8 @@ import type {EducationCommand} from '@/lib/education-ui';
 import {levelLabels} from '@/lib/education-ui';
 import {optimisticCommand} from '@/lib/optimistic-command';
 import {optimisticEducationCommand} from '@/lib/optimistic-education';
+import {optimisticTimerFinish} from '@/lib/optimistic-timer';
+import {sessionSeconds} from '@/lib/timing';
 
 const navigation=[
  {id:'today',label:'Bugün',icon:LayoutDashboard},
@@ -76,20 +78,21 @@ export function Dashboard(){
    setOffset(new Date(s.server_now).getTime()-Date.now());
    setState(s);
    if(s.settings&&!preferenceDirty.current){setTheme(normalizeTheme(s.settings.theme)??'ocean');setReduced(s.settings.reduced_motion);setSimple(s.settings.simple_view)}
+   return s;
  },[]);
- const refresh=useCallback(async(allowPending=false):Promise<boolean>=>{
+ const refresh=useCallback(async(allowPending=false):Promise<AppState|null>=>{
    const epoch=mutationEpoch.current;
    const sequence=++readSequence.current;
    try{
      const response=await fetch('/api/state',{cache:'no-store'});
      const body=await response.json();
-     if(epoch!==mutationEpoch.current||sequence!==readSequence.current||(pending.current&&!allowPending))return false;
-     if(body.redirect){window.location.assign(body.redirect);return false;}
+     if(epoch!==mutationEpoch.current||sequence!==readSequence.current||(pending.current&&!allowPending))return null;
+     if(body.redirect){window.location.assign(body.redirect);return null;}
      if(!response.ok&&response.status!==401)throw new Error(body.error?.message??'Veriler yüklenemedi.');
-     installState(body);
+     const latest=installState(body);
      setError('');
-     return true;
-   }catch(e){setError(e instanceof Error?e.message:'Bağlantı kurulamadı.');return false}
+     return latest;
+   }catch(e){setError(e instanceof Error?e.message:'Bağlantı kurulamadı.');return null}
  },[installState]);
  useEffect(()=>{
    queueMicrotask(()=>setToday(localDate()));
@@ -123,12 +126,28 @@ export function Dashboard(){
    const requestId=retries.current.get(fingerprint)??crypto.randomUUID();
    retries.current.set(fingerprint,requestId);
    const previous=state;
-   const minimal=!type.startsWith('timer.');
-   const optimistic=minimal?optimisticCommand(state,type,payload,requestId,new Date().toISOString()):null;
+   const fastTimer=type==='timer.finish'
+     ? optimisticTimerFinish(state,payload,new Date(Date.now()+offset).toISOString()) : null;
+   const minimal=fastTimer!==null||!type.startsWith('timer.');
+   const optimistic=fastTimer??(minimal?optimisticCommand(state,type,payload,requestId,new Date().toISOString()):null);
    if(optimistic)setState(optimistic);
-   let syncing=false;
+   const runningCountdown=fastTimer&&state.sessions.find(session=>session.id===payload.id);
+   if(runningCountdown?.status==='running'&&runningCountdown.mode==='countdown'&&
+      runningCountdown.target_seconds!==null&&
+      sessionSeconds(runningCountdown,Date.now()+offset)>=runningCountdown.target_seconds){
+     setReconciling(true);
+     void refresh(true).then(latest=>{
+       retries.current.delete(fingerprint);
+       if(!latest){setState(previous);setError('Sayaç durumu doğrulanamadı. Sayfayı yenile.');}
+       else if(!latest.sessions.some(session=>session.id===runningCountdown.id&&session.status==='finished'))
+         setError('Sayaç tamamlanmadı; güncel durumu kontrol edip tekrar dene.');
+     }).finally(()=>{pending.current=false;setBusy(false);setReconciling(false)});
+     return true;
+   }
+   const save=async()=>{
+    let syncing=false;
    try{
-     const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json',...(minimal?{Prefer:'return=minimal'}:{})},body:JSON.stringify({request_id:requestId,type,payload})});
+     const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json',...(minimal?{Prefer:'return=minimal'}:{})},body:JSON.stringify({request_id:requestId,type,payload}),...(fastTimer?{keepalive:true}:{})});
      const data=await response.json();
      if(!response.ok){if(response.status<500)retries.current.delete(fingerprint);throw new Error(data.error?.message??'İşlem kaydedilemedi.');}
      if(type==='settings.update'&&payload.theme)preferenceDirty.current=false;
@@ -138,16 +157,32 @@ export function Dashboard(){
        setReconciling(true);
        void refresh(true).then(ok=>{
          if(ok)retries.current.delete(fingerprint);
-         else{if(optimistic)setState(previous);setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');}
+         else{if(optimistic&&!fastTimer)setState(previous);setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');}
        }).finally(()=>{pending.current=false;setBusy(false);setReconciling(false)});
      }else{retries.current.delete(fingerprint);installState(data.state);}
      return true;
    }catch(e){
-     if(optimistic)setState(previous);
-     await refresh(true);
+     if(optimistic&&!fastTimer)setState(previous);
+     const latest=await refresh(true);
+     const autoFinishTime=runningCountdown?.status==='running'&&runningCountdown.mode==='countdown'&&
+       runningCountdown.target_seconds!==null&&runningCountdown.active_since
+       ? Date.parse(runningCountdown.active_since)+
+         Math.max(0,runningCountdown.target_seconds-runningCountdown.accumulated_seconds)*1000 : NaN;
+     if(fastTimer&&Number.isFinite(autoFinishTime)&&latest?.sessions.some(session=>
+       session.id===payload.id&&session.status==='finished'&&session.mode==='countdown'&&
+       session.accumulated_seconds===runningCountdown?.target_seconds&&
+       Date.parse(session.finished_at??'')===autoFinishTime)){
+       retries.current.delete(fingerprint);
+       setError('');
+       return true;
+     }
+     if(fastTimer&&!latest)setState(previous);
      setError(e instanceof Error?e.message:'İşlem kaydedilemedi.');
      return false;
-   }finally{if(!syncing){pending.current=false;setBusy(false)}}
+    }finally{if(!syncing){pending.current=false;setBusy(false)}}
+   };
+   if(fastTimer){void save();return true;}
+   return save();
  };
  const educationCommand:EducationCommand=async(type,payload,explicitRequestId)=>{
    if(pending.current)return false;

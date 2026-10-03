@@ -314,6 +314,49 @@ test('near-expiry countdown stays finished when the server settles before a held
   expect(writes).toBe(1);
 });
 
+test('another device finishing a stopwatch with a different duration still reports conflict', async ({ page }) => {
+  await page.clock.setFixedTime(timerInitialTime);
+  const state = runningTimerState();
+  const otherFinish: AppState = {
+    ...state, server_now: timerFinishTime.toISOString(),
+    sessions: [{
+      ...state.sessions[0], status: 'finished', active_since: null,
+      accumulated_seconds: 44 * 60, finished_at: timerInitialTime.toISOString(), revision: 2,
+    }],
+    intervals: [{ ...state.intervals[0], ended_at: timerInitialTime.toISOString() }],
+  };
+  let serverState = state;
+  await page.route('**/api/state', route => route.fulfill({ json: serverState }));
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let writes = 0;
+  await page.route('**/api/command', async route => {
+    writes++;
+    await held;
+    serverState = otherFinish;
+    await route.fulfill({ status: 409, json: { ok: false, error: { code: 'CONFLICT', message: 'Oturum değişti. Yenileyip tekrar dene.' } } });
+  });
+  await page.goto('/');
+  const time = studyTimeMetric(page);
+  await expect(time.locator('.metric-detail')).toContainText('44 dk');
+  await page.clock.setFixedTime(timerFinishTime);
+  await page.getByRole('button', { name: 'Sayaç — çalışma sayacını aç', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Çalışma sayacı' });
+  await dialog.getByRole('button', { name: 'Bitir ve kaydet', exact: true }).click();
+  try {
+    await expect(dialog).not.toBeVisible();
+    await expect(time.locator('.metric-detail')).toContainText('45 dk');
+    await expect(page.locator('.focus-card-status')).toContainText('Başlamaya hazır');
+    await expect.poll(() => writes).toBe(1);
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('alert').filter({ hasText: 'Oturum değişti. Yenileyip tekrar dene.' })).toBeVisible();
+  await expect(time.locator('.metric-detail')).toContainText('44 dk');
+  await expect(page.locator('.focus-card-status')).toContainText('Başlamaya hazır');
+  expect(writes).toBe(1);
+});
+
 test('rejected delayed timer finish restores the running session and reports the conflict', async ({ page }) => {
   await page.clock.setFixedTime(timerInitialTime);
   const state = runningTimerState();

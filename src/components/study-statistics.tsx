@@ -1,7 +1,7 @@
 'use client';
 
 import {useMemo, useState, type CSSProperties} from 'react';
-import {CalendarDays, CheckCheck, ChevronDown, ChevronLeft, ChevronRight, Clock3} from 'lucide-react';
+import {CalendarCheck2, CalendarDays, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ClipboardCheck, Clock3, Zap, type LucideIcon} from 'lucide-react';
 import type {AppState} from '@/lib/domain/types';
 import {buildStudyReport, studyReportRange, type StudyReportPeriod} from '@/lib/study-report';
 import {buildStudyChartBuckets, type StudyChartBucket} from '@/lib/study-statistics-buckets';
@@ -106,12 +106,12 @@ export function StudyStatistics({state, command, busy, go, initialDate, scoped=f
 
   return <div className="study-statistics">
     <div className="study-stats-metrics" aria-label="Çalışma ve görev özeti">
-      <Metric label="Toplam odaklanma süresi" value={duration(summary.totalSeconds)} kind="time" detail="Tüm zamanlar"/>
-      <Metric label="Bu haftanın odaklanma süresi" value={duration(summary.weekSeconds)} kind="time" detail="Pazartesiden bugüne"/>
-      <Metric label="Bugünün odaklanma süresi" value={duration(summary.todaySeconds)} kind="time" detail="Mola hariç net süre"/>
-      <Metric label="Toplam tamamlanan görevler" value={String(summary.completedTasks)} kind="tasks" detail="Tüm zamanlar"/>
-      <Metric label="Bu hafta tamamlanan görevler" value={String(summary.weekCompletedTasks)} kind="tasks" detail="Görevlerin plan tarihine göre"/>
-      <Metric label="Bugün tamamlanan görevler" value={String(summary.todayCompletedTasks)} kind="tasks" detail="Görevlerin plan tarihine göre"/>
+      <Metric label="Toplam odaklanma süresi" value={duration(summary.totalSeconds)} tone="cyan" icon={Clock3} detail="Tüm zamanlar"/>
+      <Metric label="Bu haftanın odaklanma süresi" value={duration(summary.weekSeconds)} tone="purple" icon={CalendarDays} detail="Pazartesiden bugüne"/>
+      <Metric label="Bugünün odaklanma süresi" value={duration(summary.todaySeconds)} tone="teal" icon={Zap} detail="Mola hariç net süre"/>
+      <Metric label="Toplam tamamlanan görevler" value={String(summary.completedTasks)} tone="peach" icon={CheckCircle2} detail="Tüm zamanlar" decoration={ClipboardCheck}/>
+      <Metric label="Bu hafta tamamlanan görevler" value={String(summary.weekCompletedTasks)} tone="coral" icon={CalendarCheck2} detail="Görevlerin plan tarihine göre"/>
+      <Metric label="Bugün tamamlanan görevler" value={String(summary.todayCompletedTasks)} tone="lavender" icon={CheckCircle2} detail="Görevlerin plan tarihine göre"/>
     </div>
 
     <div className="study-stats-controls">
@@ -120,7 +120,7 @@ export function StudyStatistics({state, command, busy, go, initialDate, scoped=f
       </div>
       {valid && <div className="study-stats-period-nav">
         {navigable && <button type="button" className="icon-button" aria-label={'Önceki ' + selectedPeriodUnit} disabled={previousAnchor < floor} onClick={() => setAnchor(previousAnchor)}><ChevronLeft size={17}/></button>}
-        <strong aria-live="polite">{rangeTitle(period, start, end)}</strong>
+        <span className="study-stats-date-pill"><CalendarDays size={14} aria-hidden="true"/><strong aria-live="polite">{rangeTitle(period, start, end)}</strong></span>
         {navigable && <button type="button" className="icon-button" aria-label={'Sonraki ' + selectedPeriodUnit} disabled={nextPeriodStart > today} onClick={() => setAnchor(nextAnchor)}><ChevronRight size={17}/></button>}
       </div>}
     </div>
@@ -148,10 +148,13 @@ export function StudyStatistics({state, command, busy, go, initialDate, scoped=f
   </div>;
 }
 
-function Metric({label, value, detail, kind}: {label: string; value: string; detail: string; kind: 'time' | 'tasks'}) {
-  return <div className={'study-stat-metric metric-' + kind} style={{'--metric-accent': kind === 'time' ? 'var(--primary)' : 'var(--chart)'} as CSSProperties}>
-    <span>{kind === 'time' ? <Clock3 size={14}/> : <CheckCheck size={14}/>}<span>{label}</span></span>
+function Metric({label, value, detail, tone, icon: Icon, decoration: Decoration}: {
+  label: string; value: string; detail: string; tone: 'cyan' | 'purple' | 'teal' | 'peach' | 'coral' | 'lavender'; icon: LucideIcon; decoration?: LucideIcon;
+}) {
+  return <div className={'study-stat-metric metric-' + tone} style={{'--metric-accent': 'var(--study-' + tone + ')'} as CSSProperties}>
+    <span className="study-metric-heading"><span className="study-metric-icon"><Icon size={21} aria-hidden="true"/></span><span>{label}</span></span>
     <strong>{value}</strong><small>{detail}</small>
+    <span className="study-metric-decoration" aria-hidden="true">{Decoration ? <Decoration size={24}/> : <><i/><i/><i/></>}</span>
   </div>;
 }
 

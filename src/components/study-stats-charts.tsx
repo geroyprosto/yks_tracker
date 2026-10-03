@@ -1,5 +1,6 @@
 'use client';
 
+import {CircleCheck, Clock3} from 'lucide-react';
 import type {StudyChartBucket} from '@/lib/study-statistics-buckets';
 import {summarizeStudyChartBuckets} from '@/lib/study-statistics-buckets';
 import {duration, formatDay} from '@/lib/ui';
@@ -47,16 +48,18 @@ function Bars({buckets, kind, selectedDate, onSelectBucket}: Props & {kind: 'tim
         const text = kind === 'time' ? duration(value) : value + ' görev';
         const description = date + ': ' + text + (kind === 'tasks' ? ', ' + bucket.taskCount + ' planlanan' : '') +
           '. ' + (bucket.start === bucket.end ? 'Gün ayrıntılarını aç' : 'Dönemi yakından incele');
-        const label = bucket.granularity === 'week' ? formatDay(bucket.start, {day: 'numeric', month: 'short'}) : bucket.label;
+        const label = bucket.granularity === 'day' || bucket.granularity === 'week' ? formatDay(bucket.start, {day: 'numeric', month: 'short'}) : bucket.label;
+        const showLabel = index % labelStep === 0 || index === buckets.length - 1;
         return <button key={bucket.key} type="button" className={'stats-bar' + (selectedDate === bucket.start && bucket.start === bucket.end ? ' is-selected' : '')}
           {...tooltip.triggerProps(bucket.key, {title: date, value: text, context: kind === 'tasks' ? `${bucket.taskCount} planlanan görev` : 'Toplam odaklanma süresi', note: bucket.start === bucket.end ? 'Gün ayrıntıları için seç' : 'Dönemi yakından incelemek için seç'})}
           aria-label={description} aria-pressed={selectedDate === bucket.start && bucket.start === bucket.end} onClick={() => {tooltip.close(); onSelectBucket(bucket);}}>
           <span className="stats-bar-track">
             {value > 0 ? <i className="stats-bar-fill" style={{height: Math.max(1, 100 * value / max) + '%'}}/> : <i className="stats-bar-zero"/>}
           </span>
-          <span className="stats-bar-label">{index % labelStep === 0 || index === buckets.length - 1 ? label : ''}</span>
+          <span className="stats-bar-label">{showLabel && <><span>{label}</span>{bucket.granularity === 'day' && <span className="stats-bar-weekday">{formatDay(bucket.start, {weekday: 'short'})}</span>}</>}</span>
         </button>;
       })}
+      {rawMax === 0 && <p className="stats-chart-empty">{kind === 'time' ? 'Bu dönemde henüz süre kaydı yok.' : 'Bu dönemde henüz tamamlanan görev yok.'}</p>}
     </div>
     {tooltip.tooltip}
   </div>;
@@ -69,25 +72,35 @@ export function StudyStatsCharts({buckets, selectedDate, onSelectBucket}: Props)
   const planned = buckets.reduce((sum, bucket) => sum + bucket.taskCount, 0);
   const taskBest = buckets.reduce<StudyChartBucket | null>((best, bucket) => !best || bucket.completedTaskCount > best.completedTaskCount ? bucket : best, null);
   return <div className="study-trend-grid">
-    <Card className="study-panel study-trend-card study-time-card" title="Odaklanma süresi grafiği" action={<span className="study-trend-badge">{groupedNames[granularity]} toplamlar</span>}>
-      <div className="study-trend-summary">
-        <div className="study-trend-total"><span>Toplam süre</span><strong>{duration(summary.totalSeconds)}</strong></div>
-        <div><span>Ortalama / {unit}</span><strong>{duration(Math.round(summary.averageBucketSeconds))}</strong></div>
-        <div><span>En iyi {unit}</span><strong>{summary.bestBucket?.totalSeconds ? duration(summary.bestBucket.totalSeconds) : '—'}</strong></div>
-      </div>
+    <Card className="study-panel study-trend-card study-time-card">
+      <header className="study-trend-heading">
+        <div className="study-panel-heading">
+          <span className="study-panel-icon" aria-hidden="true"><Clock3 size={22}/></span>
+          <div className="study-panel-copy"><h2>Odaklanma süresi grafiği</h2><p>{groupedNames[granularity]} toplam odaklanma süren</p></div>
+        </div>
+        <div className="study-trend-summary">
+          <div><span>Ortalama / {unit}</span><strong>{duration(Math.round(summary.averageBucketSeconds))}</strong></div>
+          <div><span>En iyi {unit}</span><strong>{summary.bestBucket?.totalSeconds ? duration(summary.bestBucket.totalSeconds) : '—'}</strong></div>
+        </div>
+      </header>
       <Bars key={buckets.map(bucket => bucket.key).join('|')} buckets={buckets} kind="time" selectedDate={selectedDate} onSelectBucket={onSelectBucket}/>
-      <div className="study-chart-footer"><span>Bir sütuna dokunarak ayrıntısını incele.</span>
+      <div className="study-chart-footer"><span className="study-trend-total"><span className="study-trend-badge">{groupedNames[granularity]} toplamlar</span> · <strong>{duration(summary.totalSeconds)}</strong></span>
         <details className="study-calculation"><summary>Ortalama nasıl hesaplanır?</summary><p>Kaydedilen toplam süre, grafikteki {buckets.length} {unit} sayısına bölünür. Henüz tamamlanmayan dönem de dahildir. Süre kaydı olmayan aralıklar, çalışmadığın anlamına gelmez.</p></details>
       </div>
     </Card>
-    <Card className="study-panel study-trend-card study-task-card" title="Görev grafiği" action={<span className="study-trend-badge">Tamamlanan</span>}>
-      <div className="study-trend-summary">
-        <div className="study-trend-total"><span>Tamamlanan</span><strong>{summary.completedTaskCount}<small> / {planned}</small></strong></div>
-        <div><span>Ortalama / {unit}</span><strong>{number.format(summary.averageCompletedTasks)}</strong></div>
-        <div><span>En iyi {unit}</span><strong>{taskBest?.completedTaskCount ?? 0}</strong></div>
-      </div>
+    <Card className="study-panel study-trend-card study-task-card">
+      <header className="study-trend-heading">
+        <div className="study-panel-heading">
+          <span className="study-panel-icon" aria-hidden="true"><CircleCheck size={22}/></span>
+          <div className="study-panel-copy"><h2>Görev grafiği</h2><p>Tamamlanan görev sayısı</p></div>
+        </div>
+        <div className="study-trend-summary">
+          <div><span>Ortalama / {unit}</span><strong>{number.format(summary.averageCompletedTasks)}</strong></div>
+          <div><span>En iyi {unit}</span><strong>{taskBest?.completedTaskCount ?? 0}</strong></div>
+        </div>
+      </header>
       <Bars key={buckets.map(bucket => bucket.key).join('|')} buckets={buckets} kind="tasks" selectedDate={selectedDate} onSelectBucket={onSelectBucket}/>
-      <p className="study-chart-footer">Tamamlanan görevler planlandıkları tarihe göre gösterilir.</p>
+      <p className="study-chart-footer"><span className="study-trend-total"><strong>{summary.completedTaskCount}</strong> / {planned} görev tamamlandı</span><span>Görevlerin plan tarihine göre</span></p>
     </Card>
   </div>;
 }

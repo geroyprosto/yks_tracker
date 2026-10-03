@@ -1,7 +1,7 @@
 'use client';
 
 import {useState} from 'react';
-import {BarChart3, BookOpen} from 'lucide-react';
+import {BarChart3, BookOpen, CalendarDays} from 'lucide-react';
 import type {AppState} from '@/lib/domain/types';
 import type {CommandFn} from '@/lib/ui';
 import {educationCourseLabel,filterStudyState,unassignedCourse} from '@/lib/study-course-filter';
@@ -44,7 +44,11 @@ export function StatisticsWorkspace({state, practiceState, preview, command, bus
         <span>{label}</span>
       </button>)}
     </div>
-    {modern&&view!=='practice'&&<div className={styles.courseFilters} role="group" aria-label="Çalışma kayıtlarının ders ve dönem filtreleri"><label>Çalışma dönemi<select value={termId} onChange={event=>{setTermId(event.target.value);setSelectedCourse('');}}><option value="">Tüm dönemler ve YKS</option>{education!.terms.map(term=><option key={term.id} value={term.id}>{term.academic_year} / {term.name}{term.archived?' · Arşiv':''}</option>)}</select></label><label>Çalışma dersi<select value={courseId} onChange={event=>setSelectedCourse(event.target.value)}><option value="">Tüm dersler</option>{!termId&&<option value={unassignedCourse}>Ders kimliği olmayan eski / serbest kayıtlar</option>}{courseOptions.map(course=><option key={course.id} value={course.id}>{educationCourseLabel(course,education!)}{course.archived?' · Arşiv':''}</option>)}</select></label><p>{scoped?'Süre ve görev özetleri yalnız bu seçimi kapsar. Ders kimliği olmayan eski kayıtlar isimden tahmin edilmez.':'Bütün kayıtlar dahil. Aynı adlı okul, YKS ve farklı dönem dersleri kimlikleriyle ayrı tutulur.'}</p></div>}
+    {modern&&view!=='practice'&&<div className={styles.courseFilters} role="group" aria-label="Çalışma kayıtlarının ders ve dönem filtreleri">
+      <label><span className={styles.filterIcon}><CalendarDays size={22} aria-hidden="true"/></span><span className={styles.filterField}><span>Çalışma dönemi</span><select value={termId} onChange={event=>{setTermId(event.target.value);setSelectedCourse('');}}><option value="">Tüm dönemler ve YKS</option>{education!.terms.map(term=><option key={term.id} value={term.id}>{term.academic_year} / {term.name}{term.archived?' · Arşiv':''}</option>)}</select></span></label>
+      <label><span className={styles.filterIcon}><BookOpen size={22} aria-hidden="true"/></span><span className={styles.filterField}><span>Çalışma dersi</span><select value={courseId} onChange={event=>setSelectedCourse(event.target.value)}><option value="">Tüm dersler</option>{!termId&&<option value={unassignedCourse}>Ders kimliği olmayan eski / serbest kayıtlar</option>}{courseOptions.map(course=><option key={course.id} value={course.id}>{educationCourseLabel(course,education!)}{course.archived?' · Arşiv':''}</option>)}</select></span></label>
+      <p>{scoped?'Süre ve görev özetleri yalnız bu seçimi kapsar. Ders kimliği olmayan eski kayıtlar isimden tahmin edilmez.':'Bütün kayıtlar dahil. Aynı adlı okul, YKS ve farklı dönem dersleri kimlikleriyle ayrı tutulur.'}</p>
+    </div>}
     {view === 'study' && <StudyStatistics key={initialDate ?? 'default'} initialDate={initialDate} state={filtered} command={command} busy={busy} go={go} scoped={scoped}/>}
     {view === 'practice' && <PracticeAnalysis state={practiceState} command={command} busy={busy} preview={preview}/>}
   </div>;

@@ -1,6 +1,7 @@
 'use client';
 
 import {useState, type CSSProperties} from 'react';
+import {ChartPie} from 'lucide-react';
 import type {StudyReport} from '@/lib/study-report';
 import {duration} from '@/lib/ui';
 import {Card} from './primitives';
@@ -12,6 +13,11 @@ const options = [
   {id: 'studyTypes', label: 'Çalışma türü'},
 ] as const;
 type Dimension = typeof options[number]['id'];
+const descriptions: Record<Dimension, string> = {
+  subjects: 'Ders bazında odaklanma sürenin dağılımı',
+  topics: 'Konu bazında odaklanma sürenin dağılımı',
+  studyTypes: 'Çalışma türüne göre odaklanma sürenin dağılımı',
+};
 
 export function StudyDistribution({report}: {report: StudyReport}) {
   const [dimension, setDimension] = useState<Dimension>('subjects');
@@ -24,10 +30,14 @@ export function StudyDistribution({report}: {report: StudyReport}) {
     <div><strong>{row.label}</strong><small>{duration(row.seconds)}</small></div>
     <b>%{new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 1}).format(row.value)}</b>
   </li>)}</ul>;
-  return <Card title="Zamanını nasıl paylaştın?" className="study-panel distribution-card study-distribution-card"
-    action={<select aria-label="Dağılım ölçütü" className="study-distribution-select" value={dimension} onChange={event => setDimension(event.target.value as Dimension)}>
+  return <Card className="study-panel distribution-card study-distribution-card">
+    <header className="study-panel-heading">
+      <span className="study-panel-icon"><ChartPie size={25} aria-hidden="true"/></span>
+      <div className="study-panel-copy"><h2>Zamanını nasıl paylaştın?</h2><p>{descriptions[dimension]}</p></div>
+      <select aria-label="Dağılım ölçütü" className="study-distribution-select" value={dimension} onChange={event => setDimension(event.target.value as Dimension)}>
       {options.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-    </select>}>
+      </select>
+    </header>
     <div className="distribution-content">
       <Donut segments={rows} center={duration(total)} caption="TOPLAM ÇALIŞMA" empty={total === 0}
         label={total === 0 ? 'Seçili dönemde çalışma kaydı yok.' : rows.map(row => row.label + ': ' + duration(row.seconds) + ', %' + row.value.toFixed(1)).join('; ')}/>

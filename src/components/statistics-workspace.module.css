@@ -1,14 +1,18 @@
-.workspace { min-width: 0; }
-.courseFilters {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:24px;padding:16px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
-.courseFilters label {display:grid;gap:6px;font-size:12px;color:var(--muted);min-width:0;}
-.courseFilters select {width:100%;min-width:0;}
-.courseFilters p {grid-column:1/-1;font-size:11px;color:var(--muted);}
+.workspace { --study-surface: color-mix(in srgb,var(--surface) 94%,var(--primary)); --study-surface-end: var(--surface); --study-border: var(--border); min-width: 0; }
+:global(:root[data-theme=ocean][data-appearance=dark]) .workspace { --study-surface: #182635; --study-surface-end: #162331; --study-border: #2d4355; }
+.courseFilters {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 14px;margin-bottom:14px;}
+.courseFilters label {display:flex;align-items:center;gap:12px;padding:10px 14px;border:1px solid var(--study-border);border-radius:9px;background:linear-gradient(120deg,var(--study-surface),var(--study-surface-end));font-size:10px;color:var(--muted);min-width:0;}
+.filterIcon {display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:#29d3ee12;color:#29d3ee;}
+.filterField {display:grid;gap:2px;min-width:0;flex:1;}
+.courseFilters select {width:100%;min-width:0;min-height:24px;padding:2px 26px 2px 0;border:0;background-color:transparent;border-radius:4px;color:var(--foreground);font-size:12px;font-weight:600;}
+.courseFilters select option {background:var(--surface);color:var(--foreground);}
+.courseFilters p {grid-column:1/-1;font-size:9px;line-height:1.5;color:var(--muted);margin:0 2px;}
 .views { display: flex; align-items: center; gap: 6px; margin-bottom: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .views > button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 9px 14px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
 .views > button:hover { color: var(--foreground); background: var(--surface); }
 .views > button[aria-pressed=true] { color: var(--primary); background: var(--surface-raised); border-color: var(--border); }
 @media(max-width: 640px) {
-  .courseFilters {grid-template-columns:minmax(0,1fr);padding:12px;}
+  .courseFilters {grid-template-columns:minmax(0,1fr);}
   .views { gap: 4px; margin-bottom: 18px; }
   .views > button { flex: 1; gap: 5px; padding: 9px 6px; font-size: 11px; }
   .views > button > svg { width: 14px; height: 14px; }

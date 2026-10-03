@@ -192,6 +192,62 @@ test('timer finish closes and updates study time before its delayed save respons
   expect(writes).toBe(1);
 });
 
+test('elapsed countdown settles immediately from state without posting timer.finish', async ({ page }) => {
+  await page.clock.setFixedTime(timerInitialTime);
+  const state = runningTimerState();
+  const startedAt = new Date(timerInitialTime.getTime() - 59 * 60_000).toISOString();
+  const targetAt = new Date(timerInitialTime.getTime() + 60_000).toISOString();
+  state.sessions[0] = {
+    ...state.sessions[0], mode: 'countdown', target_seconds: 3600,
+    started_at: startedAt, active_since: startedAt,
+  };
+  state.intervals[0] = { ...state.intervals[0], started_at: startedAt };
+  const settled: AppState = {
+    ...state, server_now: new Date(timerInitialTime.getTime() + 2 * 60_000).toISOString(),
+    sessions: [{
+      ...state.sessions[0], status: 'finished', active_since: null,
+      accumulated_seconds: 3600, finished_at: targetAt, revision: 2,
+    }],
+    intervals: [{ ...state.intervals[0], ended_at: targetAt }],
+  };
+  let reads = 0;
+  let holdRefresh = false;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/state', async route => {
+    reads++;
+    if (!holdRefresh) return route.fulfill({ json: state });
+    await held;
+    await route.fulfill({ json: settled });
+  });
+  let writes = 0;
+  await page.route('**/api/command', route => {
+    writes++;
+    return route.fulfill({ status: 409, json: { ok: false, error: { code: 'INVALID_TRANSITION', message: 'Sayaç zaten bitti.' } } });
+  });
+  await page.goto('/');
+  const time = studyTimeMetric(page);
+  await expect(time.locator('.metric-detail')).toContainText('59 dk');
+  holdRefresh = true;
+  const initialReads = reads;
+  await page.clock.setFixedTime(new Date(timerInitialTime.getTime() + 2 * 60_000));
+  await page.getByRole('button', { name: 'Sayaç — çalışma sayacını aç', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Çalışma sayacı' });
+  await dialog.getByRole('button', { name: 'Oturumu kaydet', exact: true }).click();
+  try {
+    await expect(dialog).not.toBeVisible();
+    await expect(time.locator('.metric-detail')).toContainText('1 sa 0 dk');
+    await expect(page.locator('.focus-card-status')).toContainText('Başlamaya hazır');
+    await expect.poll(() => reads).toBeGreaterThan(initialReads);
+    expect(writes).toBe(0);
+  } finally {
+    release();
+  }
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(time.locator('.metric-detail')).toContainText('1 sa 0 dk');
+  expect(writes).toBe(0);
+});
+
 test('rejected delayed timer finish restores the running session and reports the conflict', async ({ page }) => {
   await page.clock.setFixedTime(timerInitialTime);
   const state = runningTimerState();

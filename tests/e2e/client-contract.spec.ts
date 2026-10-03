@@ -12,6 +12,34 @@ async function mockState(page: Page, state: AppState, status = 200) {
   await page.route("**/api/state", route => route.fulfill({ status, json: { ...state, server_now: new Date().toISOString() } }));
 }
 
+const timerInitialTime = new Date('2026-10-03T09:00:00.000Z');
+const timerFinishTime = new Date(timerInitialTime.getTime() + 60_000);
+
+function runningTimerState(): AppState {
+  const state = authenticatedState();
+  const startedAt = new Date(timerInitialTime.getTime() - 44 * 60_000).toISOString();
+  state.server_now = timerInitialTime.toISOString();
+  state.settings = {
+    display_name: 'Sayaç kayıt testi', exam_year: 2027, exam_date: null, target_rank: null,
+    timezone: 'Europe/Istanbul', daily_target_minutes: 180, task_share: .7,
+    difficulty_factors: { easy: 1, medium: 1.25, hard: 1.5 },
+    weekday_targets: Array(7).fill(180), theme: 'ocean', appearance: 'dark',
+    reduced_motion: true, simple_view: false, revision: 1,
+  };
+  state.sessions = [{
+    id: 'active-session', title: 'Devam eden çalışma', task_id: null, topic_id: null,
+    subject: 'AYT Fizik', study_type: 'Konu anlatımı', mode: 'stopwatch',
+    target_seconds: null, status: 'running', started_at: startedAt,
+    active_since: startedAt, accumulated_seconds: 0, finished_at: null, revision: 1,
+  }];
+  state.intervals = [{ id: 'active-interval', session_id: 'active-session', started_at: startedAt, ended_at: null }];
+  return state;
+}
+
+function studyTimeMetric(page: Page) {
+  return page.locator('.neon-metric').filter({ has: page.getByRole('heading', { name: 'Net çalışma süresi', exact: true }) });
+}
+
 test("mocked login error exposes the API message without leaking object serialization", async ({ page }) => {
   await mockState(page, emptyState(true), 401);
   await page.route("**/api/login", route => route.fulfill({ status: 401, json: { ok: false, error: { code: "INVALID_LOGIN", message: "Giriş bilgileri geçerli değil." } } }));
@@ -114,19 +142,128 @@ test('a journal entry appears before its delayed save response', async ({page}) 
   await expect(page.getByLabel('Bugün aklında neler kaldı?')).toHaveValue('Hızlı kayıt');
 });
 
-test("mocked failed timer finish keeps the active session dialog open", async ({ page }) => {
-  const state = authenticatedState();
-  state.sessions = [{ id: "active-session", title: "Devam eden çalışma", task_id: null, topic_id: null, subject: null, study_type: "Tekrar", mode: "stopwatch", target_seconds: null, status: "running", started_at: new Date(Date.now() - 600_000).toISOString(), active_since: new Date(Date.now() - 600_000).toISOString(), accumulated_seconds: 0, finished_at: null, revision: 1 }];
-  await mockState(page, state);
-  await page.route("**/api/command", route => route.fulfill({ status: 409, json: { ok: false, error: { code: "CONFLICT", message: "Oturum değişti. Yenileyip tekrar dene." } } }));
-  await page.goto("/");
-  await page.getByRole("button", { name: "Sayaç — çalışma sayacını aç", exact: true }).first().click();
-  const dialog = page.getByRole("dialog", { name: "Çalışma sayacı" });
-  await dialog.getByRole("button", { name: "Bitir ve kaydet", exact: true }).click();
-  await expect(dialog.getByRole("alert")).toHaveText("Oturum değişti. Yenileyip tekrar dene.");
-  await expect(dialog.getByRole("alert")).toBeVisible();
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("button", { name: "Duraklat", exact: true })).toBeEnabled();
+test('timer finish closes and updates study time before its delayed save response', async ({ page }) => {
+  await page.clock.setFixedTime(timerInitialTime);
+  const state = runningTimerState();
+  let stateReads = 0;
+  await page.route('**/api/state', route => {
+    stateReads++;
+    return route.fulfill({ json: state });
+  });
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let request!: { request_id: string; type: string; payload: { id: string; expected_revision: number } };
+  let prefer = '';
+  let writes = 0;
+  await page.route('**/api/command', async route => {
+    writes++;
+    request = route.request().postDataJSON();
+    prefer = route.request().headers()['prefer'] ?? '';
+    await held;
+    state.sessions[0] = {
+      ...state.sessions[0], status: 'finished', active_since: null,
+      accumulated_seconds: 45 * 60, finished_at: timerFinishTime.toISOString(), revision: 2,
+    };
+    state.intervals[0] = { ...state.intervals[0], ended_at: timerFinishTime.toISOString() };
+    state.server_now = timerFinishTime.toISOString();
+    await route.fulfill({ json: { ok: true, id: state.sessions[0].id, request_id: request.request_id, replayed: false } });
+  });
+  await page.goto('/');
+  const time = studyTimeMetric(page);
+  await expect(time.locator('.metric-detail')).toContainText('44 dk');
+  await page.clock.setFixedTime(timerFinishTime);
+  await page.getByRole('button', { name: 'Sayaç — çalışma sayacını aç', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Çalışma sayacı' });
+  await dialog.getByRole('button', { name: 'Bitir ve kaydet', exact: true }).click();
+  try {
+    await expect(dialog).not.toBeVisible();
+    await expect(time.locator('.metric-detail')).toContainText('45 dk');
+    await expect(page.locator('.focus-card-status')).toContainText('Başlamaya hazır');
+    await expect(page.locator('.sync-status')).toContainText('Kaydediliyor');
+    await expect.poll(() => writes).toBe(1);
+    expect(request).toMatchObject({ type: 'timer.finish', payload: { id: 'active-session', expected_revision: 1 } });
+    expect(prefer).toBe('return=minimal');
+  } finally {
+    release();
+  }
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(time.locator('.metric-detail')).toContainText('45 dk');
+  expect(stateReads).toBeGreaterThanOrEqual(2);
+  expect(writes).toBe(1);
+});
+
+test('rejected delayed timer finish restores the running session and reports the conflict', async ({ page }) => {
+  await page.clock.setFixedTime(timerInitialTime);
+  const state = runningTimerState();
+  await page.route('**/api/state', route => route.fulfill({ json: state }));
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let writes = 0;
+  await page.route('**/api/command', async route => {
+    writes++;
+    await held;
+    await route.fulfill({ status: 409, json: { ok: false, error: { code: 'CONFLICT', message: 'Oturum değişti. Yenileyip tekrar dene.' } } });
+  });
+  await page.goto('/');
+  const time = studyTimeMetric(page);
+  await expect(time.locator('.metric-detail')).toContainText('44 dk');
+  await page.clock.setFixedTime(timerFinishTime);
+  await page.getByRole('button', { name: 'Sayaç — çalışma sayacını aç', exact: true }).first().click();
+  const dialog = page.getByRole('dialog', { name: 'Çalışma sayacı' });
+  await dialog.getByRole('button', { name: 'Bitir ve kaydet', exact: true }).click();
+  try {
+    await expect(dialog).not.toBeVisible();
+    await expect(time.locator('.metric-detail')).toContainText('45 dk');
+    await expect(page.locator('.focus-card-status')).toContainText('Başlamaya hazır');
+    await expect.poll(() => writes).toBe(1);
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('alert').filter({ hasText: 'Oturum değişti. Yenileyip tekrar dene.' })).toBeVisible();
+  await expect(time.locator('.metric-detail')).toContainText('44 dk');
+  await expect(page.locator('.focus-card-status')).toContainText('Çalışıyor');
+  await page.getByRole('button', { name: 'Sayaç — çalışma sayacını aç', exact: true }).first().click();
+  await expect(page.getByRole('dialog', { name: 'Çalışma sayacı' })).toContainText('Devam eden çalışma');
+  expect(writes).toBe(1);
+});
+
+test('expanded timer also finishes on screen before its delayed save response', async ({ page }) => {
+  await page.clock.setFixedTime(timerInitialTime);
+  const state = runningTimerState();
+  await page.route('**/api/state', route => route.fulfill({ json: state }));
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  let writes = 0;
+  await page.route('**/api/command', async route => {
+    writes++;
+    const request = route.request().postDataJSON();
+    await held;
+    state.sessions[0] = {
+      ...state.sessions[0], status: 'finished', active_since: null,
+      accumulated_seconds: 45 * 60, finished_at: timerFinishTime.toISOString(), revision: 2,
+    };
+    state.intervals[0] = { ...state.intervals[0], ended_at: timerFinishTime.toISOString() };
+    state.server_now = timerFinishTime.toISOString();
+    await route.fulfill({ json: { ok: true, id: state.sessions[0].id, request_id: request.request_id, replayed: false } });
+  });
+  await page.goto('/');
+  const time = studyTimeMetric(page);
+  await expect(time.locator('.metric-detail')).toContainText('44 dk');
+  await page.clock.setFixedTime(timerFinishTime);
+  await page.getByRole('button', { name: 'Sayacı büyüt', exact: true }).first().click();
+  const focus = page.getByRole('dialog', { name: 'Odak ekranı', exact: true });
+  await focus.getByRole('button', { name: 'Sayacı bitir', exact: true }).click();
+  try {
+    await expect(focus).not.toBeVisible();
+    await expect(time.locator('.metric-detail')).toContainText('45 dk');
+    await expect(page.locator('.sync-status')).toContainText('Kaydediliyor');
+    await expect.poll(() => writes).toBe(1);
+  } finally {
+    release();
+  }
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(time.locator('.metric-detail')).toContainText('45 dk');
+  expect(writes).toBe(1);
 });
 
 test("mocked authenticated mobile user can choose a course, activity, and duration without an existing task", async ({ page }) => {

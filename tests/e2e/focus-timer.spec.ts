@@ -3,7 +3,7 @@ import { emptyState, type AppState, type StudySession } from '../../src/lib/doma
 
 // These tests exercise browser behavior with isolated HTTP fixtures. Sample
 // timers are local only; authenticated commands never reach the real database.
-const initialTime = Date.now();
+const initialTime = Math.floor(Date.now() / 1000) * 1000;
 const initialStamp = new Date(initialTime).toISOString();
 const digit = (page: Page, unit: string) => page.locator(`.focus-digit-unit[data-unit="${unit}"] .focus-digit-value`);
 const focusScreen = (page: Page) => page.getByRole('dialog', { name: 'Odak ekranı', exact: true });
@@ -138,17 +138,30 @@ test('authenticated timer crosses the hour boundary and sends authoritative paus
   ]);
 });
 
-test('failed fullscreen timer finish keeps the session and error visible', async ({ page }) => {
+test('failed fullscreen timer finish rolls back after the screen closes', async ({ page }) => {
   const state = activeState();
   await page.clock.setFixedTime(initialTime);
   await page.route('**/api/state', route => route.fulfill({ json: state }));
-  await page.route('**/api/command', route => route.fulfill({ status: 409, json: { ok: false, error: { code: 'CONFLICT', message: 'Oturum değişti. Yenileyip tekrar dene.' } } }));
+  let release!: () => void;
+  const held = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/command', async route => {
+    await held;
+    await route.fulfill({ status: 409, json: { ok: false, error: { code: 'CONFLICT', message: 'Oturum değişti. Yenileyip tekrar dene.' } } });
+  });
   await page.goto('/');
   await page.getByRole('button', { name: 'Sayacı büyüt', exact: true }).first().click();
   const screen = focusScreen(page);
   await screen.getByRole('button', { name: 'Sayacı bitir', exact: true }).click();
+  try {
+    await expect(screen).not.toBeVisible();
+    await expect(page.locator('.focus-card-status')).toContainText('Başlamaya hazır');
+  } finally {
+    release();
+  }
+  await expect(page.getByRole('alert').filter({ hasText: 'Oturum değişti. Yenileyip tekrar dene.' })).toBeVisible();
+  await expect(page.locator('.floating-timer')).toContainText('Sınır denemesi');
+  await page.locator('.floating-timer button').click();
   await expect(screen).toBeVisible();
-  await expect(screen.getByRole('alert')).toHaveText('Oturum değişti. Yenileyip tekrar dene.');
   await expect(screen.getByRole('button', { name: 'Sayacı duraklat', exact: true })).toBeEnabled();
 });
 

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { authClient, requireOwner } from './auth';
+import { authClient, requireOwnerContext } from './auth';
 import { demoClient, demoEnabled, demoUserId } from './classroom-demo';
 import { ApiError } from './http';
 import { databaseError } from './service';
@@ -25,12 +25,15 @@ export async function requireStudyUser() {
   return context.client;
 }
 export async function requireAiStudyUser() {
+  return (await requireAiStudyContext()).client;
+}
+export async function requireAiStudyContext() {
   const context=await classroomContext();
   if(context.demo)throw new ApiError(403,'DEMO_INTEGRATION_DISABLED','Bu harici entegrasyon demo ortamında kullanılamaz.');
   if(!context.account || context.account.status!=='approved')
     throw new ApiError(403,'APPROVAL_REQUIRED','Bu hesabın erişimi onaylanmamış veya durdurulmuş.');
-  if(context.account.role==='student')return context.client;
-  if(context.account.role==='admin')return requireOwner();
+  if(context.account.role==='student')return {client:context.client,userId:context.user.id};
+  if(context.account.role==='admin')return requireOwnerContext();
   throw new ApiError(403,'STUDENT_REQUIRED','Bu işlem için onaylı öğrenci hesabı gerekir.');
 }
 export async function publicClassroomClient() { return demoEnabled() ? demoClient(null) : authClient(); }

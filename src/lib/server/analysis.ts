@@ -28,19 +28,21 @@ export async function ownerId(client:SupabaseClient){
   if(error||!data.user)throw new ApiError(401,'SIGN_IN_REQUIRED','Devam etmek için giriş yapın.');
   return data.user.id;
 }
-export async function getAnalysisStatus(client:SupabaseClient){
-  const id=await ownerId(client);
-  const [settings,reports,usage]=await Promise.all([
+export async function getAnalysisStatus(client:SupabaseClient,verifiedUserId?:string){
+  // Only server authentication helpers may supply an already verified identity.
+  const id=verifiedUserId??await ownerId(client);
+  const admin=analysisServiceConfigured()?analysisAdmin():null;
+  const [settings,reports,usage,state,context,repetitionResult]=await Promise.all([
     client.from('analysis_settings').select('enabled,start_date').eq('user_id',id).maybeSingle(),
     client.from('analysis_reports').select('id,user_id,start_date,end_date,source_hash,status,body,summary,usage,error_message,request_id,created_at,updated_at').eq('user_id',id).order('created_at',{ascending:false}).limit(25),
     client.rpc('ai_usage_status'),
+    getState(client),
+    admin?loadCoachingContext(admin,id):null,
+    admin?coachingRpc<{results:TaskReceipt[];current_cutoff?:string}|null>(admin,'topic_review_receipt',{p_user_id:id}):null,
   ]);
   if(settings.error||reports.error||usage.error)throw databaseSetupError();
   const rows=reports.data as ReportRow[];
-  const state=await getState(client);
-  const admin=analysisServiceConfigured()?analysisAdmin():null;
-  const context=admin?await loadCoachingContext(admin,id):null;
-  const repetition=(admin?await coachingRpc<{results:TaskReceipt[];current_cutoff?:string}|null>(admin,'topic_review_receipt',{p_user_id:id}):null)??{results:[]};
+  const repetition=repetitionResult??{results:[]};
   const currentCoaching=buildCoachingReportMetrics(state,{cutoff:state.server_now,previous:context?.previous_metrics,previousAnalysisId:context?.previous_report_id});
   const current=rows.filter(row=>row.status==='completed');
   const hashes=new Map<string,string>();

@@ -16,6 +16,9 @@ export async function authClient({readOnly=false}:{readOnly?:boolean}={}){
  return createServerClient(config.url,config.key,{cookies:{getAll:()=>jar.getAll(),setAll:values=>{if(readOnly)return;for(const {name,value,options} of values)jar.set(name,value,{...options,httpOnly:true,sameSite:"lax",secure:process.env.NODE_ENV==="production"});}}});
 }
 export async function requireOwner(){
+ return (await requireOwnerContext()).client;
+}
+export async function requireOwnerContext(){
  if(await demoUserId())throw new ApiError(403,"DEMO_INTEGRATION_DISABLED","Bu harici entegrasyon demo ortamında kullanılamaz.");
  const client=await authClient();
  // getUser contacts Auth; never authorize using unverified getSession data.
@@ -28,5 +31,5 @@ export async function requireOwner(){
  const account=await client.rpc('classroom_identity');
  if(account.error)throw new ApiError(503,"DATABASE_SETUP_REQUIRED","Veritabanı migration kurulumu gerekli.");
  if(!account.data||account.data.status!=='approved')throw new ApiError(403,"APPROVAL_REQUIRED","Bu hesabın erişimi durdurulmuş.");
- return client;
+ return {client,userId:data.user.id};
 }

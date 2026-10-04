@@ -67,11 +67,12 @@ export function optimisticCommand(
     const from = day.findIndex(task => task.id === moving.id);
     const to = from + (payload.direction === 'up' ? -1 : 1);
     if (to < 0 || to >= day.length) return state;
+    const swappedId = day[to].id;
     [day[from], day[to]] = [day[to], day[from]];
     const positions = new Map(day.map((task, index) => [task.id, index]));
     return {...state, tasks: state.tasks.map(task => {
       const position = positions.get(task.id);
-      if (position === undefined || position === task.position) return task;
+      if (position === undefined || (position === task.position && task.id !== moving.id && task.id !== swappedId)) return task;
       return {...task, position, revision: task.revision + 1, updated_at: now};
     })};
   }
@@ -127,6 +128,7 @@ export function optimisticCommand(
   if (type === 'day.mark') {
     if (typeof payload.mark_date !== 'string' || (payload.kind !== 'rest' && payload.kind !== 'zero')) return null;
     const prior = state.day_marks.find(mark => mark.mark_date === payload.mark_date);
+    if (prior?.kind === payload.kind) return state;
     const mark: DayMark = {id: prior?.id ?? provisionalId, mark_date: payload.mark_date, kind: payload.kind,
       revision: (prior?.revision ?? 0) + 1, created_at: prior?.created_at ?? now, updated_at: now};
     return {...state, day_marks: [...state.day_marks.filter(item => item.mark_date !== mark.mark_date), mark]};

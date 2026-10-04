@@ -27,6 +27,7 @@ import {levelLabels} from '@/lib/education-ui';
 import {optimisticCommand} from '@/lib/optimistic-command';
 import {optimisticEducationCommand} from '@/lib/optimistic-education';
 import {optimisticTimerFinish} from '@/lib/optimistic-timer';
+import {acknowledgeCommandReceipt} from '@/lib/command-receipt';
 import {sessionSeconds} from '@/lib/timing';
 
 const navigation=[
@@ -90,10 +91,25 @@ export function Dashboard(){
      if(body.redirect){window.location.assign(body.redirect);return null;}
      if(!response.ok&&response.status!==401)throw new Error(body.error?.message??'Veriler yüklenemedi.');
      const latest=installState(body);
+     setReconciling(false);
      setError('');
      return latest;
-   }catch(e){setError(e instanceof Error?e.message:'Bağlantı kurulamadı.');return null}
+   }catch(e){
+     if(epoch!==mutationEpoch.current||sequence!==readSequence.current||(pending.current&&!allowPending))return null;
+     setReconciling(false);setError(e instanceof Error?e.message:'Bağlantı kurulamadı.');return null;
+   }
  },[installState]);
+ const reconcileSaved=useCallback(()=>{
+   const epoch=mutationEpoch.current;
+   const sequence=readSequence.current+1;
+   setReconciling(true);
+   void refresh().then(latest=>{
+     if(epoch!==mutationEpoch.current||sequence!==readSequence.current)return;
+     if(!latest)setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');
+   }).finally(()=>{
+     if(epoch===mutationEpoch.current&&sequence===readSequence.current)setReconciling(false);
+   });
+ },[refresh]);
  useEffect(()=>{
    queueMicrotask(()=>setToday(localDate()));
    queueMicrotask(()=>{ const saved=localStorage.getItem('yksim-appearance');if(saved)setAppearance(saved);
@@ -123,13 +139,16 @@ export function Dashboard(){
    pending.current=true;setBusy(true);setReconciling(false);setError('');
    mutationEpoch.current++;
    const fingerprint=JSON.stringify({type,payload});
+   const retrying=retries.current.has(fingerprint);
    const requestId=retries.current.get(fingerprint)??crypto.randomUUID();
    retries.current.set(fingerprint,requestId);
    const previous=state;
    const fastTimer=type==='timer.finish'
      ? optimisticTimerFinish(state,payload,new Date(Date.now()+offset).toISOString()) : null;
-   const minimal=fastTimer!==null||!type.startsWith('timer.');
-   const optimistic=fastTimer??(minimal?optimisticCommand(state,type,payload,requestId,new Date().toISOString()):null);
+   const optimistic=fastTimer??(!type.startsWith('timer.')?optimisticCommand(state,type,payload,requestId,new Date().toISOString()):null);
+   // Deletion revises linked timers; a replay may already be reflected in the
+   // recovery state. Both need the authoritative projection before unlocking.
+   const minimal=optimistic!==null&&type!=='task.delete'&&!retrying;
    if(optimistic)setState(optimistic);
    const runningCountdown=fastTimer&&state.sessions.find(session=>session.id===payload.id);
    if(runningCountdown?.status==='running'&&runningCountdown.mode==='countdown'&&
@@ -145,7 +164,6 @@ export function Dashboard(){
      return true;
    }
    const save=async()=>{
-    let syncing=false;
    try{
      const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json',...(minimal?{Prefer:'return=minimal'}:{})},body:JSON.stringify({request_id:requestId,type,payload}),...(fastTimer?{keepalive:true}:{})});
      const data=await response.json();
@@ -153,12 +171,13 @@ export function Dashboard(){
      if(type==='settings.update'&&payload.theme)preferenceDirty.current=false;
      mutationEpoch.current++;
      if(minimal&&!data.state){
-       syncing=true;
-       setReconciling(true);
-       void refresh(true).then(ok=>{
-         if(ok)retries.current.delete(fingerprint);
-         else{if(optimistic&&!fastTimer)setState(previous);setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');}
-       }).finally(()=>{pending.current=false;setBusy(false);setReconciling(false)});
+       if(typeof data.id!=='string')throw new Error('Kayıt yanıtı doğrulanamadı. Sayfayı yenile.');
+       setState(current=>current?acknowledgeCommandReceipt(current,type,requestId,data.id):current);
+       retries.current.delete(fingerprint);
+       // The receipt confirms persistence. A full read can run independently;
+       // epoch/sequence checks discard its result if another write has started.
+       pending.current=false;setBusy(false);
+       reconcileSaved();
      }else{retries.current.delete(fingerprint);installState(data.state);}
      return true;
    }catch(e){
@@ -179,7 +198,7 @@ export function Dashboard(){
      if(fastTimer&&!latest)setState(previous);
      setError(e instanceof Error?e.message:'İşlem kaydedilemedi.');
      return false;
-    }finally{if(!syncing){pending.current=false;setBusy(false)}}
+    }finally{pending.current=false;setBusy(false)}
    };
    if(fastTimer){void save();return true;}
    return save();
@@ -262,7 +281,7 @@ export function Dashboard(){
    </aside>
    {mobileMenu&&<button className="menu-scrim" aria-label="Menüyü kapat" onClick={()=>setMobileMenu(false)}/>}
    <div className="main-shell">
-     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite">{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':busy?reconciling?'Görünüm güncelleniyor…':'Kaydediliyor…':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
+     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite">{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':reconciling?'Görünüm güncelleniyor…':busy?'Kaydediliyor…':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
      <main id="main" data-page={page}>
        {state?.authenticated&&<StudentClassroom state={state}/>}
        <div className="page-heading"><div><p className="eyebrow">{page==='today'?(today?formatDay(today):'Bugün'):'YKSim / '+navigation.find(n=>n.id===page)?.label}</p><h1>{title}</h1><p>{descriptions[page]}</p></div>{page==='today'&&(profile?.modules.tasks??true)&&<button className="button secondary" onClick={()=>{setPage('tasks');setNewTask(true)}}><ListTodo size={17}/>Günü planla<ArrowUpRight size={16}/></button>}</div>

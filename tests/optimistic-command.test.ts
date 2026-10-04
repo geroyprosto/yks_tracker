@@ -58,6 +58,18 @@ test('moving a task changes the visible order while retaining a rollback snapsho
   assert.equal(original.tasks[0].position, 0);
 });
 
+test('moving across a position gap advances both swapped revisions even when one position stays the same', () => {
+  const first = task();
+  const middle = {...task(), id: '33333333-3333-4333-8333-333333333333', position: 2};
+  const last = {...task(), id: '44444444-4444-4444-8444-444444444444', position: 3};
+  const original = {...emptyState(true), tasks: [first, middle, last]};
+  const next = optimisticCommand(original, 'task.move', {id: last.id, expected_revision: 3, direction: 'up'}, requestId, now)!;
+  assert.equal(next.tasks.find(item => item.id === middle.id)?.position, 2);
+  assert.equal(next.tasks.find(item => item.id === middle.id)?.revision, 4);
+  assert.equal(next.tasks.find(item => item.id === last.id)?.revision, 4);
+  assert.equal(next.tasks.find(item => item.id === first.id)?.revision, 3);
+});
+
 test('a reported practice entry appears in the day totals before the receipt arrives', () => {
   const original = {...emptyState(true), practice_entries: []};
   const next = optimisticCommand(original, 'practice.create', {
@@ -75,6 +87,14 @@ test('marking a rest day replaces its previous mark immediately', () => {
   assert.equal(next?.day_marks[0].kind, 'rest');
   assert.equal(next?.day_marks[0].revision, 3);
   assert.equal(original.day_marks[0].kind, 'zero');
+});
+
+test('choosing the already selected day mark preserves its revision for an immediate removal', () => {
+  const original = {...emptyState(true), day_marks: [{id: requestId, mark_date: '2026-10-02', kind: 'rest' as const,
+    revision: 2, created_at: now, updated_at: now}]};
+  const next = optimisticCommand(original, 'day.mark', {mark_date: '2026-10-02', kind: 'rest'}, requestId, now);
+  assert.equal(next, original);
+  assert.equal(next?.day_marks[0].revision, 2);
 });
 
 test('a new exam is visible with calculated net while the server confirms it', () => {

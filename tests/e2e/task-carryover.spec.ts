@@ -7,6 +7,12 @@ const tuesday = '2026-09-29';
 const wednesday = '2026-09-30';
 const sunday = '2026-09-27';
 const stamp = '2026-09-28T09:00:00.000Z';
+type TaskCommand = {request_id: string; type: string; payload: Record<string, unknown>};
+
+function commandReceipt(command: TaskCommand, state: AppState,
+  id = typeof command.payload.id === 'string' ? command.payload.id : command.request_id) {
+  return {ok: true, id, request_id: command.request_id, replayed: false, state};
+}
 
 function task(id: string, title: string, plan_date: string, progress: number, position = 0): Task {
   return {id, title, plan_date, exam: null, subject: null, topic_id: null, resource: '', completion_criteria: '',
@@ -28,10 +34,20 @@ test(`creating from ${view} uses today and preserves fields removed from the edi
   await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};
   state.tasks = [{...task('existing', 'Eski görev', tuesday, 0.4), resource: 'Kaynak 1', weight_override: 12}];
-  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  const commands: TaskCommand[] = [];
   await page.route('**/api/command', route => {
-    commands.push(route.request().postDataJSON());
-    return route.fulfill({json: {ok: true, state}});
+    const command: TaskCommand = route.request().postDataJSON();
+    commands.push(command);
+    if (command.type === 'task.create') {
+      const position = state.tasks.filter(item => item.plan_date === command.payload.plan_date).length;
+      state.tasks.push({...task(command.request_id, String(command.payload.title), String(command.payload.plan_date), 0, position),
+        ...command.payload});
+    }
+    if (command.type === 'task.update') {
+      state.tasks = state.tasks.map(item => item.id === command.payload.id
+        ? {...item, ...command.payload, revision: item.revision + 1} : item);
+    }
+    return route.fulfill({json: commandReceipt(command, state)});
   });
   await openTasks(page, state);
   await page.getByLabel('Plan tarihi').fill(monday);
@@ -64,14 +80,14 @@ test(`creating from ${view} uses today and preserves fields removed from the edi
 test('task form saves on the selected future day and keeps that day visible', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};
-  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  const commands: TaskCommand[] = [];
   await page.route('**/api/command', route => {
     const command = route.request().postDataJSON();
     commands.push(command);
     if (command.type === 'task.create') {
       state.tasks.push(task('created', String(command.payload.title), String(command.payload.plan_date), 0));
     }
-    return route.fulfill({json: {ok: true, state}});
+    return route.fulfill({json: commandReceipt(command, state, 'created')});
   });
   await openTasks(page, state);
 
@@ -90,14 +106,14 @@ test('task form saves on the selected future day and keeps that day visible', as
 test('clearing the plan date filter creates a task for today', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};
-  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  const commands: TaskCommand[] = [];
   await page.route('**/api/command', route => {
     const command = route.request().postDataJSON();
     commands.push(command);
     if (command.type === 'task.create') {
       state.tasks.push(task('created-after-clear', String(command.payload.title), String(command.payload.plan_date), 0));
     }
-    return route.fulfill({json: {ok: true, state}});
+    return route.fulfill({json: commandReceipt(command, state, 'created-after-clear')});
   });
   await openTasks(page, state);
 
@@ -119,12 +135,12 @@ test('task can be deleted from its edit dialog after confirmation', async ({page
   await page.clock.setFixedTime(new Date('2026-09-28T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};
   state.tasks = [task('delete-me', 'Silinecek görev', monday, 0), task('keep-me', 'Kalacak görev', monday, 0, 1)];
-  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  const commands: TaskCommand[] = [];
   await page.route('**/api/command', route => {
     const command = route.request().postDataJSON();
     commands.push(command);
     if (command.type === 'task.delete') state.tasks = state.tasks.filter(item => item.id !== command.payload.id);
-    return route.fulfill({json: {ok: true, state}});
+    return route.fulfill({json: commandReceipt(command, state)});
   });
   await openTasks(page, state);
 
@@ -161,7 +177,7 @@ test('day, pending and completed views separate plan dates from completion statu
       state.tasks = state.tasks.map(item => item.id === command.payload.id
         ? {...item, progress: command.payload.progress, revision: item.revision + 1} : item);
     }
-    return route.fulfill({json: {ok: true, state}});
+    return route.fulfill({json: commandReceipt(command, state)});
   });
   await openTasks(page, state);
   const dayTab = page.getByRole('tab', {name: 'Bugün'});
@@ -310,7 +326,7 @@ test('undoing a completed older task returns it to pending and resets its comple
   const state = {...emptyState(true), authenticated: true};
   state.tasks = [{...task('undo-task', 'Eski biyoloji görevi', monday, 1), exam: 'TYT', subject: 'Biyoloji',
     steps: [{id: 'first-step', title: 'İlk testi çöz', completed: true}, {id: 'second-step', title: 'Yanlışları incele', completed: true}]}];
-  const commands: {type: string; payload: Record<string, unknown>}[] = [];
+  const commands: TaskCommand[] = [];
   await page.route('**/api/command', route => {
     const command = route.request().postDataJSON();
     commands.push(command);
@@ -318,7 +334,7 @@ test('undoing a completed older task returns it to pending and resets its comple
       state.tasks = state.tasks.map(item => item.id === command.payload.id
         ? {...item, ...command.payload, revision: item.revision + 1} : item);
     }
-    return route.fulfill({json: {ok: true, state}});
+    return route.fulfill({json: commandReceipt(command, state)});
   });
   await openTasks(page, state);
   await page.getByRole('tab', {name: 'Tamamlananlar'}).click();

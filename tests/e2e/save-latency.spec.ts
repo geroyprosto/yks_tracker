@@ -1,5 +1,6 @@
 import {expect, test, type Page} from '@playwright/test';
 import {emptyState, type AppState, type Task} from '../../src/lib/domain/types';
+import {emptyEducation} from '../../src/lib/education';
 import {localDate} from '../../src/lib/ui';
 
 function task(): Task {
@@ -14,6 +15,103 @@ async function openTasks(page: Page) {
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Görevlerim', exact: true}).click();
 }
+
+test('a quick second save confirms before a background snapshot can hold its owner lock', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let confirmedWrites = 0;
+  let readOwnsLock = false;
+  const snapshots: AppState[] = [];
+  let releaseRead!: () => void;
+  const heldRead = new Promise<void>(resolve => {releaseRead = resolve;});
+  await page.clock.install({time: new Date()});
+  await page.route('**/api/state', async route => {
+    if (!confirmedWrites) return route.fulfill({json: state});
+    // A real snapshot holds the same owner advisory lock as the next command.
+    readOwnsLock = true;
+    const snapshot = structuredClone(state);
+    snapshots.push(snapshot);
+    await heldRead;
+    readOwnsLock = false;
+    await route.fulfill({json: snapshot});
+  });
+  await page.route('**/api/command', async route => {
+    const command = route.request().postDataJSON();
+    if (readOwnsLock) await heldRead;
+    expect(command.payload.expected_revision).toBe(state.tasks[0].revision);
+    state.tasks[0] = {...state.tasks[0], progress: command.payload.progress, revision: state.tasks[0].revision + 1};
+    confirmedWrites++;
+    await route.fulfill({json: {ok: true, id: state.tasks[0].id, request_id: command.request_id, replayed: false}});
+  });
+  await openTasks(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  try {
+    await page.getByRole('button', {name: 'Ardışık kayıt görevini tamamla'}).click();
+    const undo = page.getByRole('button', {name: 'Ardışık kayıt tamamlamasını geri al'});
+    await expect(undo).toBeEnabled();
+    await page.clock.runFor(100);
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await undo.click();
+    // This goes red when the first receipt starts a full read immediately:
+    // the second POST cannot confirm until that older read releases its lock.
+    await expect.poll(() => confirmedWrites, {timeout: 1000}).toBe(2);
+    await expect(page.getByRole('button', {name: 'Ardışık kayıt görevini tamamla'})).toBeEnabled();
+    expect(snapshots).toHaveLength(0);
+    await page.clock.runFor(400);
+    expect(snapshots).toHaveLength(0);
+    await page.clock.runFor(100);
+    await expect.poll(() => snapshots.length).toBe(1);
+    expect(snapshots[0].tasks[0]).toMatchObject({progress: 0, revision: 3});
+    releaseRead();
+    await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+    await expect(page.locator('.notice.error[role="alert"]')).toHaveCount(0);
+    await expect(page.getByRole('button', {name: 'Ardışık kayıt görevini tamamla'})).toBeEnabled();
+    expect(confirmedWrites).toBe(2);
+    expect(snapshots).toHaveLength(1);
+  } finally {releaseRead();}
+});
+
+test('an education failure cancels an older queued study refresh and keeps its error', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()], education: {
+    ...emptyEducation(), courses: [{id: '33333333-3333-4333-8333-333333333333', term_id: null,
+      name: 'Matematik', normalized_name: 'matematik', context: 'yks', exam: 'TYT', archived: false,
+      revision: 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString()}],
+  }};
+  let writes = 0;
+  let backgroundReads = 0;
+  let educationWrites = 0;
+  await page.clock.install({time: new Date()});
+  await page.route('**/api/state', route => {
+    if (writes) backgroundReads++;
+    return route.fulfill({json: state});
+  });
+  await page.route('**/api/command', async route => {
+    const command = route.request().postDataJSON();
+    writes++;
+    state.tasks[0] = {...state.tasks[0], progress: 1, revision: 2};
+    await route.fulfill({json: {ok: true, id: state.tasks[0].id, request_id: command.request_id, replayed: false}});
+  });
+  await page.route('**/api/education', route => {
+    educationWrites++;
+    expect(route.request().postDataJSON()).toMatchObject({type: 'course.update', payload: {archived: true}});
+    return route.fulfill({status: 503, json: {error: {message: 'Ders arşivlenemedi; yeniden dene.'}}});
+  });
+  await openTasks(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  await page.getByRole('button', {name: 'Ardışık kayıt görevini tamamla'}).click();
+  await expect(page.getByRole('button', {name: 'Ardışık kayıt tamamlamasını geri al'})).toBeEnabled();
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Ayarlar', exact: true}).click();
+  await page.getByRole('button', {name: 'Öğrenci alanım', exact: true}).click();
+  await page.getByRole('button', {name: 'Arşivle', exact: true}).click();
+  const error = page.locator('.notice.error[role="alert"]');
+  await expect(error).toContainText('Ders arşivlenemedi; yeniden dene.');
+  await page.clock.runFor(1000);
+  await expect(error).toContainText('Ders arşivlenemedi; yeniden dene.');
+  expect(backgroundReads).toBe(0);
+  expect(educationWrites).toBe(1);
+  await expect(page.getByRole('button', {name: 'Arşivle', exact: true})).toBeEnabled();
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Görevlerim', exact: true}).click();
+  await expect(page.getByRole('button', {name: 'Ardışık kayıt tamamlamasını geri al'})).toBeEnabled();
+});
 
 test('accepted task saves unlock before a 2500 ms state refresh', async ({page}) => {
   const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};

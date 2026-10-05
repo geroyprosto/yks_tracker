@@ -73,6 +73,12 @@ export function Dashboard(){
  const pending=useRef(false);
  const mutationEpoch=useRef(0);
  const readSequence=useRef(0);
+ const reconciliationTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const cancelQueuedReconciliation=useCallback(()=>{
+   if(reconciliationTimer.current!==null)clearTimeout(reconciliationTimer.current);
+   reconciliationTimer.current=null;
+ },[]);
+ useEffect(()=>cancelQueuedReconciliation,[cancelQueuedReconciliation]);
  const preferenceDirty=useRef(false);
  const retries=useRef(new Map<string,string>());
  const saveMetrics=useRef(createSaveMetrics());
@@ -116,18 +122,26 @@ export function Dashboard(){
    }
  },[installState]);
  const reconcileSaved=useCallback((measurement?:SaveMeasurement)=>{
+   cancelQueuedReconciliation();
    const epoch=mutationEpoch.current;
-   const sequence=readSequence.current+1;
    setReconciling(true);
-   const finishRefresh=measurement?.refresh();
-   void refresh().then(latest=>{
-     finishRefresh?.(Boolean(latest));publishMetrics();
-     if(epoch!==mutationEpoch.current||sequence!==readSequence.current)return;
-     if(!latest)setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');
-   }).finally(()=>{
-     if(epoch===mutationEpoch.current&&sequence===readSequence.current)setReconciling(false);
-   });
- },[refresh,publishMetrics]);
+   const reconcile=()=>{
+     reconciliationTimer.current=null;
+     // A later command cancels this read. Keep the epoch guard even before fetch
+     // so an older queued reconciliation never adopts a newer mutation's state.
+     if(pending.current||epoch!==mutationEpoch.current)return;
+     const sequence=readSequence.current+1;
+     const finishRefresh=measurement?.refresh();
+     void refresh().then(latest=>{
+       finishRefresh?.(Boolean(latest));publishMetrics();
+       if(epoch!==mutationEpoch.current||sequence!==readSequence.current)return;
+       if(!latest)setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');
+     }).finally(()=>{
+       if(epoch===mutationEpoch.current&&sequence===readSequence.current)setReconciling(false);
+     });
+   };
+   reconciliationTimer.current=setTimeout(reconcile,500);
+ },[refresh,publishMetrics,cancelQueuedReconciliation]);
  useEffect(()=>{
    queueMicrotask(()=>setToday(localDate()));
    queueMicrotask(()=>{ const saved=localStorage.getItem('yksim-appearance');if(saved)setAppearance(saved);
@@ -139,9 +153,9 @@ export function Dashboard(){
    setReduced(savedReduced==='true');setSimple(savedSimple==='true'); });
    queueMicrotask(()=>void refresh());
    queueMicrotask(()=>{const query=new URLSearchParams(window.location.search);if(query.get('page')==='friends')setPage('friends');else if(query.get('settings')==='connections'){setSettingsInitialTab('connections');setPage('settings')}});
-   const reconnect=()=>{setOnline(navigator.onLine);if(navigator.onLine&&!pending.current)void refresh()};
+   const reconnect=()=>{setOnline(navigator.onLine);if(navigator.onLine&&!pending.current&&reconciliationTimer.current===null)void refresh()};
    window.addEventListener('online',reconnect);window.addEventListener('offline',reconnect);window.addEventListener('focus',reconnect);
-   const interval=setInterval(()=>{if(navigator.onLine&&!pending.current&&document.visibilityState==='visible')void refresh()},30000);
+   const interval=setInterval(()=>{if(navigator.onLine&&!pending.current&&reconciliationTimer.current===null&&document.visibilityState==='visible')void refresh()},30000);
    if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js').catch(()=>{});
    return()=>{window.removeEventListener('online',reconnect);window.removeEventListener('offline',reconnect);window.removeEventListener('focus',reconnect);clearInterval(interval)};
  },[refresh]);
@@ -155,6 +169,7 @@ export function Dashboard(){
    if(pending.current)return false;
    if(!state?.authenticated){setError('Kayıt oluşturmak için önce hesap kurulumunu tamamlayıp giriş yapmalısın.');return false}
    if(!navigator.onLine){setError('Şu anda çevrimdışısın. Değişiklik henüz kaydedilmedi; tekrar bağlanınca yeniden dene.');return false}
+   cancelQueuedReconciliation();
    const measurement=saveMetrics.current.start(type,enteredAt);publishMetrics();
    pending.current=true;setBusy(true);setReconciling(false);setError('');
    mutationEpoch.current++;
@@ -206,8 +221,8 @@ export function Dashboard(){
        measurement.confirmed('receipt',receivedAt);publishMetrics();
        setState(current=>current?acknowledgeCommandReceipt(current,type,requestId,data.id):current);
        retries.current.delete(fingerprint);
-       // The receipt confirms persistence. A full read can run independently;
-       // epoch/sequence checks discard its result if another write has started.
+       // The receipt confirms persistence. Reconcile after a short quiet window;
+       // epoch/sequence checks still discard older reads after another write.
        pending.current=false;setBusy(false);
        reconcileSaved(measurement);
      }else{
@@ -250,6 +265,7 @@ export function Dashboard(){
    if(pending.current)return false;
    if(!state?.authenticated){setError('Önce öğrenci hesabınla giriş yap.');return false;}
    if(!navigator.onLine){setError('Çevrimdışısın. Seçimlerin henüz kaydedilmedi.');return false;}
+   cancelQueuedReconciliation();
    const measurement=saveMetrics.current.start('education.'+type,enteredAt);publishMetrics();
    pending.current=true;mutationEpoch.current++;setBusy(true);setReconciling(false);setError('');
    const fingerprint=JSON.stringify({education:type,payload});

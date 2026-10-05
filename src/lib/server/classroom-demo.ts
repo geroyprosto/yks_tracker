@@ -15,7 +15,10 @@ type DemoRuntime = { db: Promise<PGlite>; queue: Promise<unknown>; events: Event
 const globalDemo = globalThis as typeof globalThis & { classroomDemo?: DemoRuntime };
 
 async function initialize() {
-  const {PGlite}=await import('@electric-sql/pglite');
+  // The build must omit the local database, even from function file traces.
+  const pglite = process.env.NODE_ENV !== 'production' ? await import('@electric-sql/pglite') : null;
+  if (!pglite) throw new ApiError(404, 'DEMO_DISABLED', 'Demo yalnızca açıkça etkinleştirilmiş geliştirme ortamında kullanılabilir.');
+  const {PGlite}=pglite;
   const testRun=process.env.CLASSROOM_DEMO_TEST_RUN;
   if(process.env.YKSIM_E2E==='1'&&testRun&&!/^[a-zA-Z0-9-]{1,80}$/.test(testRun))throw new Error('INVALID_DEMO_TEST_RUN');
   const dir = process.env.YKSIM_E2E==='1'

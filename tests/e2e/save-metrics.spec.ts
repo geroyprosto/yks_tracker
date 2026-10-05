@@ -47,7 +47,7 @@ test('passive DOM metrics separate optimistic commitment, receipt and refresh wi
   try {
     await page.getByRole('button', { name: privateText + ' görevini tamamla', exact: true }).click();
     const undo = page.getByRole('button', { name: privateText + ' tamamlamasını geri al', exact: true });
-    await expect(undo).toBeDisabled();
+    await expect(undo).toBeEnabled();
     const beforeReceipt = (await metrics(page))[0];
     expect(beforeReceipt).toMatchObject({
       command_type: 'task.update', outcome: 'pending', visible_source: 'optimistic',

@@ -1,5 +1,5 @@
 'use client';
-import {useState} from 'react';
+import {useRef,useState} from 'react';
 import {Check,Clock3,ListTodo,MoreHorizontal,Play,Plus,ArrowUp,ArrowDown,Trash2} from 'lucide-react';
 import type {AppState,Task} from '@/lib/domain/types';
 import {formatDay,localDate,studyTypes,type CommandFn} from '@/lib/ui';
@@ -42,12 +42,15 @@ export function Tasks({state,command,busy,requestNew,onNewHandled}:{state:AppSta
  </>;
 }
 function TaskForm({state,task,busy,onSave,onClose,onDelete}:{state:AppState;task:Task|null;busy:boolean;onSave:(payload:Record<string,unknown>)=>Promise<void>;onClose:()=>void;onDelete:()=>void}){
+ const submitting=useRef(false);
+ const [saving,setSaving]=useState(false);
+ busy=busy||saving;
  const [topic,setTopic]=useState(task?.topic_id??'');
  const [courseId,setCourseId]=useState(task?.course_id??'');
  const [contextChanged,setContextChanged]=useState(false);
  const modern=Boolean(state.education?.profile);
  const [steps,setSteps]=useState(task?.steps??[]);
- return <form className="form-grid" onSubmit={async e=>{e.preventDefault();const form=new FormData(e.currentTarget);const chosen=state.topics.find(t=>t.id===topic);const course=state.education?.courses.find(item=>item.id===courseId);await onSave({title:form.get('title'),topic_id:topic||null,...(modern?{course_id:courseId||null}:{}),exam:modern&&!contextChanged&&task?task.exam:chosen?.exam??course?.exam??null,subject:modern?(!contextChanged&&task?task.subject:chosen?.subject??course?.name??null):chosen?.subject??(String(form.get('subject')||'')||null),planned_minutes:Number(form.get('planned_minutes')),difficulty:task?.difficulty??'medium',notes:form.get('notes')??'',study_type:form.get('study_type'),priority:form.get('priority'),steps})}}>
+ return <form className="form-grid" onSubmit={async e=>{e.preventDefault();if(submitting.current)return;submitting.current=true;setSaving(true);const form=new FormData(e.currentTarget);const chosen=state.topics.find(t=>t.id===topic);const course=state.education?.courses.find(item=>item.id===courseId);try{await onSave({title:form.get('title'),topic_id:topic||null,...(modern?{course_id:courseId||null}:{}),exam:modern&&!contextChanged&&task?task.exam:chosen?.exam??course?.exam??null,subject:modern?(!contextChanged&&task?task.subject:chosen?.subject??course?.name??null):chosen?.subject??(String(form.get('subject')||'')||null),planned_minutes:Number(form.get('planned_minutes')),difficulty:task?.difficulty??'medium',notes:form.get('notes')??'',study_type:form.get('study_type'),priority:form.get('priority'),steps})}finally{submitting.current=false;setSaving(false)}}}>
  <label className="span-2">Görev başlığı<input name="title" required maxLength={240} defaultValue={task?.title} placeholder="Örn. Polinomlar: iki test ve yanlış analizi" autoFocus/></label>
  <label className="span-2">Planlanan net dakika<input type="number" min="0" max="1440" name="planned_minutes" defaultValue={task?.planned_minutes??40} required/></label>
  {modern?<div className="span-2"><CourseSelector state={state} value={courseId} onChange={id=>{setCourseId(id);setTopic('');setContextChanged(true);}} disabled={busy} label="Ders (isteğe bağlı)"/></div>:!topic&&<label className="span-2">Ders (isteğe bağlı)<input name="subject" defaultValue={task?.subject??''} placeholder="Örn. AYT Fizik"/></label>}

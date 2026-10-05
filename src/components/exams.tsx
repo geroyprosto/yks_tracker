@@ -1,6 +1,6 @@
 'use client';
 
-import {useMemo, useState} from 'react';
+import {useMemo, useRef, useState} from 'react';
 import {ArrowUpRight, CalendarDays, ChartNoAxesCombined, ChevronDown, PenLine, Plus, Trash2} from 'lucide-react';
 import type {AppState, ExamFormat, ExamRecord} from '@/lib/domain/types';
 import {examRange, examSeries, examValue, type ExamGrouping, type ExamPeriod} from '@/lib/exam-analysis';
@@ -131,6 +131,8 @@ function ExamEditor({record, formats, examCount, busy, onClose, onSave}: {
   record: ExamRecord | null; formats: ExamFormat[]; examCount: number; busy: boolean;
   onClose: () => void; onSave: (type: string, payload: Record<string, unknown>) => Promise<void>;
 }) {
+  const submitting = useRef(false);
+  const [saving, setSaving] = useState(false);
   const [formatCode, setFormatCode] = useState<'TYT' | 'AYT_SAYISAL' | 'BRANCH'>(record?.format_code ?? 'TYT');
   const [branchSubject, setBranchSubject] = useState(record?.format_code === 'BRANCH' ? record.format_snapshot.sections[0]?.label ?? '' : '');
   const [branchCount, setBranchCount] = useState(record?.format_code === 'BRANCH' ? String(record.format_snapshot.total_questions) : '40');
@@ -182,6 +184,7 @@ function ExamEditor({record, formats, examCount, busy, onClose, onSave}: {
   return <Modal title={record ? 'Denemeyi düzenle' : 'Yeni deneme ekle'} onClose={onClose}>
     <form className="exam-editor" onSubmit={async event => {
       event.preventDefault();
+      if (submitting.current) return;
       setError('');
       if (!examDate) {
         setError('Deneme tarihini seç.');
@@ -221,7 +224,9 @@ function ExamEditor({record, formats, examCount, busy, onClose, onSave}: {
               : [{section_key: section.key, correct: previous.correct, wrong: previous.wrong, blank: previous.blank!}];
           });
       }
-      if (record) {
+      submitting.current = true;
+      setSaving(true);
+      try { if (record) {
         payload.id = record.id;
         payload.expected_revision = record.revision;
         if (answersEdited) payload.reported_total_net = null;
@@ -234,7 +239,7 @@ function ExamEditor({record, formats, examCount, busy, onClose, onSave}: {
           payload.branch_question_count = branchQuestions;
         }
         await onSave('exam.create', payload);
-      }
+      } } finally {submitting.current = false; setSaving(false);}
     }}>
       <div className="exam-editor-top">
         <label>Tür<select value={formatCode} disabled={Boolean(record)} onChange={event => {setFormatCode(event.target.value as typeof formatCode); setAnswers({}); setTouchedSections([]); setError('');}}>{codes.map(([code, label]) => <option key={code} value={code}>{label}</option>)}</select></label>
@@ -269,7 +274,7 @@ function ExamEditor({record, formats, examCount, busy, onClose, onSave}: {
       </div>
       <details className="exam-editor-notes"><summary>Not ekle <ChevronDown size={14}/></summary><label>Notların<textarea name="notes" maxLength={10000} defaultValue={record?.notes ?? ''} placeholder="Bu denemeyle ilgili kısa bir not"/></label></details>
       {(error || calculationError && hasInput) && <p className="error-text" role="alert">{error || calculationError}</p>}
-      <div className="form-actions"><button type="button" className="button secondary" onClick={onClose}>Vazgeç</button><button className="button primary" disabled={busy || !format || !Number.isInteger(format.total_questions) || format.total_questions < 1}>{busy ? 'Kaydediliyor…' : 'Denemeyi kaydet'}<ArrowUpRight size={16}/></button></div>
+      <div className="form-actions"><button type="button" className="button secondary" onClick={onClose}>Vazgeç</button><button className="button primary" disabled={busy || saving || !format || !Number.isInteger(format.total_questions) || format.total_questions < 1}>{busy || saving ? 'Kaydediliyor…' : 'Denemeyi kaydet'}<ArrowUpRight size={16}/></button></div>
     </form>
   </Modal>;
 }

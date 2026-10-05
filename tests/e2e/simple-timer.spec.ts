@@ -111,7 +111,8 @@ test('authenticated Sade mod pauses and finishes the existing session through ve
       finished_at: status === 'finished' ? new Date(clockMillis).toISOString() : null,
       revision: session.revision + 1,
     };
-    await route.fulfill({ json: { ok: true, state: { ...state, server_now: new Date(clockMillis).toISOString() } } });
+    await route.fulfill({ json: { ok: true, id: session.id, request_id: command.request_id, replayed: false,
+      state: { ...state, server_now: new Date(clockMillis).toISOString() } } });
   });
 
   await page.goto('/');
@@ -138,6 +139,7 @@ test('authenticated Sade mod pauses and finishes the existing session through ve
   await simple.getByRole('button', { name: 'Bitir', exact: true }).click();
   await expect(simple).not.toBeVisible();
   await expect(page.locator('.floating-timer')).toHaveCount(0);
+  await expect.poll(() => state.sessions[0].status).toBe('finished');
   expect(commands).toMatchObject([
     { type: 'timer.pause', payload: { id: 'simple-contract-session', expected_revision: 1 } },
     { type: 'timer.finish', payload: { id: 'simple-contract-session', expected_revision: 2 } },

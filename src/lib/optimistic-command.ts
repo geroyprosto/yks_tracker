@@ -56,7 +56,9 @@ export function optimisticCommand(
   }
   if (type === 'task.delete') {
     if (typeof payload.id !== 'string') return null;
-    return {...state, tasks: state.tasks.filter(task => task.id !== payload.id)};
+    return {...state, tasks: state.tasks.filter(task => task.id !== payload.id),
+      sessions: state.sessions.map(session => session.task_id === payload.id
+        ? {...session, task_id: null, revision: session.revision + 1} : session)};
   }
   if (type === 'task.move') {
     if (typeof payload.id !== 'string' || (payload.direction !== 'up' && payload.direction !== 'down')) return null;

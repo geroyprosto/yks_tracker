@@ -107,7 +107,8 @@ test('authenticated timer crosses the hour boundary and sends authoritative paus
     const elapsed = session.accumulated_seconds + (session.status === 'running' && session.active_since ? Math.floor((clockMillis - Date.parse(session.active_since)) / 1000) : 0);
     const status: StudySession['status'] = request.type === 'timer.finish' ? 'finished' : request.type === 'timer.pause' ? 'paused' : 'running';
     state.sessions[0] = { ...session, status, accumulated_seconds: elapsed, active_since: status === 'running' ? new Date(clockMillis).toISOString() : null, finished_at: status === 'finished' ? new Date(clockMillis).toISOString() : null, revision: session.revision + 1 };
-    await route.fulfill({ json: { ok: true, state: { ...state, server_now: new Date(clockMillis).toISOString() } } });
+    await route.fulfill({ json: { ok: true, id: session.id, request_id: request.request_id, replayed: false,
+      state: { ...state, server_now: new Date(clockMillis).toISOString() } } });
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Sayacı büyüt', exact: true }).first().click();
@@ -131,6 +132,7 @@ test('authenticated timer crosses the hour boundary and sends authoritative paus
   await expect(digit(page, 'seconds')).toHaveText('56');
   await screen.getByRole('button', { name: 'Sayacı bitir', exact: true }).click();
   await expect(screen).not.toBeVisible();
+  await expect.poll(() => requests.length).toBe(3);
   expect(requests).toMatchObject([
     { type: 'timer.pause', payload: { id: 'focus-contract-session', expected_revision: 1 } },
     { type: 'timer.resume', payload: { id: 'focus-contract-session', expected_revision: 2 } },
@@ -218,9 +220,10 @@ test('authenticated fullscreen start uses selected course and minutes, then stay
   await page.route('**/api/state', route => route.fulfill({ json: state }));
   let sent: { type: string; payload: Record<string, unknown> } | undefined;
   await page.route('**/api/command', async route => {
-    sent = route.request().postDataJSON();
+    const command = route.request().postDataJSON();
+    sent = command;
     state.sessions = [{ ...activeState().sessions[0], title: String(sent!.payload.title), subject: String(sent!.payload.subject), study_type: sent!.payload.study_type as StudySession['study_type'], target_seconds: Number(sent!.payload.target_seconds), accumulated_seconds: 0 }];
-    await route.fulfill({ json: { ok: true, state } });
+    await route.fulfill({ json: { ok: true, id: state.sessions[0].id, request_id: command.request_id, replayed: false, state } });
   });
   await page.goto('/');
   await page.getByRole('button', { name: 'Sayacı büyüt', exact: true }).first().click();
@@ -234,7 +237,7 @@ test('authenticated fullscreen start uses selected course and minutes, then stay
   await expect(screen.getByRole('heading', { name: 'AYT Matematik tekrar', exact: true })).toBeVisible();
   await expect(digit(page, 'hours')).toHaveText('01');
   await expect(digit(page, 'minutes')).toHaveText('10');
-  expect(sent).toMatchObject({ type: 'timer.start', payload: { title: 'AYT Matematik tekrar', topic_id: null, subject: 'AYT Matematik', study_type: 'Tekrar', mode: 'countdown', target_seconds: 4200 } });
+  await expect.poll(() => sent).toMatchObject({ type: 'timer.start', payload: { title: 'AYT Matematik tekrar', topic_id: null, subject: 'AYT Matematik', study_type: 'Tekrar', mode: 'countdown', target_seconds: 4200 } });
 });
 
 test('compact setup remembers the latest minutes and starts an activity without a topic', async ({ page }) => {
@@ -254,8 +257,11 @@ test('compact setup remembers the latest minutes and starts an activity without 
   await page.route('**/api/state', route => route.fulfill({json: state}));
   let sent: {type: string; payload: Record<string, unknown>} | undefined;
   await page.route('**/api/command', async route => {
-    sent = route.request().postDataJSON();
-    await route.fulfill({json: {ok: true, state}});
+    const command = route.request().postDataJSON();
+    sent = command;
+    state.sessions = [{...activeState().sessions[0], ...command.payload, id: 'compact-created-session',
+      started_at: state.server_now, active_since: state.server_now, accumulated_seconds: 0}, ...state.sessions];
+    await route.fulfill({json: {ok: true, id: state.sessions[0].id, request_id: command.request_id, replayed: false, state}});
   });
   await page.goto('/');
   await page.getByRole('button', {name: 'Sayaç — çalışma sayacını aç', exact: true}).first().click();
@@ -269,7 +275,7 @@ test('compact setup remembers the latest minutes and starts an activity without 
   await dialog.getByRole('group', {name: 'Çalışma türü'}).getByRole('button', {name: 'Deneme analizi'}).click();
   await dialog.getByRole('group', {name: 'Hazır süreler'}).getByRole('button', {name: '50 dk'}).click();
   await dialog.getByRole('button', {name: 'Çalışmaya başla', exact: true}).click();
-  expect(sent).toMatchObject({
+  await expect.poll(() => sent).toMatchObject({
     type: 'timer.start',
     payload: {title: 'AYT Biyoloji deneme analizi', task_id: null, topic_id: null,
       subject: 'AYT Biyoloji', study_type: 'Yanlış analizi',

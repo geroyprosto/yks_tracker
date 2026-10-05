@@ -35,7 +35,7 @@ test('finishing a study timer grows the time ring while only task and time rings
   await page.route('**/api/state', route => route.fulfill({ json: state }));
   await page.route('**/api/command', async route => {
     const request = route.request().postDataJSON() as {
-      type: string; payload: { id: string; expected_revision: number };
+      request_id: string; type: string; payload: { id: string; expected_revision: number };
     };
     expect(request).toMatchObject({
       type: 'timer.finish',
@@ -49,7 +49,7 @@ test('finishing a study timer grows the time ring while only task and time rings
       id: 'synthetic-timer-interval', session_id: 'synthetic-timer-animation',
       started_at: startedAt.toISOString(), ended_at: finishedAt.toISOString(),
     }];
-    await route.fulfill({ json: { ok: true, state } });
+    await route.fulfill({ json: { ok: true, id: state.sessions[0].id, request_id: request.request_id, replayed: false, state } });
   });
 
   await page.goto('/');

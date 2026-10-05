@@ -1,4 +1,42 @@
-import type {AppState, StudyInterval} from './domain/types';
+import type {AppState, StudyInterval, StudySession} from './domain/types';
+
+/** Timer timestamps are provisional until an authoritative command response arrives. */
+export function optimisticTimerCommand(state: AppState, type: string, payload: Record<string, unknown>, provisionalId: string, now: string): AppState | null {
+  if (!Number.isFinite(Date.parse(now))) return null;
+  const stamp = new Date(Math.floor(Date.parse(now) / 1000) * 1000).toISOString();
+  if (type === 'timer.start') {
+    if (state.sessions.some(session => session.status !== 'finished')) return null;
+    const course = state.education?.courses.find(item => item.id === payload.course_id);
+    const task = state.tasks.find(item => item.id === payload.task_id);
+    const mode = payload.mode === 'countdown' ? 'countdown' : 'stopwatch';
+    if (mode === 'countdown' && (typeof payload.target_seconds !== 'number' || payload.target_seconds < 60)) return null;
+    const session: StudySession = {id: provisionalId, title: String(payload.title ?? task?.title ?? 'Çalışma'),
+      course_id: (payload.course_id as string | null) ?? null, task_id: (payload.task_id as string | null) ?? null,
+      topic_id: (payload.topic_id as string | null) ?? null, subject: course?.name ?? (payload.subject as string | null) ?? null,
+      study_type: (payload.study_type as StudySession['study_type']) ?? 'Soru çözümü', mode,
+      target_seconds: mode === 'countdown' ? payload.target_seconds as number : null, status: 'running',
+      started_at: stamp, active_since: stamp, accumulated_seconds: 0, finished_at: null, revision: 1};
+    return {...state, sessions: [...state.sessions, session], intervals: [...state.intervals,
+      {id: `optimistic-${provisionalId}`, session_id: provisionalId, started_at: stamp, ended_at: null}]};
+  }
+  const session = state.sessions.find(item => item.id === payload.id);
+  if (!session || session.revision !== payload.expected_revision || session.status === 'finished') return null;
+  const at = new Date(Math.max(Date.parse(stamp), Date.parse(session.active_since ?? session.started_at))).toISOString();
+  if (type === 'timer.finish') return optimisticTimerFinish(state, payload, at);
+  if (type === 'timer.resume') {
+    if (session.status !== 'paused') return null;
+    return {...state, sessions: state.sessions.map(item => item === session
+      ? {...item, status: 'running', active_since: at, revision: item.revision + 1} : item),
+      intervals: [...state.intervals, {id: `optimistic-${provisionalId}`, session_id: session.id, started_at: at, ended_at: null}]};
+  }
+  if (type !== 'timer.pause' || session.status !== 'running' || !session.active_since) return null;
+  const elapsed = session.accumulated_seconds + Math.max(0, Math.round((Date.parse(at) - Date.parse(session.active_since)) / 1000));
+  return {...state, sessions: state.sessions.map(item => item === session
+    ? {...item, status: 'paused', active_since: null, accumulated_seconds: session.mode === 'countdown'
+      ? Math.min(elapsed, session.target_seconds ?? elapsed) : elapsed, revision: item.revision + 1} : item),
+    intervals: state.intervals.map(interval => interval.session_id === session.id && interval.ended_at === null
+      ? {...interval, ended_at: at} : interval)};
+}
 
 /** Show a finished timer while its command receipt and authoritative state are in flight. */
 export function optimisticTimerFinish(

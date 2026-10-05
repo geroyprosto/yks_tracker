@@ -93,7 +93,7 @@ test('an education failure cancels an older queued study refresh and keeps its e
   await page.route('**/api/education', route => {
     educationWrites++;
     expect(route.request().postDataJSON()).toMatchObject({type: 'course.update', payload: {archived: true}});
-    return route.fulfill({status: 503, json: {error: {message: 'Ders arşivlenemedi; yeniden dene.'}}});
+    return route.fulfill({status: 409, json: {error: {message: 'Ders arşivlenemedi; yeniden dene.'}}});
   });
   await openTasks(page);
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
@@ -106,7 +106,8 @@ test('an education failure cancels an older queued study refresh and keeps its e
   await expect(error).toContainText('Ders arşivlenemedi; yeniden dene.');
   await page.clock.runFor(1000);
   await expect(error).toContainText('Ders arşivlenemedi; yeniden dene.');
-  expect(backgroundReads).toBe(0);
+  // Only the education failure's own recovery read runs; the older queued read is canceled.
+  expect(backgroundReads).toBe(1);
   expect(educationWrites).toBe(1);
   await expect(page.getByRole('button', {name: 'Arşivle', exact: true})).toBeEnabled();
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Görevlerim', exact: true}).click();
@@ -284,7 +285,7 @@ test('an obsolete failed refresh cannot clear the next pending save or show an e
     releaseRefresh();
     await refreshComplete;
     await expect(page.locator('.sync-status')).toContainText('Kaydediliyor');
-    await expect(page.getByRole('button', {name: 'Ardışık kayıt görevini tamamla'})).toBeDisabled();
+    await expect(page.getByRole('button', {name: 'Ardışık kayıt görevini tamamla'})).toBeEnabled();
     await expect(page.locator('.notice.error[role="alert"]')).toHaveCount(0);
     releaseWrite();
     await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
@@ -374,9 +375,9 @@ test('retrying an update after its response is lost restores the server revision
     const dialog = page.getByRole('dialog', {name: 'Görevi düzenle'});
     await dialog.getByLabel('Görev başlığı').fill('Yanıtı kaybolan görev');
     await dialog.getByRole('button', {name: 'Görevi kaydet', exact: true}).click();
-    await expect(dialog.getByRole('button', {name: 'Görevi kaydet', exact: true})).toBeEnabled();
+    await expect(dialog.getByRole('button', {name: 'Bekleyen kayıtları yeniden dene', exact: true})).toBeVisible();
     await expect(dialog.getByRole('alert')).toBeVisible();
-    await dialog.getByRole('button', {name: 'Görevi kaydet', exact: true}).click();
+    await dialog.getByRole('button', {name: 'Bekleyen kayıtları yeniden dene', exact: true}).click();
     await expect(dialog).not.toBeVisible();
     await page.getByRole('button', {name: 'Yanıtı kaybolan görev görevini tamamla'}).click();
     await expect.poll(() => commands.length).toBe(3);

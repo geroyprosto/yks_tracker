@@ -4,6 +4,7 @@ import { emptyState, type AppState } from "../domain/types";
 import { ApiError } from "./http";
 import { after } from 'next/server';
 import { readStateWithCache } from './state-cache';
+import {scheduleStudyDirty,type StudyDirtyOptions} from './study-realtime';
 export function databaseError(error:{message:string;code?:string}):never{
  const known:Record<string,[number,string]>={
   ACCESS_DENIED:[403,"Bu işlem için yetkiniz bulunmuyor."],
@@ -72,7 +73,7 @@ export async function authorizeStudyCommand(client:SupabaseClient):Promise<Supab
 export type CommandReceipt = {ok:true;id:string;request_id:string;replayed:boolean};
 export type CommandResponse = CommandReceipt & {state:AppState};
 /** The live approved-student gate and durable write execute in one database transaction. */
-export async function executeStudentCommand(client:SupabaseClient,input:unknown):Promise<CommandReceipt>{
+export async function executeStudentCommand(client:SupabaseClient,input:unknown,notification?:StudyDirtyOptions):Promise<CommandReceipt>{
  const parsed=commandSchema.safeParse(input);
  if(!parsed.success)throw new ApiError(400,"INVALID_INPUT",parsed.error.issues[0]?.message??"Alanları kontrol edin.");
  const {data,error}=await client.rpc("yks_student_command",{request_id:parsed.data.request_id,command_type:parsed.data.type,payload:parsed.data.payload});
@@ -85,16 +86,18 @@ export async function executeStudentCommand(client:SupabaseClient,input:unknown)
   }
   databaseError(error);
  }
+ scheduleStudyDirty(client,notification);
  return {...data as {id:string;request_id:string;replayed:boolean},ok:true};
 }
 export async function executeCommand(client:SupabaseClient,input:unknown):Promise<CommandResponse>;
-export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:true}):Promise<CommandReceipt>;
-export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean}):Promise<CommandReceipt|CommandResponse>;
-export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean}={minimal:false}):Promise<CommandReceipt|CommandResponse>{
+export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:true;notification?:StudyDirtyOptions}):Promise<CommandReceipt>;
+export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean;notification?:StudyDirtyOptions}):Promise<CommandReceipt|CommandResponse>;
+export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean;notification?:StudyDirtyOptions}={minimal:false}):Promise<CommandReceipt|CommandResponse>{
  const parsed=commandSchema.safeParse(input);
  if(!parsed.success)throw new ApiError(400,"INVALID_INPUT",parsed.error.issues[0]?.message??"Alanları kontrol edin.");
  const {data,error}=await client.rpc("yks_command",{request_id:parsed.data.request_id,command_type:parsed.data.type,payload:parsed.data.payload});
  if(error)databaseError(error);
+ scheduleStudyDirty(client,options.notification);
  const result=data as {id:string;request_id:string;replayed:boolean};
  const receipt:CommandReceipt={...result,ok:true};
  if(options.minimal)return receipt;

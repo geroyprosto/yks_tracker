@@ -5,6 +5,7 @@ import { classroomContext } from '@/lib/server/classroom';
 import { demoUserId } from '@/lib/server/classroom-demo';
 import { ApiError } from '@/lib/server/http';
 import { redirect } from 'next/navigation';
+import { StudyRealtimeProvider } from '@/lib/realtime-client';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,9 +20,9 @@ export default async function Home() {
     if (error instanceof ApiError && error.status === 401) return <Login />;
     throw error;
   }
-  if (setupPreview) return <Dashboard />;
+  if (setupPreview) return <StudyRealtimeProvider><Dashboard /></StudyRealtimeProvider>;
   if(account?.role==='student'&&account.status==='pending')redirect('/personalize');
   if (!account || account.role !== 'student' || account.status !== 'approved') redirect('/classroom');
-  return <Dashboard />;
+  return <StudyRealtimeProvider><Dashboard /></StudyRealtimeProvider>;
 }
 

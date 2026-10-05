@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { GraduationCap, LayoutDashboard, ListTodo, BookOpen, ChartNoAxesCombined, BarChart3, UsersRound, NotebookPen, Sparkles, Settings2, ChevronRight, Menu, X, ArrowUpRight, CloudCheck, WifiOff, AlertCircle, ShieldCheck } from 'lucide-react';
 import {emptyState,type AppState} from '@/lib/domain/types';
 import { normalizeTheme,localDate,formatDay,type CommandFn } from '@/lib/ui';
@@ -29,6 +29,7 @@ import {optimisticEducationCommand} from '@/lib/optimistic-education';
 import {optimisticTimerFinish} from '@/lib/optimistic-timer';
 import {acknowledgeCommandReceipt} from '@/lib/command-receipt';
 import {sessionSeconds} from '@/lib/timing';
+import {createSaveMetrics,type SaveMeasurement} from '@/lib/save-metrics';
 
 const navigation=[
  {id:'today',label:'Bugün',icon:LayoutDashboard},
@@ -74,6 +75,21 @@ export function Dashboard(){
  const readSequence=useRef(0);
  const preferenceDirty=useRef(false);
  const retries=useRef(new Map<string,string>());
+ const saveMetrics=useRef(createSaveMetrics());
+ const metricsRoot=useRef<HTMLDivElement|null>(null);
+ const pendingVisibility=useRef<{measurement:SaveMeasurement;previous:AppState;source:'optimistic'|'authoritative'}|null>(null);
+ const publishMetrics=useCallback(()=>{
+   metricsRoot.current?.setAttribute('data-save-metrics',saveMetrics.current.serialize());
+ },[]);
+ useLayoutEffect(()=>{
+   const visible=pendingVisibility.current;
+   if(visible&&state&&state!==visible.previous){
+     visible.measurement.visible(visible.source);
+     pendingVisibility.current=null;
+   }
+   // This is the React DOM commit, before paint; no extra render or request is needed.
+   publishMetrics();
+ },[state,publishMetrics]);
  const installState=useCallback((incoming:AppState)=>{
    const s={...emptyState(incoming.configured),...incoming};
    setOffset(new Date(s.server_now).getTime()-Date.now());
@@ -99,17 +115,19 @@ export function Dashboard(){
      setReconciling(false);setError(e instanceof Error?e.message:'Bağlantı kurulamadı.');return null;
    }
  },[installState]);
- const reconcileSaved=useCallback(()=>{
+ const reconcileSaved=useCallback((measurement?:SaveMeasurement)=>{
    const epoch=mutationEpoch.current;
    const sequence=readSequence.current+1;
    setReconciling(true);
+   const finishRefresh=measurement?.refresh();
    void refresh().then(latest=>{
+     finishRefresh?.(Boolean(latest));publishMetrics();
      if(epoch!==mutationEpoch.current||sequence!==readSequence.current)return;
      if(!latest)setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');
    }).finally(()=>{
      if(epoch===mutationEpoch.current&&sequence===readSequence.current)setReconciling(false);
    });
- },[refresh]);
+ },[refresh,publishMetrics]);
  useEffect(()=>{
    queueMicrotask(()=>setToday(localDate()));
    queueMicrotask(()=>{ const saved=localStorage.getItem('yksim-appearance');if(saved)setAppearance(saved);
@@ -133,9 +151,11 @@ export function Dashboard(){
    update();query.addEventListener('change',update);return()=>query.removeEventListener('change',update);
  },[theme,appearance,reduced,simple]);
  const command:CommandFn=async(type,payload)=>{
+   const enteredAt=performance.now();
    if(pending.current)return false;
    if(!state?.authenticated){setError('Kayıt oluşturmak için önce hesap kurulumunu tamamlayıp giriş yapmalısın.');return false}
    if(!navigator.onLine){setError('Şu anda çevrimdışısın. Değişiklik henüz kaydedilmedi; tekrar bağlanınca yeniden dene.');return false}
+   const measurement=saveMetrics.current.start(type,enteredAt);publishMetrics();
    pending.current=true;setBusy(true);setReconciling(false);setError('');
    mutationEpoch.current++;
    const fingerprint=JSON.stringify({type,payload});
@@ -149,40 +169,60 @@ export function Dashboard(){
    // Deletion revises linked timers; a replay may already be reflected in the
    // recovery state. Both need the authoritative projection before unlocking.
    const minimal=optimistic!==null&&type!=='task.delete'&&!retrying;
-   if(optimistic)setState(optimistic);
+   if(optimistic){
+     if(optimistic!==state)pendingVisibility.current={measurement,previous:state,source:'optimistic'};
+     setState(optimistic);
+   }
    const runningCountdown=fastTimer&&state.sessions.find(session=>session.id===payload.id);
    if(runningCountdown?.status==='running'&&runningCountdown.mode==='countdown'&&
       runningCountdown.target_seconds!==null&&
       sessionSeconds(runningCountdown,Date.now()+offset)>=runningCountdown.target_seconds){
      setReconciling(true);
+     const finishRefresh=measurement.refresh();
      void refresh(true).then(latest=>{
+       finishRefresh(Boolean(latest));
        retries.current.delete(fingerprint);
-       if(!latest){setState(previous);setError('Sayaç durumu doğrulanamadı. Sayfayı yenile.');}
-       else if(!latest.sessions.some(session=>session.id===runningCountdown.id&&session.status==='finished'))
+       if(!latest){measurement.failed('state_check_failed');setState(previous);setError('Sayaç durumu doğrulanamadı. Sayfayı yenile.');}
+       else if(!latest.sessions.some(session=>session.id===runningCountdown.id&&session.status==='finished')){
+         measurement.failed('state_check_failed');
          setError('Sayaç tamamlanmadı; güncel durumu kontrol edip tekrar dene.');
+       }else measurement.confirmed('state_check');
+       publishMetrics();
      }).finally(()=>{pending.current=false;setBusy(false);setReconciling(false)});
      return true;
    }
    const save=async()=>{
+   let responseStatus:number|null=null;
    try{
      const response=await fetch('/api/command',{method:'POST',headers:{'Content-Type':'application/json',...(minimal?{Prefer:'return=minimal'}:{})},body:JSON.stringify({request_id:requestId,type,payload}),...(fastTimer?{keepalive:true}:{})});
+     responseStatus=response.status;measurement.response(response.status,response.headers.get('server-timing'));
      const data=await response.json();
+     const receivedAt=performance.now();
      if(!response.ok){if(response.status<500)retries.current.delete(fingerprint);throw new Error(data.error?.message??'İşlem kaydedilemedi.');}
      if(type==='settings.update'&&payload.theme)preferenceDirty.current=false;
      mutationEpoch.current++;
      if(minimal&&!data.state){
        if(typeof data.id!=='string')throw new Error('Kayıt yanıtı doğrulanamadı. Sayfayı yenile.');
+       measurement.confirmed('receipt',receivedAt);publishMetrics();
        setState(current=>current?acknowledgeCommandReceipt(current,type,requestId,data.id):current);
        retries.current.delete(fingerprint);
        // The receipt confirms persistence. A full read can run independently;
        // epoch/sequence checks discard its result if another write has started.
        pending.current=false;setBusy(false);
-       reconcileSaved();
-     }else{retries.current.delete(fingerprint);installState(data.state);}
+       reconcileSaved(measurement);
+     }else{
+       retries.current.delete(fingerprint);installState(data.state);
+       if(!optimistic)pendingVisibility.current={measurement,previous,source:'authoritative'};
+       measurement.confirmed('receipt',receivedAt);publishMetrics();
+     }
      return true;
    }catch(e){
+     const failedAt=performance.now();
+     if(pendingVisibility.current?.measurement===measurement)pendingVisibility.current=null;
      if(optimistic&&!fastTimer)setState(previous);
+     const finishRefresh=measurement.refresh();
      const latest=await refresh(true);
+     finishRefresh(Boolean(latest));
      const autoFinishTime=runningCountdown?.status==='running'&&runningCountdown.mode==='countdown'&&
        runningCountdown.target_seconds!==null&&runningCountdown.active_since
        ? Date.parse(runningCountdown.active_since)+
@@ -193,10 +233,12 @@ export function Dashboard(){
        Date.parse(session.finished_at??'')===autoFinishTime)){
        retries.current.delete(fingerprint);
        setError('');
+       measurement.confirmed('state_check');publishMetrics();
        return true;
      }
      if(fastTimer&&!latest)setState(previous);
      setError(e instanceof Error?e.message:'İşlem kaydedilemedi.');
+     measurement.failed(responseStatus===null?'request_error':responseStatus>=400?'http_error':'invalid_response',failedAt);publishMetrics();
      return false;
     }finally{pending.current=false;setBusy(false)}
    };
@@ -204,38 +246,55 @@ export function Dashboard(){
    return save();
  };
  const educationCommand:EducationCommand=async(type,payload,explicitRequestId)=>{
+   const enteredAt=performance.now();
    if(pending.current)return false;
    if(!state?.authenticated){setError('Önce öğrenci hesabınla giriş yap.');return false;}
    if(!navigator.onLine){setError('Çevrimdışısın. Seçimlerin henüz kaydedilmedi.');return false;}
+   const measurement=saveMetrics.current.start('education.'+type,enteredAt);publishMetrics();
    pending.current=true;mutationEpoch.current++;setBusy(true);setReconciling(false);setError('');
    const fingerprint=JSON.stringify({education:type,payload});
    const requestId=retries.current.get(fingerprint)??explicitRequestId??crypto.randomUUID();
    retries.current.set(fingerprint,requestId);
    const previous=state.education;
    const optimistic=previous?optimisticEducationCommand(previous,type,payload,requestId,new Date().toISOString()):null;
-   if(optimistic)setState(current=>current?{...current,education:optimistic}:current);
+   if(optimistic){
+     if(optimistic!==previous)pendingVisibility.current={measurement,previous:state,source:'optimistic'};
+     setState(current=>current?{...current,education:optimistic}:current);
+   }
    let syncing=false;
+   let responseStatus:number|null=null;
    try{
      const response=await fetch('/api/education',{method:'POST',headers:{'Content-Type':'application/json',...(optimistic?{Prefer:'return=minimal'}:{})},body:JSON.stringify({request_id:requestId,type,payload})});
+     responseStatus=response.status;measurement.response(response.status,response.headers.get('server-timing'));
      const data=await response.json();
+     const receivedAt=performance.now();
      if(!response.ok){if(response.status<500)retries.current.delete(fingerprint);throw new Error(data.error?.message??'Seçimlerin kaydedilemedi.');}
      mutationEpoch.current++;
+     measurement.confirmed('receipt',receivedAt);publishMetrics();
      if(optimistic&&!data.state){
        syncing=true;
        setReconciling(true);
+       const finishRefresh=measurement.refresh();
        void (async()=>{
          const response=await fetch('/api/education',{cache:'no-store'});
          const current=await response.json();
          if(!response.ok)throw new Error(current.error?.message??'Görünüm güncellenemedi.');
          setState(state=>state?{...state,education:current}:state);
          retries.current.delete(fingerprint);
+         finishRefresh(true);publishMetrics();
        })().catch(()=>{
+         finishRefresh(false);publishMetrics();
          setState(current=>current?{...current,education:previous}:current);
          setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');
        }).finally(()=>{pending.current=false;setBusy(false);setReconciling(false)});
-     }else{retries.current.delete(fingerprint);setState(current=>current?{...current,education:data.state}:current);}
+     }else{
+       retries.current.delete(fingerprint);setState(current=>current?{...current,education:data.state}:current);
+       if(!optimistic)pendingVisibility.current={measurement,previous:state,source:'authoritative'};
+     }
      return true;
    }catch(cause){
+     if(pendingVisibility.current?.measurement===measurement)pendingVisibility.current=null;
+     measurement.failed(responseStatus===null?'request_error':responseStatus>=400?'http_error':'invalid_response');publishMetrics();
      if(optimistic)setState(current=>current?{...current,education:previous}:current);
      setError(cause instanceof Error?cause.message:'Kayıt tamamlanamadı; aynı işlemi yeniden deneyebilirsin.');return false;
    }finally{if(!syncing){pending.current=false;setBusy(false);}}
@@ -271,7 +330,7 @@ export function Dashboard(){
  if(!state)return <main className="login-page">{error?<div role="alert" className="notice error"><AlertCircle size={18}/><span>{error}</span><button className="button secondary" onClick={()=>void refresh()}>Tekrar dene</button></div>:<p className="loading" role="status">Çalışma alanı yükleniyor…</p>}</main>;
  if(state.configured&&!state.authenticated)return <Login/>;
  if(state.education?.needs_onboarding)return <EducationCommandContext value={educationCommand}><main style={{maxWidth:1200,margin:'auto',padding:'24px'}}><StudentClassroom state={state}/>{error&&<p role="alert" className="notice error">{error}</p>}<EducationSetup education={state.education} command={educationCommand} busy={busy} onDone={()=>{setPage('today');setWelcome(true);}}/></main></EducationCommandContext>;
- return <EducationCommandContext value={educationCommand}><ModalErrorContext value={error}><div className="app-shell">
+ return <EducationCommandContext value={educationCommand}><ModalErrorContext value={error}><div className="app-shell" ref={metricsRoot} data-save-metrics="[]">
    <a className="skip-link" href="#main">İçeriğe geç</a>
    <aside className={'sidebar '+(mobileMenu?'is-open':'')}>
      <div className="brand"><span className="brand-mark">y</span><span>YKSim<span className="brand-dot">.</span></span><button className="mobile-only icon-button" onClick={e=>{e.preventDefault();setMobileMenu(false)}} aria-label="Menüyü kapat"><X size={20}/></button></div>

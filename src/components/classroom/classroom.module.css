@@ -10,6 +10,7 @@
 .workspace[data-appearance=dark][data-accent=plum] { --c-accent:#d4b4ce; --c-soft:#41323f; }
 .studentTheme { --c-bg:var(--background); --c-surface:var(--surface); --c-raised:var(--surface-raised); --c-ink:var(--foreground); --c-muted:var(--muted); --c-border:var(--border); --c-accent:var(--primary); --c-soft:var(--surface-raised); --c-on:var(--on-primary); --c-danger:var(--danger); --category-warning:#865000; --category-praise:#734389; --category-continue:#285775; --category-excellent:#256044; color:var(--c-ink); }
 .workspace button,.studentTheme button { font:inherit; }
+.accountActions { display:flex; flex-wrap:wrap; gap:8px; justify-content:flex-end; flex-shrink:0; max-width:210px; }
 .applicationList .highlightApplication { border-color:var(--c-accent); box-shadow:0 0 0 2px var(--c-soft); }
 :global(:root[data-appearance=dark]) .studentTheme { --category-warning:#edbb7e; --category-praise:#d3aee4; --category-continue:#a5c9ec; --category-excellent:#9dcfaf; }
 .workspace button:focus-visible,.workspace a:focus-visible,.studentTheme button:focus-visible { outline:3px solid var(--c-accent); outline-offset:3px; }

@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { cookies } from 'next/headers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ApiError } from './http';
+import { databaseError } from './service';
 
 /** Development simulator only. It never creates a Supabase session or touches live data. */
 export function demoEnabled() { return process.env.NODE_ENV !== 'production' && process.env.CLASSROOM_DEMO_ENABLED === 'true'; }
@@ -78,9 +79,12 @@ export async function demoQuery<T>(run: (db: PGlite) => Promise<T>): Promise<T> 
 export async function demoUserId() {
   if (!demoEnabled()) return null;
   const token = (await cookies()).get(demoCookie)?.value;
-  if (!token || !/^[a-f0-9]{64}$/.test(token)) return null;
+  if (!token) return null;
+  if (!/^[a-f0-9]{64}$/.test(token)) throw new ApiError(401, 'SIGN_IN_REQUIRED', 'Oturum sona erdi. Yeniden giriş yapın.');
   const hash = createHash('sha256').update(token).digest('hex');
-  return demoQuery(async db => (await db.query<{user_id:string}>('select user_id from public.demo_sessions where token_hash=$1 and expires_at>now()', [hash])).rows[0]?.user_id ?? null);
+  const userId = await demoQuery(async db => (await db.query<{user_id:string}>('select user_id from public.demo_sessions where token_hash=$1 and expires_at>now()', [hash])).rows[0]?.user_id);
+  if (!userId) throw new ApiError(401, 'SIGN_IN_REQUIRED', 'Oturum sona erdi. Yeniden giriş yapın.');
+  return userId;
 }
 export async function createDemoSession(userId:string) {
   const token = randomBytes(32).toString('hex');
@@ -95,6 +99,22 @@ export async function clearDemoSession() {
   const jar = await cookies(); const token = jar.get(demoCookie)?.value;
   if (demoEnabled() && token) await demoQuery(db => db.query('delete from public.demo_sessions where token_hash=$1', [createHash('sha256').update(token).digest('hex')]));
   jar.delete(demoCookie);
+}
+
+/** Exercise the same deletion preparation and Auth trigger in the isolated simulator. */
+export async function deleteDemoClassroomAccount(actorId: string, input: { id: string; confirmation_email: string }) {
+  try {
+    await demoQuery(db => db.transaction(async tx => {
+      const result = await tx.query<{value:{exists:boolean}}>(
+        'select public.classroom_account_delete_prepare($1,$2,$3) as value',
+        [actorId,input.id,input.confirmation_email]);
+      if (result.rows[0]?.value.exists) await tx.query('delete from auth.users where id=$1', [input.id]);
+    }));
+  } catch (error) {
+    databaseError({message:error instanceof Error ? error.message : 'DATABASE_UNAVAILABLE'});
+  }
+  demoRuntime().events.emit('change');
+  return {deleted:true};
 }
 
 export function demoClient(userId:string|null): SupabaseClient {

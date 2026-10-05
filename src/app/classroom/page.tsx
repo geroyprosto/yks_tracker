@@ -8,8 +8,8 @@ import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 export default async function ClassroomPage() {
-  if (!getConfiguration() && !await demoUserId()) redirect('/');
   try {
+    if (!getConfiguration() && !await demoUserId()) redirect('/');
     await classroomContext({readOnly:true});
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) redirect('/');

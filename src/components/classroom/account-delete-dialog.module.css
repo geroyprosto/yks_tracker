@@ -1,0 +1,28 @@
+.dialog {
+  width:min(560px,calc(100% - 32px));
+  max-height:calc(100dvh - 32px);
+  margin:auto;
+  padding:24px;
+  border:1px solid var(--c-border);
+  border-radius:16px;
+  background:var(--c-surface);
+  color:var(--c-ink);
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+.dialog::backdrop { background:#101814a6; }
+.dialog h2 { margin:8px 0 16px; font-size:24px; line-height:1.35; }
+.dialog p { font-size:13px; line-height:1.8; }
+.identity { display:grid; gap:3px; padding:12px 16px; margin-bottom:16px; border:1px solid var(--c-border); border-radius:9px; background:var(--c-raised); overflow-wrap:anywhere; }
+.identity span,.identity small { color:var(--c-muted); font-size:12px; }
+.teacherNote { margin-top:12px; padding:12px; border-left:3px solid var(--c-accent); background:var(--c-soft); }
+.confirmation { display:grid; gap:8px; margin-top:20px; font-size:12px; }
+.confirmation strong { overflow-wrap:anywhere; }
+.confirmation input { width:100%; }
+.actions { margin-top:20px; justify-content:flex-end; }
+@media(max-width:480px) {
+  .dialog { padding:20px; }
+  .dialog h2 { font-size:21px; }
+  .actions { flex-direction:column-reverse; }
+  .actions button { width:100%; }
+}

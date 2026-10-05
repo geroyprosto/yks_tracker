@@ -10,15 +10,16 @@ export const dynamic = 'force-dynamic';
 
 export default async function Home() {
   // The setup preview is public only while there is no configured account.
-  if (!getConfiguration() && !await demoUserId()) return <Dashboard />;
-
   let account;
+  let setupPreview = false;
   try {
-    ({account} = await classroomContext({readOnly:true}));
+    setupPreview = !getConfiguration() && !await demoUserId();
+    if (!setupPreview) ({account} = await classroomContext({readOnly:true}));
   } catch (error) {
     if (error instanceof ApiError && error.status === 401) return <Login />;
     throw error;
   }
+  if (setupPreview) return <Dashboard />;
   if(account?.role==='student'&&account.status==='pending')redirect('/personalize');
   if (!account || account.role !== 'student' || account.status !== 'approved') redirect('/classroom');
   return <Dashboard />;

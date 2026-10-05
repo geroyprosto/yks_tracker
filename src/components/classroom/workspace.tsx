@@ -6,8 +6,9 @@ import { useRouter } from 'next/navigation';
 import { ArrowDownUp, ArrowUpRight, BellRing, BookOpen, CalendarDays, Check, ChevronDown, Clipboard, GraduationCap, Link2, LogOut, Moon, Plus, Search, Send, ShieldCheck, Sun, UserMinus, Users, X } from 'lucide-react';
 import { studentMetrics, type ExamComparison } from '@/lib/classroom/metrics';
 import { Conversation } from './conversation';
+import { AccountDeleteDialog } from './account-delete-dialog';
 import { StudentExamProgress } from './exam-progress';
-import { formatDate, roleLabel, statusLabel, useClassroom, type Application, type ClassroomState, type Command, type Student } from './api';
+import { formatDate, roleLabel, statusLabel, useClassroom, type Account, type Application, type ClassroomState, type Command, type Student } from './api';
 import { useStudentPresence } from './presence';
 import styles from './classroom.module.css';
 
@@ -140,9 +141,20 @@ function TeacherApplications({ state, command, busy }: { state: ClassroomState; 
   </section>;
 }
 
-function Administration({ state, command, busy }: { state: ClassroomState; command: Command; busy: boolean }) {
+function Administration({ state, command, busy, error }: { state: ClassroomState; command: Command; busy: boolean; error: string }) {
   const [show, setShow] = useState<'pending' | 'all'>('pending');
   const [targetId, setTargetId] = useState('');
+  const [deleteAccount, setDeleteAccount] = useState<Account | null>(null);
+  const [deletedNotice, setDeletedNotice] = useState(false);
+  const deleteTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const accountsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const restoreDeleteFocusRef = useRef<'trigger' | 'heading' | null>(null);
+  useEffect(() => {
+    if (deleteAccount || !restoreDeleteFocusRef.current) return;
+    if (restoreDeleteFocusRef.current === 'heading') accountsHeadingRef.current?.focus();
+    else deleteTriggerRef.current?.focus();
+    restoreDeleteFocusRef.current = null;
+  }, [deleteAccount]);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('application');
     if (id) queueMicrotask(() => { setTargetId(id); setShow('all'); });
@@ -160,7 +172,18 @@ function Administration({ state, command, busy }: { state: ClassroomState; comma
       return <ApplicationCard key={application.id} application={application} command={command} busy={busy} teacherName={invitedTeacher?.name ?? (application.teacher_id ? 'Öğretmen bulunamadı' : undefined)} teacherActive={teacherActive} highlighted={targetId === application.id} />;
     })}</div>
     {!applications.length && <p className={styles.emptySmall}>{show === 'pending' ? 'Bekleyen başvuru yok.' : 'Henüz başvuru yok.'}</p>}
-  </section><section className={styles.panel}><div className={styles.sectionHeading}><h2>Kullanıcılar</h2><span className={styles.muted}>{state.accounts?.length ?? 0} hesap</span></div><div className={styles.accountList}>{(state.accounts ?? []).map(account => <article key={account.id}><div><h3>{account.name}</h3><p>{account.email}</p><small>{roleLabel[account.role]} · {statusLabel[account.status]}{account.teacher_id && ` · ${approvedTeachers.find(teacher => teacher.id === account.teacher_id)?.name ?? 'Atanmış sınıf'}`}</small></div>{account.role !== 'admin' && (account.status === 'approved' || account.status === 'suspended') && <button className={account.status === 'suspended' ? styles.secondaryButton : styles.dangerButton} disabled={busy} onClick={() => void command('account.suspend', { id: account.id, suspended: account.status !== 'suspended' })}>{account.status === 'suspended' ? 'Erişimi aç' : 'Erişimi durdur'}</button>}</article>)}</div></section>
+  </section><section className={styles.panel}>
+    <div className={styles.sectionHeading}><h2 ref={accountsHeadingRef} tabIndex={-1}>Kullanıcılar</h2><span className={styles.muted}>{state.accounts?.length ?? 0} hesap</span></div>
+    {deletedNotice && <div className={styles.membershipNotice} role="status"><Check size={17} aria-hidden="true" /><span>Kişinin hesabı ve veritabanındaki tüm verileri kalıcı olarak silindi.</span><button type="button" onClick={() => setDeletedNotice(false)} aria-label="Bildirimi kapat"><X size={16} /></button></div>}
+    <div className={styles.accountList}>{(state.accounts ?? []).map(account => <article key={account.id}>
+      <div><h3>{account.name}</h3><p>{account.email}</p><small>{roleLabel[account.role]} · {statusLabel[account.status]}{account.teacher_id && ` · ${approvedTeachers.find(teacher => teacher.id === account.teacher_id)?.name ?? 'Atanmış sınıf'}`}</small></div>
+      {account.role !== 'admin' && account.id !== state.account?.id && <div className={styles.accountActions}>
+        {(account.status === 'approved' || account.status === 'suspended') && <button className={account.status === 'suspended' ? styles.secondaryButton : styles.dangerButton} disabled={busy} onClick={() => void command('account.suspend', { id: account.id, suspended: account.status !== 'suspended' })}>{account.status === 'suspended' ? 'Erişimi aç' : 'Erişimi durdur'}</button>}
+        <button type="button" className={styles.dangerButton} disabled={busy} aria-label={`${account.name} kişisini sil`} onClick={event => { deleteTriggerRef.current = event.currentTarget; setDeleteAccount(account); }}><UserMinus size={15} aria-hidden="true" />Kişiyi sil</button>
+      </div>}
+    </article>)}</div>
+  </section>
+  {deleteAccount && <AccountDeleteDialog account={deleteAccount} command={command} busy={busy} error={error} onCancel={() => { restoreDeleteFocusRef.current = 'trigger'; setDeleteAccount(null); }} onDeleted={() => { restoreDeleteFocusRef.current = 'heading'; setDeleteAccount(null); setDeletedNotice(true); }} />}
   </div>;
 }
 
@@ -210,7 +233,7 @@ export function ClassroomWorkspace() {
             <button onClick={() => setTab('invites')} aria-current={tab === 'invites' ? 'page' : undefined}><Link2 size={17} />Davet bağlantıları</button>
           </nav>
           {tab === 'students' ? <TeacherStudents state={state} command={command} busy={busy} /> : tab === 'applications' ? <TeacherApplications state={state} command={command} busy={busy} /> : <Invitations state={state} command={command} busy={busy} />}
-        </> : <Administration state={state} command={command} busy={busy} />}
+        </> : <Administration state={state} command={command} busy={busy} error={error} />}
       </>}
       <footer className={styles.footer}><span>YKSim · Her gün bir adım.</span><span>İstanbul saati · Öğrenci verileri korumalı</span></footer>
     </main>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import type {SupabaseClient} from '@supabase/supabase-js';
-import {authorizeStudyCommand, executeCommand} from '../src/lib/server/service';
+import {authorizeStudyCommand, executeCommand, executeStudentCommand} from '../src/lib/server/service';
 
 const requestId = '00000000-0000-4000-8000-000000000001';
 const taskId = '00000000-0000-4000-8000-000000000002';
@@ -79,4 +79,57 @@ test('fast study authorization keeps a sign-in error for an invalid session', as
 
   await assert.rejects(() => authorizeStudyCommand(client), {status: 401, code: 'SIGN_IN_REQUIRED'});
   assert.deepEqual(calls, ['classroom_identity', 'getUser']);
+});
+
+test('student save performs one combined RPC and no Auth or state request', async () => {
+  const calls: string[] = [];
+  const client = {
+    auth: {getUser: async () => {throw new Error('Auth must not run on a successful save');}},
+    rpc: async (name: string) => {
+      calls.push(name);
+      return {data: {id: taskId, request_id: requestId, replayed: true}, error: null};
+    },
+  } as unknown as SupabaseClient;
+  assert.deepEqual(await executeStudentCommand(client, command),
+    {ok: true, id: taskId, request_id: requestId, replayed: true});
+  assert.deepEqual(calls, ['yks_student_command']);
+});
+
+test('student save rejects malformed input before contacting the database', async () => {
+  const client = {rpc: async () => {throw new Error('Invalid input must not reach SQL');}} as unknown as SupabaseClient;
+  await assert.rejects(() => executeStudentCommand(client, {...command, request_id: 'invalid'}),
+    {status: 400, code: 'INVALID_INPUT'});
+});
+
+test('combined save retains sign-in errors for expired JWTs and anonymous function calls', async () => {
+  for (const error of [{message: 'JWT expired', code: 'PGRST301'},
+    {message: 'permission denied for function yks_student_command', code: '42501'},
+    {message: 'AUTH_REQUIRED'}, {message: 'JWT expired'}]) {
+    const calls: string[] = [];
+    const client = {
+      rpc: async (name: string) => {calls.push(name); return {data: null, error};},
+      auth: {getUser: async () => {calls.push('getUser'); return {data: {user: null}, error: {message: 'Invalid session'}};}},
+    } as unknown as SupabaseClient;
+    await assert.rejects(() => executeStudentCommand(client, command), {status: 401, code: 'SIGN_IN_REQUIRED'});
+    assert.deepEqual(calls, ['yks_student_command', 'getUser']);
+  }
+});
+
+test('combined save preserves permission, conflict and rate errors without an Auth network call', async () => {
+  for (const [code, status] of [['STUDENT_REQUIRED', 403], ['CONFLICT', 409], ['RATE_LIMITED', 429],
+    ['IDEMPOTENCY_CONFLICT', 409], ['INVALID_INPUT', 400]] as const) {
+    const client = {
+      rpc: async () => ({data: null, error: {message: code}}),
+      auth: {getUser: async () => {throw new Error('Domain errors must not add Auth requests');}},
+    } as unknown as SupabaseClient;
+    await assert.rejects(() => executeStudentCommand(client, command), {status, code});
+  }
+});
+
+test('verified Auth user does not turn an internal function permission error into a false sign-in error', async () => {
+  const client = {
+    rpc: async () => ({data: null, error: {message: 'permission denied for function', code: '42501'}}),
+    auth: {getUser: async () => ({data: {user: {id: taskId}}, error: null})},
+  } as unknown as SupabaseClient;
+  await assert.rejects(() => executeStudentCommand(client, command), {status: 503, code: 'DATABASE_UNAVAILABLE'});
 });

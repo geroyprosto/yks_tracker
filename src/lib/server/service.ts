@@ -71,6 +71,22 @@ export async function authorizeStudyCommand(client:SupabaseClient):Promise<Supab
 }
 export type CommandReceipt = {ok:true;id:string;request_id:string;replayed:boolean};
 export type CommandResponse = CommandReceipt & {state:AppState};
+/** The live approved-student gate and durable write execute in one database transaction. */
+export async function executeStudentCommand(client:SupabaseClient,input:unknown):Promise<CommandReceipt>{
+ const parsed=commandSchema.safeParse(input);
+ if(!parsed.success)throw new ApiError(400,"INVALID_INPUT",parsed.error.issues[0]?.message??"Alanları kontrol edin.");
+ const {data,error}=await client.rpc("yks_student_command",{request_id:parsed.data.request_id,command_type:parsed.data.type,payload:parsed.data.payload});
+ if(error){
+  // PostgREST rejects invalid JWTs and anonymous function calls before the SQL
+  // gate runs. Contact Auth only on this error path to retain the sign-in error.
+  if(error.message==='AUTH_REQUIRED'||error.code==='42501'||error.code?.startsWith('PGRST3')||/\b(jwt|token)\b/i.test(error.message)){
+   const verified=await client.auth.getUser();
+   if(verified.error||!verified.data.user)throw new ApiError(401,'SIGN_IN_REQUIRED','Devam etmek için giriş yapın.');
+  }
+  databaseError(error);
+ }
+ return {...data as {id:string;request_id:string;replayed:boolean},ok:true};
+}
 export async function executeCommand(client:SupabaseClient,input:unknown):Promise<CommandResponse>;
 export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:true}):Promise<CommandReceipt>;
 export async function executeCommand(client:SupabaseClient,input:unknown,options:{minimal:boolean}):Promise<CommandReceipt|CommandResponse>;

@@ -218,7 +218,10 @@ test('teacher closure detaches surviving students and erases invitation copies w
     const applicationAfter = (await db.query<{ teacher_id: null; reviewed_by: null }>('select teacher_id,reviewed_by from public.classroom_applications where id=$1', [application])).rows[0];
     assert.deepEqual(applicationAfter, { teacher_id: null, reviewed_by: null });
     const after = await ownedRows(db, student);
-    for (const table of Object.keys(before).filter(table => !['public.classroom_applications', 'public.classroom_receipts', 'public.classroom_events'].includes(table))) assert.deepEqual(after[table], before[table], table);
+    for (const table of Object.keys(before).filter(table => !['public.classroom_applications', 'public.classroom_receipts', 'public.classroom_events', 'private.state_cache_generations'].includes(table))) assert.deepEqual(after[table], before[table], table);
+    const generation = (await db.query<{ generation: number }>('select generation from private.state_cache_generations where user_id=$1', [student])).rows[0].generation;
+    const previousGeneration = (before['private.state_cache_generations'][0] as { value: { generation: number } }).value.generation;
+    assert.ok(generation > previousGeneration, 'surviving student cache is invalidated after its teacher is removed');
     assert.deepEqual((await db.query('select raw_user_meta_data from auth.users where id=$1', [student])).rows[0], { raw_user_meta_data: { name: 'Synthetic student', requested_role: 'student' } });
     assert.equal((await db.query('select 1 from public.classroom_invites')).rows.length, 0);
     assert.equal((await db.query('select 1 from public.classroom_accounts where id=$1', [otherTeacher])).rows.length, 1);

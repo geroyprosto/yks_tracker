@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { commandSchema } from "../domain/commands";
 import { emptyState, type AppState } from "../domain/types";
 import { ApiError } from "./http";
+import { after } from 'next/server';
+import { readStateWithCache } from './state-cache';
 export function databaseError(error:{message:string;code?:string}):never{
  const known:Record<string,[number,string]>={
   ACCESS_DENIED:[403,"Bu işlem için yetkiniz bulunmuyor."],
@@ -48,9 +50,11 @@ export function databaseError(error:{message:string;code?:string}):never{
  if(error.code==="PGRST202"||error.code==="42P01")throw new ApiError(503,"DATABASE_SETUP_REQUIRED","Veritabanı migration kurulumu gerekli.");
  throw new ApiError(503,"DATABASE_UNAVAILABLE","Veritabanı işlemi tamamlanamadı. Bağlantıyı ve kurulumu kontrol edin.");
 }
-export async function getState(client:SupabaseClient):Promise<AppState>{
- const {data,error}=await client.rpc("yks_state");if(error)databaseError(error);
- return {...emptyState(true),...data,configured:true,authenticated:true} as AppState;
+export async function getState(client:SupabaseClient,verifiedUserId?:string):Promise<AppState>{
+ return readStateWithCache(client,async()=>{
+  const {data,error}=await client.rpc("yks_state");if(error)databaseError(error);
+  return {...emptyState(true),...data,configured:true,authenticated:true} as AppState;
+ },{verifiedUserId,defer:work=>{try{after(work);}catch{void work();}}});
 }
 export async function authorizeStudyCommand(client:SupabaseClient):Promise<SupabaseClient>{
  const {data,error}=await client.rpc('classroom_identity');

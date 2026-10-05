@@ -20,3 +20,12 @@
 - Son tam birim koşusu 248/249 geçti; tek hata aynı önceden mevcut test. Lint, tip denetimi ve üretim derlemesi başarılı.
 
 Veritabanı boyutu için [Supabase belgeleri](https://supabase.com/docs/guides/platform/database-size), sunucu/veri bölgesi eşleştirmesi için [Vercel belgeleri](https://vercel.com/docs/functions/configuring-functions/region) kullanıldı. Genel indeks veya RLS değişikliği bu incelemenin kanıtlanan gecikmelerine gerekli değildi.
+
+## Upstash Redis — 5 Ekim 2026
+
+- İsteğe bağlı sunucu önbelleği `UPSTASH_REDIS_REST_URL` ve `UPSTASH_REDIS_REST_TOKEN` ile açılır. Redis, Supabase ve Vercel ile aynı Frankfurt bölgesindedir. Anahtarlar tarayıcıya gönderilmez; yerel demo önbelleği kullanmaz.
+- `/api/state` ve analiz durumu, mevcut kimlik doğrulamasının kullanıcı kimliğini kullanır. Redis'teki kayıt en fazla 60 saniye tutulur. Kullanıcı, Supabase projesi ve çalışma ortamı anahtarda ayrılır.
+- Önbellek okunduktan sonra tek `yks_state_cache_snapshot(p_known_version)` çağrısı canlı yetkiyi denetler, bugünün planını başlatır ve süresi dolan sayaçları kesinleştirir. Sürüm aynıysa yalnız güncel sunucu zamanı döner; değişmişse tam durum aynı veritabanı isteğinde hazırlanır. Veritabanının kabul etmediği bir önbellek kaydı döndürülemez.
+- Veritabanı tetikleyicileri, çalışma/eğitim kayıtları ve hesap erişimi değişince kullanıcı sürümünü artırır. Ortak sınav biçimi değişikliği tüm sürümleri geçersiz kılar. Profilin yerel günü, İstanbul günü ve saat dilimi de sürüme dahildir. MCP, ders işlemleri, AI görevleri, silmeler ve bakım yazmaları aynı mekanizmayı kullanır.
+- Doğrudan komut yanıtları mevcut tek `yks_state` çağrısını korur. Önbellek doldurma cevap sonrasında çalışır. Redis isteği 250 ms ile sınırlıdır ve yeniden denenmez; Redis hatasında 30 saniye önbellek atlanarak normal veritabanı akışına dönülür. Bağlantı bilgileri veya migration yoksa mevcut akış kullanılabilir.
+- Supabase kalıcı kayıt kaynağıdır. Önbellek sıcak okumaların tam veri üretme maliyetini azaltır; gerçek hesaptaki toplam kayıt süresinin ölçümü ayrıca gerekir. Geç gelen eski bir Redis yazması, canlı veritabanı sürüm kontrolünü geçemez.

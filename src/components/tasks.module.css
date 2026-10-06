@@ -29,6 +29,18 @@
 .panel :global(.task-description) h3, .panel :global(.task-description) p { overflow-wrap: anywhere; }
 .context { color: var(--muted); font-size: 13px; }
 .archive { display: grid; gap: 12px; }
+.pendingCourseHeading { display: flex; align-items: center; gap: 12px; padding: 16px; }
+.pendingCourseHeading > div { min-width: 0; overflow-wrap: anywhere; }
+.pendingCourseHeading h2 { font-size: 14px; }
+.pendingCourseHeading p { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.pendingPriority { padding: 16px; border-top: 1px solid var(--border); }
+.pendingPriorityHeading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.pendingPriorityHeading > span:last-child { white-space: nowrap; font-weight: 400; }
+.pendingPriority[data-priority=high] .pendingPriorityHeading > span:first-child { color: var(--warning); }
+.pending :global(.task-tags) { flex-wrap: wrap; }
+.pending :global(.task-tags .pill) { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
+.pending :global(.substeps label) { min-width: 0; overflow-wrap: anywhere; }
+.pending :global(.substeps input) { flex-shrink: 0; }
 .archiveEmpty { border: 1px solid var(--border); border-radius: 11px; background: var(--surface); }
 .courseGroup { min-width: 0; background: var(--surface); border: 1px solid var(--border); border-radius: 11px; }
 .courseSummary { display: flex; align-items: center; gap: 10px; padding: 16px; min-height: 56px; list-style: none; cursor: pointer; }

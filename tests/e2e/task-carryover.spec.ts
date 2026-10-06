@@ -269,7 +269,7 @@ test('completed course and task details start closed and expose only useful arch
   await expect(page.getByTestId('completed-task')).toHaveCount(0);
 });
 
-test('completed groups keep TYT, AYT and course identities separate, including archived courses', async ({page}) => {
+test('completed and pending groups keep TYT, AYT and course identities separate, including archived courses', async ({page}) => {
   await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
   const state = {...emptyState(true), authenticated: true};
   const education = emptyEducation();
@@ -319,6 +319,22 @@ test('completed groups keep TYT, AYT and course identities separate, including a
   const withoutCourse = groups.filter({has: page.getByText('Ders belirtilmemiş', {exact: true})});
   await withoutCourse.locator(':scope > summary').click();
   await expect(withoutCourse.getByText('Derssiz tamamlanan görev', {exact: true})).toBeVisible();
+
+  state.tasks = state.tasks.map(item => ({...item, progress: 0, plan_date: monday}));
+  state.tasks = state.tasks.map(item => item.id === 'current-course-task' ? {...item, subject: 'Eski ders etiketi'} : item);
+  await page.reload();
+  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Görevlerim', exact: true}).click();
+  await page.getByRole('tab', {name: 'Bekleyenler'}).click();
+  const pendingGroups = page.getByTestId('pending-course');
+  await expect(pendingGroups).toHaveCount(5);
+  await expect(page.getByRole('region', {name: 'TYT Biyoloji', exact: true}).locator('.task-item h3')).toHaveText(['TYT hücre tekrarı', 'TYT ekoloji tekrarı']);
+  await expect(page.getByRole('region', {name: 'AYT Biyoloji', exact: true}).locator('.task-item h3')).toHaveText(['AYT sistemler tekrarı']);
+  const pendingMathematics = page.getByRole('region', {name: 'Matematik', exact: true});
+  await expect(pendingMathematics).toHaveCount(2);
+  await expect(pendingMathematics.filter({hasText: '2026–2027 · Güz'}).locator('.task-item h3')).toHaveText(['Güz matematik görevi']);
+  await expect(pendingMathematics.filter({hasText: '2025–2026 · Bahar'}).locator('.task-item h3')).toHaveText(['Bahar matematik görevi']);
+  await expect(pendingGroups.getByRole('heading', {level: 2, name: 'Eski ders etiketi'})).toHaveCount(0);
+  await expect(page.getByRole('region', {name: 'Ders belirtilmemiş', exact: true}).locator('.task-item h3')).toHaveText(['Derssiz tamamlanan görev']);
 });
 
 test('undoing a completed older task returns it to pending and resets its completed steps', async ({page}) => {
@@ -388,6 +404,118 @@ test('task tabs support arrow wrapping, Home, End and accessible panel links', a
     await expect(panel).toHaveAttribute('aria-labelledby', await tab.getAttribute('id') ?? '');
   }
   await expect(page.getByRole('tabpanel')).toHaveCount(1);
+});
+
+test('pending tasks group by course and priority, then oldest date, position and id', async ({page}) => {
+  await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
+  const state = {...emptyState(true), authenticated: true};
+  state.tasks = [
+    {...task('math-low', 'Düşük matematik görevi', sunday, 0), exam: 'AYT', subject: 'Matematik', priority: 'low'},
+    {...task('math-high-new', 'Yeni yüksek matematik görevi', monday, 0), exam: 'AYT', subject: 'Matematik', priority: 'high'},
+    {...task('math-high-b', 'Aynı konum ikinci görev', sunday, 0), exam: 'AYT', subject: 'Matematik', priority: 'high'},
+    {...task('math-normal', 'Normal matematik görevi', sunday, 0.5), exam: 'AYT', subject: 'Matematik'},
+    {...task('math-high-position', 'Eski yüksek sonraki konum', sunday, 0, 9), exam: 'AYT', subject: 'Matematik', priority: 'high'},
+    {...task('math-high-a', 'Aynı konum ilk görev', sunday, 0), exam: 'AYT', subject: 'Matematik', priority: 'high'},
+    {...task('turkish-course', 'Çalışma becerileri görevi', monday, 0), exam: 'TYT', subject: 'Çalışma Becerileri', priority: 'high'},
+    {...task('geography', 'Harita tekrarı', monday, 0), exam: 'TYT', subject: 'Coğrafya', priority: 'high'},
+    {...task('normal-biology', 'Normal biyoloji görevi', monday, 0), exam: 'TYT', subject: 'Biyoloji'},
+    {...task('low-biology', 'Düşük biyoloji görevi', sunday, 0), exam: 'AYT', subject: 'Biyoloji', priority: 'low'},
+    {...task('without-course', 'Derssiz bekleyen görev', sunday, 0), priority: 'low'},
+    {...task('completed', 'Tamamlanan matematik görevi', sunday, 1), exam: 'AYT', subject: 'Matematik', priority: 'high'},
+    {...task('today', 'Bugünün matematik görevi', tuesday, 0), exam: 'AYT', subject: 'Matematik', priority: 'high'},
+    {...task('future', 'Gelecek matematik görevi', wednesday, 0), exam: 'AYT', subject: 'Matematik', priority: 'high'},
+  ];
+  await openTasks(page, state);
+  await page.getByRole('tab', {name: 'Bekleyenler'}).click();
+
+  const groups = page.getByTestId('pending-course');
+  await expect(groups).toHaveCount(6);
+  await expect(groups.getByRole('heading', {level: 2})).toHaveText([
+    'AYT Matematik', 'TYT Coğrafya', 'TYT Çalışma Becerileri', 'TYT Biyoloji', 'AYT Biyoloji', 'Ders belirtilmemiş',
+  ]);
+  const mathematics = page.getByRole('region', {name: 'AYT Matematik', exact: true});
+  await expect(mathematics.locator('[data-priority]')).toHaveCount(3);
+  await expect(mathematics.locator('[data-priority="high"]')).toContainText('Yüksek öncelik');
+  await expect(mathematics.locator('[data-priority="normal"]')).toContainText('Normal öncelik');
+  await expect(mathematics.locator('[data-priority="low"]')).toContainText('Düşük öncelik');
+  await expect(mathematics.locator('.task-item h3')).toHaveText([
+    'Aynı konum ilk görev', 'Aynı konum ikinci görev', 'Eski yüksek sonraki konum',
+    'Yeni yüksek matematik görevi', 'Normal matematik görevi', 'Düşük matematik görevi',
+  ]);
+  await expect(mathematics.locator('[data-priority="high"] .task-item h3')).toHaveText([
+    'Aynı konum ilk görev', 'Aynı konum ikinci görev', 'Eski yüksek sonraki konum', 'Yeni yüksek matematik görevi',
+  ]);
+  await expect(page.getByRole('region', {name: 'TYT Biyoloji', exact: true}).locator('[data-priority="high"]')).toHaveCount(0);
+  for (const title of ['Tamamlanan matematik görevi', 'Bugünün matematik görevi', 'Gelecek matematik görevi']) {
+    await expect(page.getByText(title, {exact: true})).toHaveCount(0);
+  }
+});
+
+test('editing priority and completing pending tasks updates their visible course groups', async ({page}) => {
+  await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
+  const state = {...emptyState(true), authenticated: true};
+  state.tasks = [
+    {...task('biology', 'Biyoloji öğrenimi', monday, 0), subject: 'Biyoloji', priority: 'high'},
+    {...task('mathematics', 'Matematik tekrarı', sunday, 0), subject: 'Matematik',
+      steps: [{id: 'math-step', title: 'İki testi çöz', completed: false}]},
+  ];
+  const commands: TaskCommand[] = [];
+  await page.route('**/api/command', route => {
+    const command: TaskCommand = route.request().postDataJSON();
+    commands.push(command);
+    if (command.type === 'task.update') {
+      state.tasks = state.tasks.map(item => item.id === command.payload.id
+        ? {...item, ...command.payload, revision: item.revision + 1} : item);
+    }
+    return route.fulfill({json: commandReceipt(command, state)});
+  });
+  await openTasks(page, state);
+  await page.getByRole('tab', {name: 'Bekleyenler'}).click();
+  const groups = page.getByTestId('pending-course');
+  await expect(groups.getByRole('heading', {level: 2})).toHaveText(['Biyoloji', 'Matematik']);
+
+  await page.getByRole('button', {name: 'Biyoloji öğrenimi düzenle'}).click();
+  const dialog = page.getByRole('dialog', {name: 'Görevi düzenle'});
+  await dialog.getByRole('combobox', {name: 'Öncelik', exact: true}).selectOption('low');
+  await dialog.getByRole('button', {name: 'Görevi kaydet'}).click();
+  await expect.poll(() => commands.length).toBe(1);
+  expect(commands[0]).toMatchObject({type: 'task.update', payload: {id: 'biology', expected_revision: 1, priority: 'low'}});
+  await expect(groups.getByRole('heading', {level: 2})).toHaveText(['Matematik', 'Biyoloji']);
+  const biology = page.getByRole('region', {name: 'Biyoloji', exact: true});
+  await expect(biology.locator('[data-priority="low"] .task-item h3')).toHaveText(['Biyoloji öğrenimi']);
+  await expect(biology.locator('[data-priority="high"]')).toHaveCount(0);
+
+  await page.getByRole('button', {name: 'Matematik tekrarı görevini tamamla'}).click();
+  await expect.poll(() => commands.length).toBe(2);
+  expect(commands[1]).toMatchObject({type: 'task.update', payload: {id: 'mathematics', expected_revision: 1, progress: 1,
+    steps: [{id: 'math-step', completed: true}]}});
+  await expect(groups).toHaveCount(1);
+  await expect(groups.getByRole('heading', {level: 2})).toHaveText(['Biyoloji']);
+  await expect(page.getByText('Matematik tekrarı', {exact: true})).toHaveCount(0);
+  await page.getByRole('button', {name: 'Biyoloji öğrenimi görevini tamamla'}).click();
+  await expect(groups).toHaveCount(0);
+  await expect(page.getByText('Bekleyen görev yok', {exact: true})).toBeVisible();
+});
+
+test('pending course headings and task details fit a 320px viewport', async ({page}) => {
+  await page.setViewportSize({width: 320, height: 844});
+  await page.clock.setFixedTime(new Date('2026-09-29T09:00:00.000Z'));
+  const state = {...emptyState(true), authenticated: true};
+  const longTitle = 'UzunBirBiyolojiGörevBaşlığı'.repeat(7);
+  state.tasks = [{...task('pending-mobile', longTitle, monday, 0), exam: 'TYT', subject: 'UzunDersAdı'.repeat(9),
+    priority: 'high', resource: 'KaynakSayfası'.repeat(25),
+    steps: [{id: 'pending-mobile-step', title: 'UzunAltAdımBaşlığı'.repeat(10), completed: false}]}];
+  await openTasks(page, state);
+  await page.getByRole('tab', {name: 'Bekleyenler'}).click();
+  const course = page.getByTestId('pending-course');
+  await expect(course.getByRole('heading', {level: 2})).toBeVisible();
+  await expect(course.getByRole('heading', {level: 3, name: longTitle, exact: true})).toBeVisible();
+  await expect(course.getByRole('checkbox', {name: 'UzunAltAdımBaşlığı'.repeat(10)})).toBeVisible();
+  await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth)).toBeLessThanOrEqual(1);
+  await expect.poll(() => course.locator('h2, .task-item h3').evaluateAll(elements => Math.max(...elements.map(element => {
+    const box = element.getBoundingClientRect();
+    return Math.max(-box.left, box.right - window.innerWidth);
+  })))).toBeLessThanOrEqual(1);
 });
 
 test('task tabs and expanded completed details fit a narrow mobile viewport', async ({page}) => {

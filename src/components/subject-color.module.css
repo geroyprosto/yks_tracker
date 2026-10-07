@@ -1,0 +1,36 @@
+.subjectLabel {
+  --subject-red: #ffb4b8;
+  --subject-purple: #d8b9ff;
+  --subject-blue: #a7cdff;
+  --subject-green: #a0e4bb;
+  --subject-yellow: #f1d58a;
+}
+
+:global(:root[data-appearance=light]:not([data-theme=black])) .subjectLabel,
+:global(:root[data-theme=white]) .subjectLabel {
+  --subject-red: #a82034;
+  --subject-purple: #6c2bac;
+  --subject-blue: #1d54a5;
+  --subject-green: #216c42;
+  --subject-yellow: #785700;
+}
+
+.subjectLabel[data-subject-color=red] { --subject-ink: var(--subject-red); }
+.subjectLabel[data-subject-color=purple] { --subject-ink: var(--subject-purple); }
+.subjectLabel[data-subject-color=blue] { --subject-ink: var(--subject-blue); }
+.subjectLabel[data-subject-color=green] { --subject-ink: var(--subject-green); }
+.subjectLabel[data-subject-color=yellow] { --subject-ink: var(--subject-yellow); }
+
+.subjectLabel[data-subject-color] {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 5px;
+  color: var(--subject-ink);
+  background: color-mix(in srgb, var(--subject-ink) 12%, var(--surface));
+  font-weight: 500;
+  line-height: 1.6;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}

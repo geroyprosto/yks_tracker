@@ -5,6 +5,7 @@ import {ArrowUpRight, Check, ListTodo, Maximize2, Pause, Play, Sparkles, Timer} 
 import type {AppState} from '@/lib/domain/types';
 import {taskProgress, timeProgress} from '@/lib/progress';
 import {secondsByDay, sessionSeconds} from '@/lib/timing';
+import {subjectColor} from '@/lib/subject-color';
 import {clockText, duration, formatDay, localDate, type CommandFn} from '@/lib/ui';
 import {useChartTooltip} from './chart-tooltip';
 import type {PageId} from './dashboard';
@@ -12,6 +13,7 @@ import {PracticeOverview} from './practice-overview';
 import {Card, Empty, LinkButton, Ring} from './primitives';
 import {TodayCalendar} from './today-calendar';
 import {YksCountdown} from './yks-countdown';
+import subjectStyles from './subject-color.module.css';
 
 const hourFormatter = new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 2});
 
@@ -69,7 +71,8 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
     ? Math.round(Math.min(1, elapsed / activeSession.target_seconds) * 60)
     : activeSession ? Math.floor(elapsed % 60) : 0;
   const today = localDate();
-  const tasks = state.tasks.filter(task => task.plan_date === today);
+  const tasks = state.tasks.filter(task => task.plan_date === today)
+    .sort((a, b) => a.position - b.position || a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
   const plan = state.day_plans.filter(item => item.plan_date === today).sort((a, b) => b.version - a.version)[0];
   const target = plan?.target_minutes ?? state.settings?.weekday_targets[(new Date(today + 'T12:00:00Z').getUTCDay() + 6) % 7] ?? state.settings?.daily_target_minutes ?? 360;
   const factors = plan?.difficulty_factors ?? state.settings?.difficulty_factors ?? {easy: 1, medium: 1.25, hard: 1.5};
@@ -132,7 +135,7 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
       <div className="column">
         {(modules?.tasks??true)&&<Card className="tasks-summary-card" title="Bugünün görevleri" action={<button className="button small secondary" disabled={preview} onClick={addTask}>+ Görev ekle</button>}>
           {tasks.length > 0 && <div className="today-task-filters" role="group" aria-label="Bugünün görevlerini filtrele">{([{id:'all',label:'Tümü',count:tasks.length},{id:'pending',label:'Bekleyen',count:tasks.length-completed},{id:'completed',label:'Tamamlanan',count:completed}] as const).map(filter => <button key={filter.id} type="button" aria-pressed={taskFilter === filter.id} onClick={() => setTaskFilter(filter.id)}>{filter.label}<span>{filter.count}</span></button>)}</div>}
-          {tasks.length === 0 ? <Empty icon={<ListTodo size={27}/>} title="Bugün için temiz bir sayfa" text="Çalışmak istediğin konuyu ilk görevine dönüştür." action={<button className="text-button" disabled={preview} onClick={addTask}>İlk görevimi oluştur<ArrowUpRight size={16}/></button>}/> : visibleTasks.length === 0 ? <p className="today-filter-empty">{taskFilter === 'completed' ? 'Tamamladığın görevler burada görünecek.' : 'Bugünün tüm görevleri tamamlandı.'}</p> : <div className="task-preview">{visibleTasks.slice(0, 5).map(task => <div className="task-line" key={task.id}><button className={'check-button ' + (task.progress === 1 ? 'checked' : '')} aria-label={task.title + (task.progress === 1 ? ' tamamlamasını geri al' : ' görevini tamamla')} disabled={busy || preview} onClick={() => void command('task.update', {id: task.id, expected_revision: task.revision, progress: task.progress === 1 ? 0 : 1, steps: task.steps.map(step => ({...step, completed: task.progress !== 1}))})}>{task.progress === 1 && <Check size={15}/>}</button><div><strong className={task.progress === 1 ? 'done' : ''}>{task.title}</strong><small>{task.exam} {task.subject ?? 'Plansız'} · {task.study_type}</small></div><span className="pill">{task.planned_minutes} dk</span></div>)}</div>}
+          {tasks.length === 0 ? <Empty icon={<ListTodo size={27}/>} title="Bugün için temiz bir sayfa" text="Çalışmak istediğin konuyu ilk görevine dönüştür." action={<button className="text-button" disabled={preview} onClick={addTask}>İlk görevimi oluştur<ArrowUpRight size={16}/></button>}/> : visibleTasks.length === 0 ? <p className="today-filter-empty">{taskFilter === 'completed' ? 'Tamamladığın görevler burada görünecek.' : 'Bugünün tüm görevleri tamamlandı.'}</p> : <div className="task-preview" role="region" aria-label="Bugünün görev listesi" tabIndex={0}>{visibleTasks.map(task => <div className="task-line" key={task.id}><button className={'check-button ' + (task.progress === 1 ? 'checked' : '')} aria-label={task.title + (task.progress === 1 ? ' tamamlamasını geri al' : ' görevini tamamla')} disabled={busy || preview} onClick={() => void command('task.update', {id: task.id, expected_revision: task.revision, progress: task.progress === 1 ? 0 : 1, steps: task.steps.map(step => ({...step, completed: task.progress !== 1}))})}>{task.progress === 1 && <Check size={15}/>}</button><div><strong className={task.progress === 1 ? 'done' : ''}>{task.title}</strong><small><span className={subjectStyles.subjectLabel} data-subject-color={subjectColor(task.subject)}>{task.exam} {task.subject ?? 'Plansız'}</span> · {task.study_type}</small></div><span className="pill">{task.planned_minutes} dk</span></div>)}</div>}
           <div className="card-bottom"><span>{completed} tamamlandı · {tasks.length - completed} seni bekliyor</span><LinkButton onClick={() => go('tasks')}>Tüm görevler</LinkButton></div>
         </Card>}
         {(modules?.statistics??true)&&<Card className="rhythm-card today-rhythm-card" title="Çalışma ritmin" eyebrow="SON 7 GÜN" action={<LinkButton onClick={() => go('stats')}>İstatistikler</LinkButton>}>

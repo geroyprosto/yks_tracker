@@ -119,7 +119,7 @@ export async function deleteDemoClassroomAccount(actorId: string, input: { id: s
 
 export function demoClient(userId:string|null): SupabaseClient {
   const rpc = async(name:string, args:Record<string,unknown> = {}) => {
-    const allowed = new Set(['education_state','education_command','yks_state','yks_command','yks_student_command','classroom_state','classroom_identity','classroom_command','classroom_apply','classroom_invite','classroom_tick','friend_competition_state','friend_invite_create','friend_invite_preview','friend_invite_accept','friend_remove']);
+    const allowed = new Set(['education_state','education_command','yks_state','yks_dashboard_state','yks_command','yks_student_command','classroom_state','classroom_identity','classroom_command','classroom_apply','classroom_invite','classroom_tick','friend_competition_state','friend_invite_create','friend_invite_preview','friend_invite_accept','friend_remove']);
     if (!allowed.has(name) || Object.keys(args).some(k => !/^[a-z_]+$/.test(k))) return { data:null, error:{message:'INVALID_INPUT'} };
     try {
       const data = await demoQuery(db => db.transaction(async tx => {

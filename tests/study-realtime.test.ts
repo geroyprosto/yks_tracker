@@ -156,7 +156,7 @@ test('invalid inputs and failed RPCs publish nothing; verified claims errors do 
 test('web full/minimal, education and MCP commits notify their verified actor without mutation payload',async()=>{
   const jobs:(()=>Promise<void>)[]=[];const targets:string[]=[];const calls:string[]=[];
   const options={defer:(work:()=>Promise<void>)=>jobs.push(work),publish:async(user:string)=>{targets.push(user);}};
-  const client={rpc:async(name:string)=>{calls.push(name);return {data:name==='yks_state'?{server_now:new Date().toISOString()}:receipt,error:null};},
+  const client={rpc:async(name:string)=>{calls.push(name);return {data:name==='yks_dashboard_state'?{server_now:new Date().toISOString()}:receipt,error:null};},
     auth:{getClaims:async()=>({data:{claims:{sub:userId}},error:null})}} as unknown as SupabaseClient;
   await executeCommand(client,input,{minimal:false,notification:options});
   await executeCommand(client,input,{minimal:true,notification:options});
@@ -165,7 +165,7 @@ test('web full/minimal, education and MCP commits notify their verified actor wi
   assert.equal(jobs.length,4);assert.deepEqual(targets,[]);
   for(const job of jobs)await job();
   assert.deepEqual(targets,[userId,userId,userId,otherUser]);
-  assert.deepEqual(calls,['yks_command','yks_state','yks_command','education_command','mcp_owner_command']);
+  assert.deepEqual(calls,['yks_command','yks_dashboard_state','yks_command','education_command','mcp_owner_command']);
 });
 
 test('Redis failure never rejects a durable receipt and demo never schedules live work',async()=>{

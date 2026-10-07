@@ -200,8 +200,9 @@ test("shared service validates commands and maps conflicts through a database ad
  const {ApiError}=await import("../../src/lib/server/http");
  const adapter={rpc:async(name:string,args?:Record<string,unknown>)=>{
   try{
-   const query=name==="yks_state"?"select public.yks_state() as value":"select public.yks_command($1,$2,$3::jsonb) as value";
-   const values=name==="yks_state"?[]:[args!.request_id,args!.command_type,JSON.stringify(args!.payload)];
+   const reading=name==="yks_state"||name==="yks_dashboard_state";
+   const query=reading?`select public.${name}() as value`:"select public.yks_command($1,$2,$3::jsonb) as value";
+   const values=reading?[]:[args!.request_id,args!.command_type,JSON.stringify(args!.payload)];
    return {data:(await db.query<{value:unknown}>(query,values)).rows[0].value,error:null};
   }catch(error){const failure=error as {message:string;code:string};return {data:null,error:{message:failure.message,code:failure.code}};}
  }} as unknown as import("@supabase/supabase-js").SupabaseClient;

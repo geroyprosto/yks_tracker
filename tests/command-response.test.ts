@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import type {SupabaseClient} from '@supabase/supabase-js';
-import {authorizeStudyCommand, executeCommand, executeStudentCommand} from '../src/lib/server/service';
+import {authorizeStudyCommand, executeCommand, executeStudentCommand, getState} from '../src/lib/server/service';
 
 const requestId = '00000000-0000-4000-8000-000000000001';
 const taskId = '00000000-0000-4000-8000-000000000002';
@@ -13,7 +13,7 @@ function fakeClient() {
     rpc: async (name: string) => {
       calls.push(name);
       if (name === 'yks_command') return {data: {id: taskId, request_id: requestId, replayed: false}, error: null};
-      if (name === 'yks_state') return {data: {server_now: '2026-10-03T12:00:00Z'}, error: null};
+      if (name === 'yks_dashboard_state') return {data: {server_now: '2026-10-03T12:00:00Z'}, error: null};
       throw new Error(`Unexpected RPC ${name}`);
     },
   } as unknown as SupabaseClient;
@@ -37,7 +37,7 @@ test('default command response keeps the full state for existing callers', async
   assert.equal(response.state.authenticated, true);
   assert.equal(response.state.configured, true);
   assert.equal(response.state.server_now, '2026-10-03T12:00:00Z');
-  assert.deepEqual(calls, ['yks_command', 'yks_state']);
+  assert.deepEqual(calls, ['yks_command', 'yks_dashboard_state']);
 });
 
 test('fast study authorization verifies the database identity without a separate Auth request', async () => {
@@ -132,4 +132,36 @@ test('verified Auth user does not turn an internal function permission error int
     auth: {getUser: async () => ({data: {user: {id: taskId}}, error: null})},
   } as unknown as SupabaseClient;
   await assert.rejects(() => executeStudentCommand(client, command), {status: 503, code: 'DATABASE_UNAVAILABLE'});
+});
+
+test('state refresh requests the compact dashboard projection instead of projecting plan audit history', async () => {
+  const calls: string[] = [];
+  const client = {rpc: async (name: string) => {
+    calls.push(name);
+    assert.equal(name, 'yks_dashboard_state');
+    return {data: {server_now: '2026-10-07T13:00:00Z'}, error: null};
+  }} as unknown as SupabaseClient;
+  const result = await getState(client);
+  assert.equal(result.server_now, '2026-10-07T13:00:00Z');
+  assert.deepEqual(calls, ['yks_dashboard_state']);
+});
+
+test('only a missing dashboard migration falls back to the legacy state RPC', async () => {
+  const calls: string[] = [];
+  const client = {rpc: async (name: string) => {
+    calls.push(name);
+    if (name === 'yks_dashboard_state') return {data: null, error: {code: 'PGRST202', message: 'Function not found'}};
+    return {data: {server_now: '2026-10-07T13:00:00Z'}, error: null};
+  }} as unknown as SupabaseClient;
+  assert.equal((await getState(client)).authenticated, true);
+  assert.deepEqual(calls, ['yks_dashboard_state', 'yks_state']);
+});
+
+test('failed dashboard authorization or timeout cannot trigger the expensive legacy projection', async () => {
+  for (const error of [{message: 'ACCESS_DENIED', code: '42501'}, {message: 'canceling statement due to statement timeout', code: '57014'}]) {
+    const calls: string[] = [];
+    const client = {rpc: async (name: string) => {calls.push(name); return {data: null, error};}} as unknown as SupabaseClient;
+    await assert.rejects(() => getState(client));
+    assert.deepEqual(calls, ['yks_dashboard_state']);
+  }
 });

@@ -5,7 +5,7 @@ import {readFile,readdir} from 'node:fs/promises';
 import {test} from 'node:test';
 import {PGlite} from '@electric-sql/pglite';
 import {demoClient} from '../src/lib/server/classroom-demo';
-import {executeStudentCommand} from '../src/lib/server/service';
+import {executeStudentCommand,getState} from '../src/lib/server/service';
 
 test('minimal demo student saves reach the combined SQL gateway and emit their existing change event',async()=>{
  const db=new PGlite(),student=randomUUID();
@@ -33,6 +33,9 @@ test('minimal demo student saves reach the combined SQL gateway and emit their e
   assert.equal(task.title,'Demo kayıt');
   const replay=await executeStudentCommand(demoClient(student),input);
   assert.equal(replay.id,receipt.id);assert.equal(replay.replayed,true);assert.equal(changes,2);
+  const state=await getState(demoClient(student));
+  assert.ok(state.tasks.some(row=>row.id===receipt.id));
+  assert.equal(changes,2,'Refreshing the demo view must not emit another mutation');
  }finally{
   host.classroomDemo=previousRuntime;
   if(previousEnvironment===undefined)delete environment.NODE_ENV;else environment.NODE_ENV=previousEnvironment;

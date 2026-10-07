@@ -53,7 +53,12 @@ export function databaseError(error:{message:string;code?:string}):never{
 }
 export async function getState(client:SupabaseClient,verifiedUserId?:string):Promise<AppState>{
  return readStateWithCache(client,async()=>{
-  const {data,error}=await client.rpc("yks_state");if(error)databaseError(error);
+  // The dashboard needs the current plan for each day; the legacy RPC keeps
+  // every historical snapshot for audit callers. Only a missing migration may
+  // use that older projection during a rolling deployment.
+  let {data,error}=await client.rpc("yks_dashboard_state");
+  if(error?.code==='PGRST202')({data,error}=await client.rpc("yks_state"));
+  if(error)databaseError(error);
   return {...emptyState(true),...data,configured:true,authenticated:true} as AppState;
  },{verifiedUserId,defer:work=>{try{after(work);}catch{void work();}}});
 }

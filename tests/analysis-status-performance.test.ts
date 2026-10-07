@@ -50,7 +50,7 @@ async function withFixture<T>(run:(fixture:{client:SupabaseClient;calls:Call[];a
     const data:Record<string,unknown>={
       analysis_settings:[{enabled:false,start_date:null}],analysis_reports:reports,
       ai_usage_status:{requests:1,estimated_cost_usd:.1,resets_at:'2026-11-01T00:00:00Z',enabled:true,month:'2026-10'},
-      yks_state:state,
+      yks_dashboard_state:state,
       coaching_context:{plan:null,previous_cutoff:null,previous_report_id:null,previous_metrics:null,homework_results:[homework]},
       topic_review_receipt:{results:[repetition],current_cutoff:cutoff},
     };
@@ -99,7 +99,7 @@ test('analysis opening overlaps independent reads and avoids a repeated verified
     assert.ok(optimized<baseline*.65,`Expected a meaningful latency reduction: ${optimized} vs ${baseline} ms`);
     assert.equal(authCalls(),beforeAuth,'The route already verified this user');
     assert.deepEqual(calls.map(call=>call.name).sort(),[
-      'analysis_settings','analysis_reports','ai_usage_status','yks_state','coaching_context','topic_review_receipt',
+      'analysis_settings','analysis_reports','ai_usage_status','yks_dashboard_state','coaching_context','topic_review_receipt',
     ].sort());
     assert.ok(Math.max(...calls.map(call=>call.started))<Math.min(...calls.map(call=>call.ended)),
       'All independent reads must start before the first one finishes');
@@ -144,10 +144,10 @@ test('unconfigured AI storage still opens the analysis page with current local m
 });
 
 test('failed analysis reads report an error without requesting AI or assigning tasks',async()=>{
-  for(const failure of ['analysis_reports','yks_state','coaching_context','topic_review_receipt']){
+  for(const failure of ['analysis_reports','yks_dashboard_state','coaching_context','topic_review_receipt']){
     await withFixture(async({client,calls})=>{
       await assert.rejects(()=>getAnalysisStatus(client,userId),error=>error instanceof ApiError&&error.status===503);
-      assert.ok(calls.every(call=>['analysis_settings','analysis_reports','ai_usage_status','yks_state','coaching_context','topic_review_receipt'].includes(call.name)));
+      assert.ok(calls.every(call=>['analysis_settings','analysis_reports','ai_usage_status','yks_dashboard_state','coaching_context','topic_review_receipt'].includes(call.name)));
       await delay(0); // Let the other independent fixture reads settle before restoring fetch.
     },{failure});
   }

@@ -57,7 +57,7 @@ function entry(value: unknown, userId: string): value is CacheEntry {
 function cacheKey(userId: string) {
   const scope = [process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.VERCEL_ENV ?? 'development'].join('\n');
   const namespace = createHash('sha256').update(scope).digest('hex');
-  return `yksim:state:v2:${userId}:${namespace}`;
+  return `yksim:state:v3:${userId}:${namespace}`;
 }
 
 /** The live database gate must accept the cached generation before it can be returned. */

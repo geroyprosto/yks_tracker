@@ -77,16 +77,16 @@ test('a known cache generation skips projection but a post-save miss returns fre
  assert.equal(fresh.server_now,fresh.state?.server_now);
  // A hit must not execute the expensive projection, while live authorization
  // and time-driven settlement still run inside the validation RPC.
- await adminExec(`alter function public.yks_state() rename to state_cache_test_original;
- create function public.yks_state() returns jsonb language plpgsql security definer set search_path='' as $$
+ await adminExec(`alter function public.yks_dashboard_state() rename to state_cache_test_original;
+ create function public.yks_dashboard_state() returns jsonb language plpgsql security definer set search_path='' as $$
  begin raise exception 'PROJECTION_MUST_NOT_RUN';end $$;
- revoke all on function public.yks_state() from public,anon,service_role;
- grant execute on function public.yks_state() to authenticated;`);
+ revoke all on function public.yks_dashboard_state() from public,anon,service_role;
+ grant execute on function public.yks_dashboard_state() to authenticated;`);
  try{
   await browser(STUDENT);assert.equal((await validateCache(fresh.version)).state,null);
   await assert.rejects(()=>validateCache('unknown-generation'),/PROJECTION_MUST_NOT_RUN/);
  }finally{
-  await adminExec('drop function public.yks_state();alter function public.state_cache_test_original() rename to yks_state;');
+  await adminExec('drop function public.yks_dashboard_state();alter function public.state_cache_test_original() rename to yks_dashboard_state;');
   await browser(STUDENT);
  }
 });
@@ -206,10 +206,10 @@ test('cached-read RPCs preserve browser, approval and owner gates and expose no 
 });
 
 test('snapshot retries a generation change during projection and refuses repeated changes',async()=>{
- await adminExec(`alter function public.yks_state() rename to state_cache_test_original;
+ await adminExec(`alter function public.yks_dashboard_state() rename to state_cache_test_original;
  create table private.state_cache_test_hook(remaining integer);
  insert into private.state_cache_test_hook values(1);
- create function public.yks_state() returns jsonb language plpgsql security definer set search_path='' as $$
+ create function public.yks_dashboard_state() returns jsonb language plpgsql security definer set search_path='' as $$
  declare value jsonb;begin
   value:=public.state_cache_test_original();
   if exists(select 1 from private.state_cache_test_hook where remaining<>0) then
@@ -218,8 +218,8 @@ test('snapshot retries a generation change during projection and refuses repeate
   end if;
   return value;
  end $$;
- revoke all on function public.yks_state() from public,anon,service_role;
- grant execute on function public.yks_state() to authenticated;`);
+ revoke all on function public.yks_dashboard_state() from public,anon,service_role;
+ grant execute on function public.yks_dashboard_state() to authenticated;`);
  try{
   await browser(STUDENT);const result=await snapshot();
   assert.ok(result.state.exam_formats.some(row=>row.label.includes(' changed')));
@@ -227,7 +227,7 @@ test('snapshot retries a generation change during projection and refuses repeate
   await admin('update private.state_cache_test_hook set remaining=-1');
   await browser(STUDENT);await assert.rejects(()=>snapshot(),/CACHE_SNAPSHOT_CHANGED/);
  }finally{
-  await adminExec(`drop function public.yks_state();alter function public.state_cache_test_original() rename to yks_state;
+  await adminExec(`drop function public.yks_dashboard_state();alter function public.state_cache_test_original() rename to yks_dashboard_state;
    drop table private.state_cache_test_hook;`);
   await browser(STUDENT);
  }

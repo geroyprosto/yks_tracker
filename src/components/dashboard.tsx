@@ -186,7 +186,7 @@ export function Dashboard(){
    const update=()=>{document.documentElement.dataset.theme=theme;document.documentElement.dataset.appearance=theme==='white'?'light':theme==='black'?'dark':appearance==='system'?(query.matches?'dark':'light'):appearance;document.documentElement.dataset.reduced=String(reduced);document.documentElement.dataset.simple=String(simple)};
    update();query.addEventListener('change',update);return()=>query.removeEventListener('change',update);
  },[theme,appearance,reduced,simple]);
- const command:CommandFn=async(type,payload)=>{
+ const command:CommandFn=async(type,payload,options)=>{
    const enteredAt=performance.now();
    if(!state?.authenticated){setError('Kayıt oluşturmak için önce hesap kurulumunu tamamlayıp giriş yapmalısın.');return false}
    if(!navigator.onLine){setError('Şu anda çevrimdışısın. Değişiklik henüz kaydedilmedi; tekrar bağlanınca yeniden dene.');return false}
@@ -240,6 +240,9 @@ export function Dashboard(){
      if(formKey){pendingForms.current.set(formKey,done);void done.finally(()=>{if(pendingForms.current.get(formKey)===done)pendingForms.current.delete(formKey);});}
      if(commandQueue.current.state!==previous)pendingVisibility.current={measurement,previous,source:'optimistic'};
      publishMetrics();
+     // A task form may close on local acceptance while retaining its durable
+     // result for draft recovery. Pending/retry status stays with the queue.
+     options?.onAccepted?.();
      // Direct controls report local acceptance. Forms keep their durable result.
      const immediate=type.startsWith('timer.')||type==='task.delete'||(type==='task.update'&&!('title' in payload));
      return immediate?true:done;

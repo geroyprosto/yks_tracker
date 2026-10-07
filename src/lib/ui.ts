@@ -26,7 +26,7 @@ export function duration(seconds:number){
 export function clockText(seconds:number){
  const s=Math.max(0,Math.floor(seconds));return [Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(v=>String(v).padStart(2,'0')).join(':');
 }
-export type CommandFn=(type:string,payload:Record<string,unknown>)=>Promise<boolean>;
+export type CommandFn=(type:string,payload:Record<string,unknown>,options?:{onAccepted?:()=>void})=>Promise<boolean>;
 
 
 

@@ -56,6 +56,8 @@ export function Dashboard(){
  const [queuedEducation,setQueuedEducation]=useState(false);
  const [reconciling,setReconciling]=useState(false);
  const [error,setError]=useState('');
+ const [viewError,setViewError]=useState('');
+ const [canRetryView,setCanRetryView]=useState(false);
  const [online,setOnline]=useState(true);
  const [mobileMenu,setMobileMenu]=useState(false);
  const [theme,setTheme]=useState('ocean');
@@ -84,6 +86,7 @@ export function Dashboard(){
  },[queuedJobs]);
  const mutationEpoch=useRef(0);
  const readSequence=useRef(0);
+ const stateRead=useRef<{epoch:number;allowPending:boolean;promise:Promise<AppState|null>}|null>(null);
  const reconciliationTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const cancelQueuedReconciliation=useCallback(()=>{
    if(reconciliationTimer.current!==null)clearTimeout(reconciliationTimer.current);
@@ -93,7 +96,7 @@ export function Dashboard(){
    commandQueue.current?.dispose();commandQueue.current=null;pendingForms.current.clear();
    cancelQueuedReconciliation();mutationEpoch.current++;readSequence.current++;
    pending.current=false;dirtyRefresh.current=false;queueError.current=false;
-   setBusy(false);setQueuedJobs(0);setQueuePaused(false);setQueuedEducation(false);setReconciling(false);setError('');
+   setBusy(false);setQueuedJobs(0);setQueuePaused(false);setQueuedEducation(false);setReconciling(false);setError('');setViewError('');setCanRetryView(false);
    setState(emptyState(true));
  },[cancelQueuedReconciliation]);
  useEffect(()=>cancelQueuedReconciliation,[cancelQueuedReconciliation]);
@@ -120,23 +123,43 @@ export function Dashboard(){
    if(s.settings&&!preferenceDirty.current){setTheme(normalizeTheme(s.settings.theme)??'ocean');setReduced(s.settings.reduced_motion);setSimple(s.settings.simple_view)}
    return s;
  },[]);
- const refresh=useCallback(async(allowPending=false):Promise<AppState|null>=>{
+ const refresh=useCallback((allowPending=false):Promise<AppState|null>=>{
    const epoch=mutationEpoch.current;
+   if(pending.current&&!allowPending)return Promise.resolve(null);
+   if(stateRead.current?.epoch===epoch&&stateRead.current.allowPending===allowPending)return stateRead.current.promise;
    const sequence=++readSequence.current;
-   try{
-     const response=await fetch('/api/state',{cache:'no-store'});
-     const body=await response.json();
-     if(epoch!==mutationEpoch.current||sequence!==readSequence.current||(pending.current&&!allowPending))return null;
-     if(body.redirect){window.location.assign(body.redirect);return null;}
-     if(!response.ok&&response.status!==401)throw new Error(body.error?.message??'Veriler yüklenemedi.');
-     const latest=installState(body);
-     setReconciling(false);
-     if(!queueError.current)setError('');
-     return latest;
-   }catch(e){
-     if(epoch!==mutationEpoch.current||sequence!==readSequence.current||(pending.current&&!allowPending))return null;
-     setReconciling(false);setError(e instanceof Error?e.message:'Bağlantı kurulamadı.');return null;
-   }
+   const current=()=>epoch===mutationEpoch.current&&sequence===readSequence.current&&(!pending.current||allowPending);
+   const promise=(async()=>{
+     setReconciling(true);setViewError('');setCanRetryView(false);
+     for(let attempt=0;attempt<3;attempt++){
+       if(!current())return null;
+       let retryable=true;
+       try{
+         const response=await fetch('/api/state',{cache:'no-store'});
+         retryable=response.status>=500;
+         const body=await response.json();
+         if(!current())return null;
+         if(body.redirect){window.location.assign(body.redirect);return null;}
+         if(!response.ok&&response.status!==401)throw new Error(body.error?.message??'Veriler yüklenemedi.');
+         const latest=installState(body);
+         setReconciling(false);setViewError('');setCanRetryView(false);
+         if(!queueError.current)setError('');
+         return latest;
+       }catch(e){
+         if(!current())return null;
+         // Retry only this read. A confirmed write must never be sent again to
+         // repair its display, and a newer mutation invalidates the whole read.
+         if(retryable&&attempt<2){await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));continue;}
+         setReconciling(false);setCanRetryView(retryable);
+         setViewError(retryable?'Görünüm güncellenemedi. Yeniden deneyebilirsin.':e instanceof Error?e.message:'Veriler yüklenemedi.');
+         return null;
+       }
+     }
+     return null;
+   })();
+   stateRead.current={epoch,allowPending,promise};
+   void promise.finally(()=>{if(stateRead.current?.promise===promise)stateRead.current=null;});
+   return promise;
  },[installState]);
  const reconcileSaved=useCallback((measurement?:SaveMeasurement)=>{
    cancelQueuedReconciliation();
@@ -147,20 +170,26 @@ export function Dashboard(){
      // A later command cancels this read. Keep the epoch guard even before fetch
      // so an older queued reconciliation never adopts a newer mutation's state.
      if(pending.current||epoch!==mutationEpoch.current)return;
-     const sequence=readSequence.current+1;
      const finishRefresh=measurement?.refresh();
      void refresh().then(latest=>{
        finishRefresh?.(Boolean(latest));publishMetrics();
-       if(epoch!==mutationEpoch.current||sequence!==readSequence.current)return;
-       if(!latest)setError('Kayıt tamamlandı, ancak görünüm güncellenemedi. Sayfayı yenile.');
-     }).finally(()=>{
-       if(epoch===mutationEpoch.current&&sequence===readSequence.current)setReconciling(false);
      });
    };
    reconciliationTimer.current=setTimeout(reconcile,500);
  },[refresh,publishMetrics,cancelQueuedReconciliation]);
  const requestStateRefresh=useCallback(()=>{
    if(pending.current){dirtyRefresh.current=true;return;}
+   const read=stateRead.current;
+   if(read&&read.epoch===mutationEpoch.current){
+     // Dirty hints may describe changes made after an active read's snapshot.
+     // Coalesce them into one trailing read once the current read finishes.
+     dirtyRefresh.current=true;
+     void read.promise.then(()=>{
+       if(pending.current||read.epoch!==mutationEpoch.current||!dirtyRefresh.current)return;
+       dirtyRefresh.current=false;reconcileSaved();
+     });
+     return;
+   }
    reconcileSaved();
  },[reconcileSaved]);
  const realtime=useStudyRealtime({enabled:Boolean(state?.authenticated&&state?.configured),onDirty:requestStateRefresh,onReconnect:requestStateRefresh});
@@ -223,7 +252,7 @@ export function Dashboard(){
          pending.current=count>0;setBusy(count>0);setQueuedJobs(count);setQueuePaused(paused);setQueuedEducation(commandQueue.current?.hasPendingEducation??false);setState(visible);publishMetrics();
        },
        error:message=>{queueError.current=true;setError(message);publishMetrics();},
-       committed:(latest,partial)=>{mutationEpoch.current++;if(!partial)setOffset(Date.parse(latest.server_now)-Date.now());
+       committed:(latest,partial)=>{mutationEpoch.current++;if(!partial){setOffset(Date.parse(latest.server_now)-Date.now());setViewError('');setCanRetryView(false);}
          if(latest.settings&&!preferenceDirty.current){setTheme(normalizeTheme(latest.settings.theme)??'ocean');setReduced(latest.settings.reduced_motion);setSimple(latest.settings.simple_view);}
        },
        settled:(measurement,needsRefresh)=>{
@@ -280,9 +309,10 @@ export function Dashboard(){
  const yksEnabled=profile?.yks_goal??true;
  const schoolEnabled=Boolean(profile&&(profile.education_level!=='graduate'||state?.education?.courses.some(course=>course.context==='school')||state?.education?.results.length));
  const visibleNavigation=navigation.filter(item=>item.id==='topics'?yksEnabled:item.id==='tasks'?profile?.modules.tasks??true:item.id==='exams'?profile?.modules.results??true:item.id==='stats'?profile?.modules.statistics??true:item.id==='journal'?profile?.modules.journal??true:true);
- if(!state)return <main className="login-page">{error?<div role="alert" className="notice error"><AlertCircle size={18}/><span>{error}</span><button className="button secondary" onClick={()=>void refresh()}>Tekrar dene</button></div>:<p className="loading" role="status">Çalışma alanı yükleniyor…</p>}</main>;
+ const viewNotice=viewError&&<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError}</span>{canRetryView&&<button className="button secondary" disabled={reconciling||busy} onClick={()=>void refresh()}>Görünümü yeniden dene</button>}</div>;
+ if(!state)return <main className="login-page">{viewError||error?<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError||error}</span><button className="button secondary" disabled={reconciling} onClick={()=>void refresh()}>Tekrar dene</button></div>:<p className="loading" role="status">Çalışma alanı yükleniyor…</p>}</main>;
  if(state.configured&&!state.authenticated)return <Login/>;
- if(state.education?.needs_onboarding)return <EducationCommandContext value={educationCommand}><main style={{maxWidth:1200,margin:'auto',padding:'24px'}}><StudentClassroom state={state}/>{error&&<div role="alert" className="notice error">{error}{queuePaused&&<button className="button secondary" onClick={retryQueue}>Bekleyen kayıtları yeniden dene</button>}</div>}<EducationSetup education={state.education} command={educationCommand} busy={busy} onDone={()=>{setPage('today');setWelcome(true);}}/></main></EducationCommandContext>;
+ if(state.education?.needs_onboarding)return <EducationCommandContext value={educationCommand}><main style={{maxWidth:1200,margin:'auto',padding:'24px'}}><StudentClassroom state={state}/>{error&&<div role="alert" className="notice error">{error}{queuePaused&&<button className="button secondary" onClick={retryQueue}>Bekleyen kayıtları yeniden dene</button>}</div>}{viewNotice}<EducationSetup education={state.education} command={educationCommand} busy={busy} onDone={()=>{setPage('today');setWelcome(true);}}/></main></EducationCommandContext>;
  return <EducationCommandContext value={educationCommand}><ModalErrorContext value={error}><ModalRetryContext value={queuePaused?retryQueue:null}><div className="app-shell" ref={metricsRoot} data-save-metrics="[]" data-realtime-status={realtime.status}>
    <a className="skip-link" href="#main">İçeriğe geç</a>
    <aside className={'sidebar '+(mobileMenu?'is-open':'')}>
@@ -293,13 +323,14 @@ export function Dashboard(){
    </aside>
    {mobileMenu&&<button className="menu-scrim" aria-label="Menüyü kapat" onClick={()=>setMobileMenu(false)}/>}
    <div className="main-shell">
-     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite" data-pending-commands={queuedJobs}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':queuePaused?'Kayıtlar bekliyor':reconciling?'Görünüm güncelleniyor…':busy?queuedJobs?`Kaydediliyor… ${queuedJobs} işlem`:'Kaydediliyor…':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
+     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite" data-pending-commands={queuedJobs}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':queuePaused?'Kayıtlar bekliyor':reconciling?'Görünüm güncelleniyor…':busy?queuedJobs?`Kaydediliyor… ${queuedJobs} işlem`:'Kaydediliyor…':viewError?'Görünüm güncel değil':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
      <main id="main" data-page={page}>
        {state?.authenticated&&<StudentClassroom state={state}/>}
        <div className="page-heading"><div><p className="eyebrow">{page==='today'?(today?formatDay(today):'Bugün'):'YKSim / '+navigation.find(n=>n.id===page)?.label}</p><h1>{title}</h1><p>{descriptions[page]}</p></div>{page==='today'&&(profile?.modules.tasks??true)&&<button className="button secondary" onClick={()=>{setPage('tasks');setNewTask(true)}}><ListTodo size={17}/>Günü planla<ArrowUpRight size={16}/></button>}</div>
        {!state?.configured&&<div className="setup-banner"><ShieldCheck size={22}/><div><strong>Kişisel alanın kurulum için hazır.</strong><p>Veritabanı bağlantısı henüz kurulmadı. Kayıtların oluşmadan önce hesabını bağlamalısın.</p></div><button className="text-button" onClick={()=>go('settings')}>Kurulum bilgileri<ChevronRight size={16}/></button></div>}
        {state&&!state.configured&&(page==='today'||page==='stats'||page==='exams')&&<div className="preview-banner" role="status"><ChartNoAxesCombined size={21}/><div><strong>{previewEnabled?'Örnek grafik önizlemesi açık.':'Örnek grafik önizlemesi kapalı.'}</strong><p>{previewEnabled?'Örnek görevler ve grafikler yalnızca önizleme içindir; gerçek kayıtların değişmez.':'Gerçek boş görünümü izliyorsun. İstersen örnek grafikleri aç.'}</p></div><button className="button secondary" aria-pressed={previewEnabled} onClick={()=>{const next=!previewEnabled;setPreviewChoice(next);localStorage.setItem('yksim-chart-preview',String(next))}}>{previewEnabled?'Gerçek boş görünümü göster':'Örnekleri göster'}</button></div>}
        {error&&<div role="alert" className="notice error"><AlertCircle size={18}/><span>{error}</span>{queuePaused&&<button className="button secondary" onClick={retryQueue}>Bekleyen kayıtları yeniden dene</button>}{!queuePaused&&<button className="icon-button" aria-label="Uyarıyı kapat" onClick={()=>setError('')}><X size={16}/></button>}</div>}
+       {viewNotice}
        {page==='today'&&(!profile||welcome)&&<div className="setup-banner"><GraduationCap size={22}/><div><strong>{welcome?'Çalışma alanın hazır.':'Okul ve üniversite derslerine de yer aç.'}</strong><p>{welcome?'İlk görevini oluşturabilir, dersini seçip sayacı başlatabilir veya sınav sonuçlarını girebilirsin.':'YKS geçmişini koruyarak öğrenci profilini ve derslerini kişiselleştir.'}</p></div><button className="text-button" onClick={()=>{setPersonalizing(true);go('settings');}}>Öğrenci profilim<ChevronRight size={16}/></button>{welcome&&<button className="icon-button" aria-label="Karşılama bilgisini kapat" onClick={()=>setWelcome(false)}><X size={16}/></button>}</div>}
        {todayState&&page==='today'&&<Today state={todayState} preview={previewEnabled} command={command} busy={instantBusy} offset={offset} go={go} openTimer={openTimer} expandTimer={openFocusTimer} addTask={()=>{go('tasks');setNewTask(true)}} openExamDateSettings={openExamDateSettings} openPractice={openPractice}/>}
        {state&&page==='tasks'&&<Tasks state={state} command={command} busy={instantBusy} requestNew={newTask} onNewHandled={()=>setNewTask(false)}/>}

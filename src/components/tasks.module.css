@@ -28,6 +28,12 @@
 .toolbar { flex-wrap: wrap; }
 .panel :global(.task-description) h3, .panel :global(.task-description) p { overflow-wrap: anywhere; }
 .context { color: var(--muted); font-size: 13px; }
+.reorderControls { display: flex; align-items: center; gap: 2px; }
+.reorderControls > button { min-width: 44px; min-height: 44px; }
+.dragHandle { touch-action: none; cursor: grab; user-select: none; }
+.dragHandle:active { cursor: grabbing; }
+.dragHandle:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+.dragging { position: relative; z-index: 1; background: var(--surface-raised); outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 6px; cursor: grabbing; }
 .archive { display: grid; gap: 12px; }
 .pendingCourseHeading { display: flex; align-items: center; gap: 12px; padding: 16px; }
 .pendingCourseHeading > div { min-width: 0; overflow-wrap: anywhere; }

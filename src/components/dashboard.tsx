@@ -8,6 +8,7 @@ import { Today } from './today';
 import { Tasks } from './tasks';
 import { Topics } from './topics';
 import { Preferences } from './preferences';
+import { ProfileAvatar, useProfilePhoto } from './profile-photo';
 import { TimerPanel } from './timer';
 import type { FocusOrigin } from './timer-focus-view';
 import { StatisticsWorkspace, type StatisticsView } from './statistics-workspace';
@@ -42,6 +43,7 @@ const navigation=[
 export type PageId=typeof navigation[number]['id'];
 export function Dashboard(){
  const [state,setState]=useState<AppState|null>(null);
+ const profilePhoto=useProfilePhoto(state?.authenticated??false);
  const [page,setPage]=useState<PageId>('today');
  useEffect(()=>{window.scrollTo({top:0,behavior:'instant'})},[page]);
  const [statisticsView,setStatisticsView]=useState<StatisticsView>('study');
@@ -49,7 +51,8 @@ export function Dashboard(){
  const [personalizing,setPersonalizing]=useState(false);
  const [welcome,setWelcome]=useState(false);
  const [linkedDate,setLinkedDate]=useState<string|null>(null);
- const [settingsInitialTab,setSettingsInitialTab]=useState<'appearance'|'plan'|'connections'>('appearance');
+ const [settingsInitialTab,setSettingsInitialTab]=useState<'appearance'|'plan'|'connections'|'account'>('appearance');
+ const [settingsVisit,setSettingsVisit]=useState(0);
  const [busy,setBusy]=useState(false);
  const [queuedJobs,setQueuedJobs]=useState(0);
  const [queuePaused,setQueuePaused]=useState(false);
@@ -280,7 +283,7 @@ export function Dashboard(){
  };
  const educationCommand:EducationCommand=(type,payload)=>command('education.'+type,payload);
  const retryQueue=()=>{queueError.current=false;setError('');void commandQueue.current?.retry();};
- const go=(p:PageId,settingsTab?:'plan'|'connections')=>{if(p==='stats')setStatisticsView('study');if(p==='settings')setSettingsInitialTab(settingsTab??'appearance');setLinkedDate(null);setPage(p);setMobileMenu(false);const url=new URL(window.location.href);if(p==='friends')url.searchParams.set('page','friends');else url.searchParams.delete('page');if(p==='settings'&&settingsTab==='connections')url.searchParams.set('settings','connections');else url.searchParams.delete('settings');window.history.replaceState(window.history.state,'',url)};
+ const go=(p:PageId,settingsTab?:'plan'|'connections'|'account')=>{if(p==='stats')setStatisticsView('study');if(p==='settings'){setSettingsInitialTab(settingsTab??'appearance');setSettingsVisit(value=>value+1);}setLinkedDate(null);setPage(p);setMobileMenu(false);const url=new URL(window.location.href);if(p==='friends')url.searchParams.set('page','friends');else url.searchParams.delete('page');if(p==='settings'&&settingsTab==='connections')url.searchParams.set('settings','connections');else url.searchParams.delete('settings');window.history.replaceState(window.history.state,'',url)};
  const goFromReport=(p:PageId,date?:string)=>{go(p);if(date&&(p==='journal'||p==='exams'||p==='stats'))setLinkedDate(date)};
  const openPractice=()=>{go('stats');setStatisticsView('practice')};
  const openExamDateSettings=()=>go('settings','plan');
@@ -319,11 +322,11 @@ export function Dashboard(){
      <div className="brand"><span className="brand-mark">y</span><span>YKSim<span className="brand-dot">.</span></span><button className="mobile-only icon-button" onClick={e=>{e.preventDefault();setMobileMenu(false)}} aria-label="Menüyü kapat"><X size={20}/></button></div>
      <div className="workspace-label">KİŞİSEL ÇALIŞMA ALANIN</div>
      <nav aria-label="Ana gezinme">{visibleNavigation.map(({id,label,icon:Icon})=><button key={id} className={'nav-item '+(page===id?'active':'')} aria-current={page===id?'page':undefined} onClick={()=>go(id)}><Icon size={19}/><span>{label}</span>{page===id&&<span className="nav-dot"/>}</button>)}</nav>
-     <div className="sidebar-bottom"><div className="exam-target"><div className="target-icon"><BookOpen size={20}/></div><div><strong>{yksEnabled?'YKS '+(state.settings?.exam_year??new Date().getFullYear()):profile?levelLabels[profile.education_level]:'Çalışma alanım'}</strong><span>{state.education?.terms.find(term=>term.id===profile?.active_term_id)?.name??'Hedefine doğru'}</span></div></div><button className="profile-button" onClick={()=>go('settings')}><span className="avatar" aria-hidden="true">{initials}</span><span><strong>{displayName}</strong><small>Kişisel hesap</small></span><Settings2 size={16}/></button></div>
+     <div className="sidebar-bottom"><div className="exam-target"><div className="target-icon"><BookOpen size={20}/></div><div><strong>{yksEnabled?'YKS '+(state.settings?.exam_year??new Date().getFullYear()):profile?levelLabels[profile.education_level]:'Çalışma alanım'}</strong><span>{state.education?.terms.find(term=>term.id===profile?.active_term_id)?.name??'Hedefine doğru'}</span></div></div><button className="profile-button" onClick={()=>{setPersonalizing(false);go('settings','account')}}><ProfileAvatar url={profilePhoto.url} initials={initials}/><span><strong>{displayName}</strong><small>Kişisel hesap</small></span><Settings2 size={16}/></button></div>
    </aside>
    {mobileMenu&&<button className="menu-scrim" aria-label="Menüyü kapat" onClick={()=>setMobileMenu(false)}/>}
    <div className="main-shell">
-     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite" data-pending-commands={queuedJobs}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':queuePaused?'Kayıtlar bekliyor':reconciling?'Görünüm güncelleniyor…':busy?queuedJobs?`Kaydediliyor… ${queuedJobs} işlem`:'Kaydediliyor…':viewError?'Görünüm güncel değil':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><span className="avatar small" aria-hidden="true">{initials}</span></div></header>
+     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite" data-pending-commands={queuedJobs}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':queuePaused?'Kayıtlar bekliyor':reconciling?'Görünüm güncelleniyor…':busy?queuedJobs?`Kaydediliyor… ${queuedJobs} işlem`:'Kaydediliyor…':viewError?'Görünüm güncel değil':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><ProfileAvatar url={profilePhoto.url} initials={initials} small/></div></header>
      <main id="main" data-page={page}>
        {state?.authenticated&&<StudentClassroom state={state}/>}
        <div className="page-heading"><div><p className="eyebrow">{page==='today'?(today?formatDay(today):'Bugün'):'YKSim / '+navigation.find(n=>n.id===page)?.label}</p><h1>{title}</h1><p>{descriptions[page]}</p></div>{page==='today'&&(profile?.modules.tasks??true)&&<button className="button secondary" onClick={()=>{setPage('tasks');setNewTask(true)}}><ListTodo size={17}/>Günü planla<ArrowUpRight size={16}/></button>}</div>
@@ -335,7 +338,7 @@ export function Dashboard(){
        {todayState&&page==='today'&&<Today state={todayState} preview={previewEnabled} command={command} busy={instantBusy} offset={offset} go={go} openTimer={openTimer} expandTimer={openFocusTimer} addTask={()=>{go('tasks');setNewTask(true)}} openExamDateSettings={openExamDateSettings} openPractice={openPractice}/>}
        {state&&page==='tasks'&&<Tasks state={state} command={command} busy={instantBusy} requestNew={newTask} onNewHandled={()=>setNewTask(false)}/>}
        {state&&page==='topics'&&<Topics state={state} command={command} busy={instantBusy}/>}
-       {state&&page==='settings'&&<><div className="settings-tabs"><button aria-pressed={personalizing} className={personalizing?'active':''} onClick={()=>setPersonalizing(true)}>Öğrenci alanım</button><button aria-pressed={!personalizing} className={!personalizing?'active':''} onClick={()=>setPersonalizing(false)}>Genel ayarlar</button></div>{personalizing?<EducationSettings state={state} command={educationCommand} busy={instantBusy||queuedEducation} onSaved={()=>{setWelcome(true);go('today');}}/>:<Preferences state={state} command={command} busy={instantBusy} initialTab={settingsInitialTab} theme={theme} appearance={appearance} reduced={reduced} simple={simple} setTheme={v=>{preferenceDirty.current=true;setTheme(v);localStorage.setItem('yksim-theme',v)}} setAppearance={v=>{setAppearance(v);localStorage.setItem('yksim-appearance',v)}} setReduced={v=>{preferenceDirty.current=true;setReduced(v);localStorage.setItem('yksim-reduced',String(v))}} setSimple={v=>{preferenceDirty.current=true;setSimple(v);localStorage.setItem('yksim-simple',String(v))}}/>}</>}
+       {state&&page==='settings'&&<><div className="settings-tabs"><button aria-pressed={personalizing} className={personalizing?'active':''} onClick={()=>setPersonalizing(true)}>Öğrenci alanım</button><button aria-pressed={!personalizing} className={!personalizing?'active':''} onClick={()=>setPersonalizing(false)}>Genel ayarlar</button></div>{personalizing?<EducationSettings state={state} command={educationCommand} busy={instantBusy||queuedEducation} onSaved={()=>{setWelcome(true);go('today');}}/>:<Preferences key={settingsVisit} profilePhoto={profilePhoto} state={state} command={command} busy={instantBusy} initialTab={settingsInitialTab} theme={theme} appearance={appearance} reduced={reduced} simple={simple} setTheme={v=>{preferenceDirty.current=true;setTheme(v);localStorage.setItem('yksim-theme',v)}} setAppearance={v=>{setAppearance(v);localStorage.setItem('yksim-appearance',v)}} setReduced={v=>{preferenceDirty.current=true;setReduced(v);localStorage.setItem('yksim-reduced',String(v))}} setSimple={v=>{preferenceDirty.current=true;setSimple(v);localStorage.setItem('yksim-simple',String(v))}}/>}</>}
        {state&&page==='exams'&&<>{schoolEnabled&&yksEnabled&&<div className="settings-tabs"><button className={resultView==='school'?'active':''} onClick={()=>setResultView('school')}>Ders Sınavları</button><button className={resultView==='yks'?'active':''} onClick={()=>setResultView('yks')}>YKS Denemeleri</button></div>}{state.education&&schoolEnabled&&(!yksEnabled||resultView==='school')?<SchoolResults education={state.education} command={educationCommand} busy={instantBusy||queuedEducation}/>:<Exams key={linkedDate??'all'} initialDate={linkedDate??undefined} state={previewEnabled&&todayState?todayState:state} command={command} busy={instantBusy} preview={previewEnabled}/>}</>}
        {state&&page==='journal'&&<Journal key={linkedDate??'today'} initialDate={linkedDate??undefined} state={state} command={command} busy={instantBusy}/>}
        {state&&page==='analysis'&&<Analysis onOpenDay={date=>goFromReport('stats',date)} onOpenTasks={()=>go('tasks')} onOpenJournal={()=>go('journal')} journalAnalysisEnabled={state.settings?.journal_analysis_enabled===true}/>}

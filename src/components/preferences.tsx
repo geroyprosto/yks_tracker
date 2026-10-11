@@ -5,7 +5,8 @@ import type {AppState} from '@/lib/domain/types';
 import {themes,type CommandFn} from '@/lib/ui';
 import {Card} from './primitives';
 import {GoogleCalendarSettings} from './google-calendar-settings';
-export function Preferences({state,command,busy,theme,appearance,reduced,simple,setTheme,setAppearance,setReduced,setSimple,initialTab='appearance'}:{state:AppState;initialTab?:'appearance'|'plan'|'connections';command:CommandFn;busy:boolean;theme:string;appearance:string;reduced:boolean;simple:boolean;setTheme:(v:string)=>void;setAppearance:(v:string)=>void;setReduced:(v:boolean)=>void;setSimple:(v:boolean)=>void}){
+import {ProfilePhotoSettings,type ProfilePhotoState} from './profile-photo';
+export function Preferences({profilePhoto,state,command,busy,theme,appearance,reduced,simple,setTheme,setAppearance,setReduced,setSimple,initialTab='appearance'}:{profilePhoto:ProfilePhotoState;state:AppState;initialTab?:'appearance'|'plan'|'connections'|'account';command:CommandFn;busy:boolean;theme:string;appearance:string;reduced:boolean;simple:boolean;setTheme:(v:string)=>void;setAppearance:(v:string)=>void;setReduced:(v:boolean)=>void;setSimple:(v:boolean)=>void}){
  const [tab,setTab]=useState<'appearance'|'plan'|'connections'|'account'>(initialTab);
  const [notice,setNotice]=useState('');
  const settings=state.settings;
@@ -25,6 +26,7 @@ export function Preferences({state,command,busy,theme,appearance,reduced,simple,
  <div className="form-actions span-2"><button className="button primary" disabled={busy||!state.authenticated}>Hedefleri kaydet</button></div></form></Card>}
  {tab==='connections'&&<div className="integration-grid"><GoogleCalendarSettings authenticated={state.authenticated}/></div>}
  {tab==='account'&&<>
+  <ProfilePhotoSettings photo={profilePhoto} authenticated={state.authenticated} name={settings?.display_name??'Öğrenci'}/>
   <Card title="Günlük ve analiz" action={<ShieldCheck size={22}/>}>
    <label className="setting-row"><div><h3>Günlük kayıtlarını AI analizlerinde kullan</h3><p>Açıkken eski ve yeni günlüklerinin metni ve doldurduğun alanlar sonraki analizlere dahil edilir. Kapattığında günlük içeriği sonraki analizlere ve YKSim analiz aracına verilmez.</p></div><input type="checkbox" checked={journalAnalysisEnabled} disabled={busy||!state.authenticated||!settings} onChange={async event=>{const enabled=event.target.checked;setJournalAnalysisPending(enabled);setNotice('');if(await command('settings.journal_analysis.set',{expected_revision:settings?.revision??0,enabled}))setNotice(enabled?'Günlük analizi açıldı.':'Günlük analizi kapatıldı.');setJournalAnalysisPending(null)}}/></label>
    <p className="footnote">Çok uzun kayıtlar için analiz sırasında daha kısa bir dönem seçmen istenebilir. Önceden oluşturulmuş raporlar hesap geçmişinde kalır.</p>

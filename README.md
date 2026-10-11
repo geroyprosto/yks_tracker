@@ -8,6 +8,10 @@ Sümeyra için Türkçe, kişisel YKS takip uygulaması. Boş klasörden Next.js
 
 **1 Ekim 2026 güncellemesi:** Günlük paylaşımı Ayarlar › Hesap bölümündeki varsayılan açık anahtarla yönetilir. Seçilen dönemin eski ve yeni günlüklerindeki kaydedilmiş metin ve doldurulmuş alanlar AI raporuna ve `get_analysis_sources` aracına eklenir; anahtar kapatılınca sonraki analizlerden çıkarılır. Eski paylaşım kutucukları arayüzden kaldırıldı.
 
+## Profil fotoğrafı
+
+Ayarlar → Genel ayarlar → Hesap bölümünden JPG, PNG veya WebP fotoğrafı (en fazla 4 MB) seçip önizleyebilir, kaydedebilir, değiştirebilir veya kaldırabilirsin. Yan menüdeki hesap düğmesi bu bölümü doğrudan açar. Fotoğraf yalnız kendi hesabında görünür; üst çubukta ve yan menüde kullanılır. Sunucu fotoğrafı 512 × 512 WebP biçimine küçültür, metadata alanlarını çıkarır ve özel `profile-photos` Storage alanına kaydeder. Fotoğraf yüklenmeden önce Storage migration uygulanmalıdır; demo ortamında yükleme kapalıdır.
+
 ## Bilgisayarında aç
 
 Gerekenler: Node.js 24.x ve projenin package.json dosyasındaki pnpm 11.19.0. Proje klasöründe bir terminal aç:

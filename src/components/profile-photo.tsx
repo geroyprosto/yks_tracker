@@ -101,7 +101,7 @@ export function ProfilePhotoSettings({ photo, authenticated, name }: { photo: Pr
       </div>
       <div className={styles.details}>
         <p className="soft-copy">Çalışma alanına kendi fotoğrafını ekle.</p>
-        <p id="profile-photo-help" className="footnote">JPG, PNG veya WebP · En fazla 4 MB. Fotoğrafın ortası kare olarak kullanılır ve yalnızca kendi hesabında görünür.</p>
+        <p id="profile-photo-help" className="footnote">JPG, PNG veya WebP · En fazla 4 MB. Fotoğrafın ortası kare olarak kullanılır ve hesabında ve katıldığın arkadaş gruplarında görünür.</p>
         <input ref={input} className={styles.fileInput} type="file" accept={PROFILE_PHOTO_TYPES.join(',')} aria-label="Profil fotoğrafı seç" aria-describedby="profile-photo-help" disabled={disabled} onChange={event => {
           const file = event.currentTarget.files?.[0];
           event.currentTarget.value = '';

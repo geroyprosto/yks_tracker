@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Check, Clock3, Copy, Link2, LogOut, RefreshCw, Send, UserMinus, UsersRound, X } from 'lucide-react';
 import { Modal } from './modal';
@@ -104,7 +105,17 @@ function setGroupQuery(groupId: string | null) {
   window.history.replaceState(window.history.state, '', url);
 }
 
-function Duel({ participants, period, meId, memberCount }: { participants: FriendScore[]; period: Period; meId: string; memberCount: number }) {
+function FriendPhoto({ person, revision }: { person: FriendScore; revision: number }) {
+  const [missing, setMissing] = useState(false);
+  return <span className={styles.photoFrame}>
+    {missing ? <span aria-hidden="true">{initials(person.display_name)}</span> : <Image
+      src={`/api/friends/${encodeURIComponent(person.user_id)}/photo?v=${revision}`}
+      alt={`${person.display_name} profil fotoğrafı`} width={80} height={80} unoptimized
+      onError={() => setMissing(true)} />}
+  </span>;
+}
+
+function Duel({ participants, period, meId, memberCount, photoRevision }: { participants: FriendScore[]; period: Period; meId: string; memberCount: number; photoRevision: number }) {
   const [first, second] = participants;
   const firstSeconds = first ? count(first, period, 'seconds') : 0;
   const secondSeconds = second ? count(second, period, 'seconds') : 0;
@@ -122,14 +133,14 @@ function Duel({ participants, period, meId, memberCount }: { participants: Frien
     <div className={styles.duelTop}><div><p className={styles.eyebrow}>Tatlı yarış</p><h2>{period === 'today' ? 'Bugünün' : 'Bu haftanın'} yarışı 🏁</h2></div><span className={styles.pill}>{memberCount} üye</span></div>
     <div className={styles.vs}>
       <div className={`${styles.player} ${styles.first}`}>
-        <div className={styles.avatar}>{first && firstSeconds > 0 && !noStudy && <span className={styles.crown} aria-label={tied ? 'Ortak lider' : 'Lider'}>👑</span>}{first ? initials(first.display_name) : '?'}</div>
+        <div className={styles.avatar}>{first && firstSeconds > 0 && !noStudy && <span className={styles.crown} aria-label={tied ? 'Ortak lider' : 'Lider'}>👑</span>}{first ? <FriendPhoto key={`${first.user_id}-${photoRevision}`} person={first} revision={photoRevision}/> : '?'}</div>
         <div className={styles.playerName}>{first?.display_name || 'Öğrenci'}{first?.user_id === meId && <span className={styles.youChip}>Sen</span>}</div>
         <strong className={styles.playerTime}>{duration(firstSeconds)}</strong>
         <span className={styles.playerTag}>{!second ? 'İlk sıradasın' : noStudy ? 'Henüz süre yok' : tied ? 'Ortak lider' : 'Şu an lider'}</span>
       </div>
       <div className={styles.vsBadge} aria-hidden="true">VS</div>
       {second ? <div className={`${styles.player} ${styles.second}`}>
-        <div className={styles.avatar}>{tied && !noStudy && <span className={styles.crown} aria-label="Ortak lider">👑</span>}{initials(second.display_name)}</div>
+        <div className={styles.avatar}>{tied && !noStudy && <span className={styles.crown} aria-label="Ortak lider">👑</span>}<FriendPhoto key={`${second.user_id}-${photoRevision}`} person={second} revision={photoRevision}/></div>
         <div className={styles.playerName}>{second.display_name}{second.user_id === meId && <span className={styles.youChip}>Sen</span>}</div>
         <strong className={styles.playerTime}>{duration(secondSeconds)}</strong>
         <span className={styles.playerTag}>{noStudy ? 'Henüz süre yok' : tied ? 'Ortak lider' : '2. sıra'}</span>
@@ -149,7 +160,7 @@ function Duel({ participants, period, meId, memberCount }: { participants: Frien
   </section>;
 }
 
-function Ranking({ participants, period, meId, canRemove, onRemove }: { participants: FriendScore[]; period: Period; meId: string; canRemove: boolean; onRemove: (person: FriendScore) => void }) {
+function Ranking({ participants, period, meId, canRemove, onRemove, photoRevision }: { participants: FriendScore[]; period: Period; meId: string; canRemove: boolean; onRemove: (person: FriendScore) => void; photoRevision: number }) {
   const max = participants.length ? count(participants[0], period, 'seconds') : 0;
   return <section className={styles.card} aria-labelledby="friends-ranking-title">
     <p className={styles.eyebrow}>Sıralama</p><h2 id="friends-ranking-title">Çalışma süresine göre</h2>
@@ -159,6 +170,7 @@ function Ranking({ participants, period, meId, canRemove, onRemove }: { particip
       const isMe = person.user_id === meId;
       return <li className={`${styles.rank} ${isMe ? styles.youRow : ''}`} key={person.user_id}>
         <span className={styles.rankBadge} aria-label={seconds === 0 ? 'Henüz sıralama yok' : `${rank}. sıra`}>{index === 0 && seconds > 0 ? '🏆' : rank}</span>
+        <span className={styles.rankAvatar}><FriendPhoto key={`${person.user_id}-${photoRevision}`} person={person} revision={photoRevision}/></span>
         <div className={styles.rankInfo}><strong>{person.display_name}</strong>{isMe && <span className={styles.youChip}>Sen</span>}<p>{count(person, period, 'questions').toLocaleString('tr-TR')} soru · {count(person, period, 'tests').toLocaleString('tr-TR')} test · {count(person, period, 'tasks').toLocaleString('tr-TR')} görev</p><div className={styles.rankTrack}><span className={isMe ? styles.trackYou : styles.trackOther} style={{ width: `${max > 0 ? seconds / max * 100 : 0}%` }}/></div></div>
         <strong className={styles.rankTime}>{duration(seconds)}</strong>
         {canRemove && !isMe && <button type="button" className={styles.removeButton} aria-label={`${person.display_name} adlı üyeyi çıkar`} title="Gruptan çıkar" onClick={() => onRemove(person)}><UserMinus size={16}/></button>}
@@ -179,6 +191,7 @@ function MyStats({ me, period }: { me: FriendScore; period: Period }) {
 export function FriendsWorkspace() {
   const [period, setPeriod] = useState<Period>('today');
   const [scores, setScores] = useState<FriendsResponse | null>(null);
+  const [photoRevision, setPhotoRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [switchingGroup, setSwitchingGroup] = useState(false);
   const [error, setError] = useState('');
@@ -219,6 +232,7 @@ export function FriendsWorkspace() {
         }
         if (!isFriendsResponse(body)) throw new Error('Arkadaş verileri beklenen biçimde gelmedi.');
         setScores(body);
+        setPhotoRevision(value => value + 1);
         activeGroup.current = body.group?.id ?? null;
         return true;
       }
@@ -319,18 +333,18 @@ export function FriendsWorkspace() {
     </div>
 
     {inviteError && <div className={styles.noticeError} role="alert"><span>{inviteError}</span><button type="button" onClick={() => void createInvite()}>Tekrar dene</button></div>}
-    {invite && <section className={styles.inviteLink} aria-label="Davet bağlantın"><div className={styles.inviteLinkHead}><div><strong>{invite.groupName} grubuna davet hazır</strong><p>Bağlantıyı göndereceğin kişi kabul ederse gruptaki herkes birbirinin çalışma özetini görür.</p></div><button type="button" className={styles.closeButton} aria-label="Davet bağlantısını gizle" onClick={() => { setInvite(null); setCopyState('idle'); }}><X size={18}/></button></div><div className={styles.inviteControls}><input ref={inviteInput} aria-label="Davet bağlantısı" readOnly value={invite.url} onFocus={event => event.currentTarget.select()}/><button type="button" onClick={() => void copyInvite()}>{copyState === 'copied' ? <Check size={15}/> : <Copy size={15}/>} {copyState === 'copied' ? 'Kopyalandı' : 'Kopyala'}</button><button type="button" onClick={() => void shareInvite()}><Send size={15}/>Paylaş</button></div>{expiry && !Number.isNaN(expiry.getTime()) && <p className={styles.inviteExpiry}>Bağlantı {new Intl.DateTimeFormat('tr-TR', { dateStyle: 'medium', timeStyle: 'short' }).format(expiry)} tarihine kadar geçerli.</p>}{copyState === 'failed' && <p className={styles.inviteFeedback} role="status">Panoya kopyalanamadı. Bağlantı seçildi; elle kopyalayabilirsin.</p>}{shareError && <p className={styles.inviteFeedback} role="status">{shareError}</p>}</section>}
+    {invite && <section className={styles.inviteLink} aria-label="Davet bağlantın"><div className={styles.inviteLinkHead}><div><strong>{invite.groupName} grubuna davet hazır</strong><p>Bağlantıyı göndereceğin kişi kabul ederse gruptaki herkes birbirinin profil fotoğrafını ve çalışma özetini görür.</p></div><button type="button" className={styles.closeButton} aria-label="Davet bağlantısını gizle" onClick={() => { setInvite(null); setCopyState('idle'); }}><X size={18}/></button></div><div className={styles.inviteControls}><input ref={inviteInput} aria-label="Davet bağlantısı" readOnly value={invite.url} onFocus={event => event.currentTarget.select()}/><button type="button" onClick={() => void copyInvite()}>{copyState === 'copied' ? <Check size={15}/> : <Copy size={15}/>} {copyState === 'copied' ? 'Kopyalandı' : 'Kopyala'}</button><button type="button" onClick={() => void shareInvite()}><Send size={15}/>Paylaş</button></div>{expiry && !Number.isNaN(expiry.getTime()) && <p className={styles.inviteExpiry}>Bağlantı {new Intl.DateTimeFormat('tr-TR', { dateStyle: 'medium', timeStyle: 'short' }).format(expiry)} tarihine kadar geçerli.</p>}{copyState === 'failed' && <p className={styles.inviteFeedback} role="status">Panoya kopyalanamadı. Bağlantı seçildi; elle kopyalayabilirsin.</p>}{shareError && <p className={styles.inviteFeedback} role="status">{shareError}</p>}</section>}
     {error && <div className={styles.noticeError} role="alert"><span>{error}</span><button type="button" onClick={() => void loadScores(activeGroup.current)}>Tekrar dene</button></div>}
 
     {(loading && (!scores || switchingGroup)) ? <div className={styles.loading} role="status" aria-label="Arkadaş grubun yükleniyor"><div/><div/><div/></div> : scores ? <>
       <div className={styles.raceGrid}>
-        <Duel participants={participants} period={period} meId={scores.me.user_id} memberCount={group?.member_count ?? 1}/>
+        <Duel photoRevision={photoRevision} participants={participants} period={period} meId={scores.me.user_id} memberCount={group?.member_count ?? 1}/>
         <div className={styles.scoreRail}>
-          <Ranking participants={participants} period={period} meId={scores.me.user_id} canRemove={isOwner} onRemove={person => { setRemoveError(''); setRemoving({ person, kind: 'remove' }); }}/>
+          <Ranking photoRevision={photoRevision} participants={participants} period={period} meId={scores.me.user_id} canRemove={isOwner} onRemove={person => { setRemoveError(''); setRemoving({ person, kind: 'remove' }); }}/>
           <MyStats me={scores.me} period={period}/>
         </div>
       </div>
-      <section className={`${styles.card} ${styles.inviteFooter}`}><div><strong>Küçük bir çalışma yarışı</strong><p>{group ? 'Yeni katılan herkes bu gruptaki üyelerin günlük ve haftalık çalışma özetini görebilir.' : 'Arkadaşlarınla bugünkü ve haftalık emeğini yan yana gör. Her adım kendi hızında değerli.'}</p></div><button type="button" className={styles.inviteButton} disabled={inviteBusy || loading || switchingGroup} onClick={() => void createInvite()}>Arkadaş davet et</button></section>
+      <section className={`${styles.card} ${styles.inviteFooter}`}><div><strong>Küçük bir çalışma yarışı</strong><p>{group ? 'Bu gruptaki üyeler birbirinin profil fotoğrafını, günlük ve haftalık çalışma özetini görebilir.' : 'Arkadaşlarınla bugünkü ve haftalık emeğini yan yana gör. Her adım kendi hızında değerli.'}</p></div><button type="button" className={styles.inviteButton} disabled={inviteBusy || loading || switchingGroup} onClick={() => void createInvite()}>Arkadaş davet et</button></section>
       <p className={styles.foot}>Bugün az çalışmış olmak geri kalmak demek değil. Yarın yeni bir gün. ✦</p>
     </> : !loading && <section className={styles.unavailable}><UsersRound size={28}/><h2>Yarışma alanı açılamadı</h2><p>Biraz sonra yeniden deneyebilirsin.</p><button type="button" onClick={() => void loadScores(activeGroup.current)}>Tekrar dene</button></section>}
 

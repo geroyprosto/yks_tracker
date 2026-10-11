@@ -5,6 +5,7 @@ import { ApiError } from './http';
 
 const BUCKET = 'profile-photos';
 const MAX_INPUT_PIXELS = 40_000_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type PhotoContext = {
   client: SupabaseClient;
   user: { id: string };
@@ -14,7 +15,7 @@ export type PhotoContext = {
 
 function photoPath(context: PhotoContext, mutation = false) {
   const { user, account } = context;
-  if (!user?.id || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id)) {
+  if (!user?.id || !UUID.test(user.id)) {
     throw new ApiError(401, 'SIGN_IN_REQUIRED', 'Devam etmek için giriş yapın.');
   }
   if (!account || account.id !== user.id || account.status !== 'approved' || !['student', 'admin'].includes(account.role)) {
@@ -72,8 +73,7 @@ function storageFailure() {
   return new ApiError(503, 'PHOTO_STORAGE_UNAVAILABLE', 'Profil fotoğrafı işlemi tamamlanamadı. Lütfen yeniden deneyin.');
 }
 
-export async function getProfilePhoto(context: PhotoContext): Promise<Buffer> {
-  const path = photoPath(context);
+async function downloadPhoto(context: PhotoContext, path: string): Promise<Buffer> {
   const { data, error } = await context.client.storage.from(BUCKET).download(path);
   if (error) {
     const code = 'code' in error ? error.code : undefined;
@@ -84,6 +84,21 @@ export async function getProfilePhoto(context: PhotoContext): Promise<Buffer> {
   }
   if (!data) throw storageFailure();
   return Buffer.from(await data.arrayBuffer());
+}
+
+export async function getProfilePhoto(context: PhotoContext): Promise<Buffer> {
+  return downloadPhoto(context, photoPath(context));
+}
+
+export async function getFriendProfilePhoto(context: PhotoContext, userId: string): Promise<Buffer> {
+  photoPath(context);
+  if (!UUID.test(userId)) throw new ApiError(400, 'INVALID_INPUT', 'Arkadaş seçimi geçerli değil.');
+  const targetId = userId.toLowerCase();
+  const { data: allowed, error } = await context.client.rpc('profile_photo_can_read', { p_user_id: targetId });
+  if (error) throw storageFailure();
+  if (allowed !== true) throw new ApiError(404, 'PHOTO_NOT_FOUND', 'Profil fotoğrafı bulunamadı.');
+  // RLS checks the same current membership again during the signed-in download.
+  return downloadPhoto(context, `${targetId}/avatar.webp`);
 }
 
 export async function putProfilePhoto(context: PhotoContext, request: Request): Promise<void> {

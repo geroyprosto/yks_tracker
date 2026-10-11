@@ -10,7 +10,7 @@ Sümeyra için Türkçe, kişisel YKS takip uygulaması. Boş klasörden Next.js
 
 ## Profil fotoğrafı
 
-Ayarlar → Genel ayarlar → Hesap bölümünden JPG, PNG veya WebP fotoğrafı (en fazla 4 MB) seçip önizleyebilir, kaydedebilir, değiştirebilir veya kaldırabilirsin. Yan menüdeki hesap düğmesi bu bölümü doğrudan açar. Fotoğraf yalnız kendi hesabında görünür; üst çubukta ve yan menüde kullanılır. Sunucu fotoğrafı 512 × 512 WebP biçimine küçültür, metadata alanlarını çıkarır ve özel `profile-photos` Storage alanına kaydeder. Fotoğraf yüklenmeden önce Storage migration uygulanmalıdır; demo ortamında yükleme kapalıdır.
+Ayarlar → Genel ayarlar → Hesap bölümünden JPG, PNG veya WebP fotoğrafı (en fazla 4 MB) seçip önizleyebilir, kaydedebilir, değiştirebilir veya kaldırabilirsin. Yan menüdeki hesap düğmesi bu bölümü doğrudan açar. Fotoğraf üst çubukta, yan menüde ve Arkadaşlar ekranındaki yarışma ile sıralamada kullanılır. Aynı arkadaş grubundaki onaylı öğrenciler birbirinin fotoğrafını görebilir; ortak grup üyeliği kalmadığında erişim kapanır. Sunucu fotoğrafı 512 × 512 WebP biçimine küçültür, metadata alanlarını çıkarır ve özel `profile-photos` Storage alanına kaydeder. Fotoğraf yüklenmeden önce Storage migration uygulanmalıdır; demo ortamında yükleme kapalıdır.
 
 ## Bilgisayarında aç
 

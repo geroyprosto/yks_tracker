@@ -313,6 +313,25 @@ test('irrelevant Nova activities do not drown ordinary conversation but day ques
   assert.ok(followup.facts.some(fact => fact.id === event.id));
 });
 
+test('ASCII Turkish day questions and their follow-ups retain activities without adding them to greetings', () => {
+  const event = { id: 'ascii-day-event', text: 'Bugün matematik tekrarı yaptım.', kind: 'event' as const };
+  const chat: AgentContext = { ...context, facts: [...context.facts, event],
+    currentEvent: { id: 'ascii-current-event', label: 'Dinlenme', status: 'active' } };
+  const dayQuestion = 'neler yaptin bugun';
+  const day = selectAgentContext({ ...chat, message: { ...chat.message, content: dayQuestion } });
+  assert.ok(day.facts.some(fact => fact.id === event.id));
+  assert.equal(day.currentEvent?.id, 'ascii-current-event');
+  const greeting = selectAgentContext({ ...chat, message: { ...chat.message, content: 'nasilsin' } });
+  assert.deepEqual(greeting.facts, context.facts);
+  assert.equal(greeting.currentEvent, null);
+  for (const content of ['peki sonra', 'baska ne var?']) {
+    const followup = selectAgentContext({ ...chat, message: { ...chat.message, content },
+      history: [{ id: 'ascii-previous-question', role: 'user', content: dayQuestion, sentAt: context.trustedNow }] });
+    assert.ok(followup.facts.some(fact => fact.id === event.id), content);
+    assert.equal(followup.currentEvent?.id, 'ascii-current-event');
+  }
+});
+
 test('asking about the user or suggesting a future break is not an asserted completed event', () => {
   for (const reply of ['Bugün sen ne yaptın?', 'Çalıştıktan sonra ara verebilirsin.', 'İyiyim, sen nasılsın?']) {
     assert.equal(validateAgentOutput({ ...good, reply }, context).reply, reply);

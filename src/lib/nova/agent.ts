@@ -49,11 +49,11 @@ const sleepPressure = /(?:(?:uyumadan|uykusuz)[^.!?]{0,70}(?:harika|gurur|aferin
 const memoryStopWords = new Set(['bir', 'bu', 've', 'ile', 'icin', 'ama', 'gibi', 'bana', 'ben', 'benim', 'nova', 'daha', 'cok', 'mi', 'mu', 'ne', 'da', 'de']);
 const memoryTokens = (value: string, limit: number) => [...new Set((guardText(value).match(/[\p{L}\p{N}]{2,}/gu) ?? []).filter(token => !memoryStopWords.has(token)))].slice(0, limit);
 const contextCharacterBudget = 16000; // Reserve space for schema, safety instructions and one repair under the adapter's 28k limit.
-const asksNovaActivity = (text: string) => /(?:yaptı(?:n|ğın)|yapıyorsun|çalıştı(?:n|ğın)|çalışıyorsun|çözdü(?:n|ğün)|çözüyorsun|uğraştı(?:n|ğın)|dinlendi(?:n|ğin)|günün|gününü|(?:sınav|deneme)[^.!?]{0,60}(?:geçti|sonuc)|kaç\s+(?:soru|net|puan)|sonucun|puanın|netin)/iu.test(text);
+const asksNovaActivity = (text: string) => /(?:yapti(?:n|gin)|yapiyorsun|calisti(?:n|gin)|calisiyorsun|cozdu(?:n|gun)|cozuyorsun|ugrasti(?:n|gin)|dinlendi(?:n|gin)|gunun|gununu|(?:sinav|deneme)[^.!?]{0,60}(?:gecti|sonuc)|kac\s+(?:soru|net|puan)|sonucun|puanin|netin)/u.test(guardText(text));
 function needsActivityContext(context: AgentContext): boolean {
   if (asksNovaActivity(context.message.content)) return true;
   const previous = context.history.filter(item => item.role === 'user').at(-1);
-  return /^(?:peki|sonra|başka|devam)/iu.test(context.message.content.trim()) && !!previous && asksNovaActivity(previous.content);
+  return /^(?:peki|sonra|baska|devam)/u.test(guardText(context.message.content).trim()) && !!previous && asksNovaActivity(previous.content);
 }
 
 function rankedMemories(context: AgentContext, forgotten: Set<string>): AgentContext['memories'] {

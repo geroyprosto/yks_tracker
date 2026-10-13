@@ -95,6 +95,31 @@ test('all Windows package PowerShell sources parse without execution', { skip: p
   execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(code, 'utf16le').toString('base64')], { windowsHide: true, stdio: 'pipe' });
 });
 
+test('Windows PowerShell 5.1 resolves Node 24 without passing quoted JavaScript to native arguments', { skip: process.platform !== 'win32' }, () => {
+  const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'";
+  const code = `$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; . ${quote(path.join(source, 'Common-NovaBridge.ps1'))}; $novaExecutable=Get-NovaNode; [pscustomobject]@{powershellMajor=$PSVersionTable.PSVersion.Major; node=$novaExecutable; version=(& $novaExecutable --version)} | ConvertTo-Json -Compress`;
+  const result = JSON.parse(execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(code, 'utf16le').toString('base64')], { windowsHide: true, encoding: 'utf8', stdio: 'pipe' })) as { powershellMajor: number; node: string; version: string };
+  assert.equal(result.powershellMajor, 5);
+  assert.equal(path.resolve(result.node).toLowerCase(), path.resolve(process.execPath).toLowerCase());
+  assert.equal(result.version.trim(), `v${process.versions.node}`);
+});
+
+test('Windows native Node check rejects old, malformed and failed version output', { skip: process.platform !== 'win32' }, async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'NovaNodeVersionTest-'));
+  const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'";
+  try {
+    const fakeNode = path.join(directory, 'fake-node.cmd');
+    for (const [version, exitCode] of [['v23.19.0', 0], ['24.19.0', 0], ['invalid', 0], ['v24.19.0', 1]] as const) {
+      await writeFile(fakeNode, `@echo off\r\necho ${version}\r\nexit /b ${exitCode}\r\n`);
+      const code = `$ErrorActionPreference='Stop'; $ProgressPreference='SilentlyContinue'; . ${quote(path.join(source, 'Common-NovaBridge.ps1'))}; function Get-Command { [pscustomobject]@{Source=${quote(fakeNode)}} }; $novaRejected=$false; try { Get-NovaNode | Out-Null } catch { $novaRejected=$true }; if(-not $novaRejected) {throw 'Unsupported native Node version was accepted'}`;
+      execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', Buffer.from(code, 'utf16le').toString('base64')], { windowsHide: true, stdio: 'pipe' });
+    }
+  } finally {
+    assert.equal(path.dirname(directory), path.resolve(tmpdir()));
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test('installer upgrades an existing startup shortcut but keeps absent startup disabled without opt-in', { skip: process.platform !== 'win32' }, async () => {
   const directory = await mkdtemp(path.join(tmpdir(), 'NovaStartupTest-'));
   const quote = (value: string) => "'" + value.replaceAll("'", "''") + "'";

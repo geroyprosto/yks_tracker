@@ -12,9 +12,6 @@ if (Test-Path -LiteralPath $novaInstallRoot) {
     if (Get-Process -Id ([int]$novaOldLock.pid) -ErrorAction SilentlyContinue) { throw 'Kurulumdan önce mevcut Nova Bridge işlemini durdurun.' }
   }
 }
-$novaNode = (Get-Command node -ErrorAction Stop).Source
-$novaMajor = & $novaNode -p 'process.versions.node.split(".")[0]'
-if ([int]$novaMajor -lt 24) { throw 'Node.js 24 veya sonrası gerekiyor.' }
 $novaFiles = @('bridge.cjs', 'bridge-host.cjs', 'config.cjs', 'bridge-config.example.json', 'Common-NovaBridge.ps1', 'Install-NovaBridge.ps1', 'Start-NovaBridge.ps1', 'Stop-NovaBridge.ps1', 'Pair-NovaBridge.ps1', 'Doctor-NovaBridge.ps1', 'manifest.json', 'README.md')
 foreach ($novaFile in $novaFiles) { if (-not (Test-Path -LiteralPath (Join-Path $PSScriptRoot $novaFile) -PathType Leaf)) { throw ('Paket dosyası eksik: ' + $novaFile) } }
 $novaManifest = Get-Content -Raw -LiteralPath (Join-Path $PSScriptRoot 'manifest.json') | ConvertFrom-Json
@@ -24,6 +21,8 @@ foreach ($novaFile in $novaFiles) {
   $novaActualHash = (Get-FileHash -LiteralPath (Join-Path $PSScriptRoot $novaFile) -Algorithm SHA256).Hash
   if (-not $novaExpectedHash -or $novaActualHash -ne $novaExpectedHash) { throw ('Paket bütünlük kontrolü başarısız: ' + $novaFile) }
 }
+. (Join-Path $PSScriptRoot 'Common-NovaBridge.ps1')
+$novaNode = Get-NovaNode
 New-Item -ItemType Directory -Path $novaInstallRoot -Force | Out-Null
 foreach ($novaFile in $novaFiles) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $novaFile) -Destination (Join-Path $novaInstallRoot $novaFile) -Force }
 # Credentials, intentional-stop choice, and an existing explicit model config are preserved.
@@ -48,7 +47,6 @@ if ($CreateStartMenuShortcuts) {
   New-NovaShortcut (Join-Path $novaShortcutRoot 'Nova Model Kontrolü.lnk') 'Doctor-NovaBridge.ps1' $false
   New-NovaShortcut (Join-Path $novaShortcutRoot 'Nova Cihaz Eşleştir.lnk') 'Pair-NovaBridge.ps1' $false
 }
-. (Join-Path $PSScriptRoot 'Common-NovaBridge.ps1')
 Update-NovaStartupShortcut (Join-Path ([Environment]::GetFolderPath('Startup')) 'YKSim Nova Bridge.lnk') $EnableStartup.IsPresent {
   param($novaShortcutPath)
   New-NovaShortcut $novaShortcutPath 'Start-NovaBridge.ps1' $true '-FromStartup'

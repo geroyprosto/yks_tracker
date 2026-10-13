@@ -6,8 +6,10 @@ function Update-NovaStartupShortcut([string]$novaStartupPath, [bool]$novaEnable,
 }
 function Get-NovaNode {
   $novaExecutable = (Get-Command node -ErrorAction Stop).Source
-  $novaMajor = & $novaExecutable -p 'process.versions.node.split(".")[0]'
-  if ($LASTEXITCODE -ne 0 -or [int]$novaMajor -lt 24) { throw 'Node.js 24 veya sonrası gerekiyor.' }
+  # Windows PowerShell 5.1 strips quotes inside native JavaScript arguments.
+  # Read the native version flag so startup and installation use the same check.
+  $novaVersion = & $novaExecutable --version
+  if ($LASTEXITCODE -ne 0 -or $novaVersion -notmatch '^v([0-9]+)\.' -or [int]$Matches[1] -lt 24) { throw 'Node.js 24 veya sonrası gerekiyor.' }
   return $novaExecutable
 }
 function Set-NovaConfiguration([string]$novaExecutable) {

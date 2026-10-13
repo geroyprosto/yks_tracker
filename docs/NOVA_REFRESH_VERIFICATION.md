@@ -1,6 +1,6 @@
 # Nova sohbet yenilemesi: doğrulama ve yayın sırası
 
-13 Ekim 2026. Bu çalışma yerel geliştirme ortamında doğrulandı. Üretim migration'ı, web yayını, kurulu Bridge güncellemesi veya kurulu model değişikliği yapılmadı.
+13 Ekim 2026. Bu belge ilk hazırlık ve karşılaştırma sonuçlarını kaydeder; aşağıdaki ölçümler yerel geliştirme ortamında yapıldı. Sonraki onaylı yayın sırasında sohbet RPC migration'ı üretime uygulandı ve Windows PowerShell 5.1 için Bridge sürüm kontrolü düzeltildi. Yayın sırası ve yerel ölçüm sınırları aşağıdadır.
 
 ## Model ve donanım
 

@@ -222,7 +222,7 @@ test('one official day survives new engine versions; finalized results immutable
   const makeDay = (localDate: string) => ({ localDate, timezone: 'Europe/Istanbul', seed: 'stable-seed', engineVersion: 'v1',
     startsAt: `${localDate}T00:00:00+03:00`, endsAt: `${localDate}T23:59:59+03:00`,
     inputSnapshot: { user: 'snapshot never exposed through browser RPC' }, startState: { energy: 50 },
-    events: [{ id: `${localDate}:0`, kind: 'STUDY', startsAt: `${localDate}T12:00:00+03:00`,
+    events: [{ id: `${localDate}:0`, kind: 'distraction', label: 'Dikkat dağıldı; toparlanma arası', startsAt: `${localDate}T12:00:00+03:00`,
       endsAt: `${localDate}T13:00:00+03:00`, result: { questions: 123 }, stateDelta: { energy: -3 }, reasonCodes: ['TASK_COMPLETED'] }],
   });
   await service();
@@ -240,16 +240,41 @@ test('one official day survives new engine versions; finalized results immutable
   await browser();
   await assert.rejects(() => rpc('nova_settings_update', [{ timezone: 'UTC' }]), /NOVA_TIMEZONE_LOCKED/);
   await rpc('nova_settings_update', [{ timezone: 'Europe/Istanbul' }]);
-  const state = await rpc<{ days: { local_date: string; day_snapshot: { inputSnapshot?: unknown; events: { result?: unknown; stateDelta?: unknown; reasonCodes?: unknown }[] } }[] }>('nova_state');
+  type VisibleEvent = { id: string; kind: string; label: string; result?: unknown; stateDelta?: unknown; reasonCodes?: unknown };
+  const state = await rpc<{ days: { local_date: string; day_snapshot: { inputSnapshot?: unknown; events: VisibleEvent[] } }[];
+    events: { event_key: string; kind: string; event_snapshot: VisibleEvent }[] }>('nova_state');
   const safe = state.days.find(day => day.local_date === '2099-01-01')!;
   assert.equal(safe.day_snapshot.inputSnapshot, undefined);
   assert.equal(safe.day_snapshot.events[0].result, undefined);
   assert.equal(safe.day_snapshot.events[0].stateDelta, undefined);
   assert.equal(safe.day_snapshot.events[0].reasonCodes, undefined);
+  assert.equal(safe.day_snapshot.events[0].kind, 'study');
+  assert.equal(safe.day_snapshot.events[0].label, 'Çalışma bloğu');
+  const futureEvent = state.events.find(event => event.event_key === '2099-01-01:0')!;
+  assert.equal(futureEvent.kind, 'study');
+  assert.equal(futureEvent.event_snapshot.kind, 'study');
+  assert.equal(futureEvent.event_snapshot.label, 'Çalışma bloğu');
+  const completedEvent = state.events.find(event => event.event_key === '2020-01-01:0')!;
+  assert.equal(completedEvent.kind, 'distraction');
+  assert.deepEqual(completedEvent.event_snapshot, past.events[0]);
   await assert.rejects(() => db.query('select day_snapshot from public.nova_daily_states'), /permission denied/);
   await assert.rejects(() => db.query('select event_snapshot from public.nova_events'), /permission denied/);
+  await assert.rejects(() => db.query('select kind from public.nova_events'), /permission denied/);
+  await service();
+  const trusted = await rpc<typeof state>('nova_engine_state', [A]);
+  assert.equal(trusted.days.find(day => day.local_date === '2099-01-01')!.day_snapshot.events[0].kind, 'distraction');
+  assert.equal(trusted.events.find(event => event.event_key === '2099-01-01:0')!.kind, 'distraction');
   await admin();
   await assert.rejects(() => db.query("update public.nova_daily_states set seed='new' where id=$1", [created.id]), /NOVA_DAY_IMMUTABLE/);
+  const projectEvent = async (now: string) => (await db.query<{ value: VisibleEvent }>(
+    'select private.nova_safe_event($1::jsonb,$2::timestamptz) as value', [JSON.stringify(future.events[0]), now])).rows[0].value;
+  assert.equal((await projectEvent('2099-01-01T08:59:59.999Z')).kind, 'study');
+  const active = await projectEvent(future.events[0].startsAt);
+  assert.equal(active.kind, 'distraction');
+  assert.equal(active.label, future.events[0].label);
+  assert.equal(active.result, undefined);
+  assert.equal(active.reasonCodes, undefined);
+  assert.deepEqual(await projectEvent(future.events[0].endsAt), future.events[0]);
 });
 
 test('context binding is immutable per claim, checks fact IDs and completion context version', async () => {

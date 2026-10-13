@@ -72,6 +72,31 @@ test('future event results remain hidden and score only once after completion', 
   assert.ok(done.metrics.studyMinutes!>0);
 });
 
+test('planned distractions stay neutral until their start without changing the official day', () => {
+  const generated=day();
+  const event=generated.events.find(e=>e.kind==='study')!;
+  event.kind='distraction';
+  event.label='Dikkat dağıldı; toparlanma arası';
+  event.reasonCodes=['DISTRACTION','TASK_MISSED'];
+  const snapshot=JSON.stringify(generated);
+  const before=projectDay(generated,new Date(Date.parse(event.startsAt)-1).toISOString()).timeline.find(e=>e.id===event.id)!;
+  assert.equal(before.status,'planned');
+  assert.equal(before.kind,'study');
+  assert.equal(before.label,'Çalışma bloğu');
+  assert.equal(before.result,null);
+  assert.deepEqual(before.reasonCodes,[]);
+  const active=projectDay(generated,event.startsAt).currentEvent!;
+  assert.equal(active.kind,'distraction');
+  assert.equal(active.label,event.label);
+  assert.equal(active.result,null);
+  const completed=projectDay(generated,event.endsAt).timeline.find(e=>e.id===event.id)!;
+  assert.equal(completed.kind,event.kind);
+  assert.equal(completed.label,event.label);
+  assert.deepEqual(completed.result,event.result);
+  assert.deepEqual(completed.reasonCodes,event.reasonCodes);
+  assert.equal(JSON.stringify(generated),snapshot);
+});
+
 test('baseline uses recorded actual time, deduplicates intervals and excludes today', () => {
   const s = state();
   const yesterday = session('old','2026-10-12T09:00:00Z','2026-10-12T10:00:00Z');

@@ -47,7 +47,7 @@ test("analysis source tool defaults to 14 days and includes complete saved journ
   assert.deepEqual(result.period, { start: "2026-09-12", end: "2026-09-25", timezone: "Europe/Istanbul" });
   assert.equal(result.summary.total_seconds, 3000);
   assert.equal(result.coaching.topic_status_by_subject[0].next_topics[0].name, "Problemler");
-  assert.equal(result.coaching.weekly_task_priority.overall.high.completion_rate_percent, 50);
+  assert.equal(result.coaching.weekly_task_priority.high.rate_percent, 50);
   assert.equal(result.coaching.timing_guidance.as_of, "2026-09-25");
   assert.ok(!JSON.stringify(result).includes("Gizli konu notu"));
   assert.deepEqual(result.days.find((day: { date: string }) => day.date === "2026-09-24").journal,

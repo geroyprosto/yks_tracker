@@ -52,7 +52,7 @@ Yerel kanıt adları: `conversation-before-warm.json`, `conversation-after-final
 
 ## Yetkili yayında uygulanacak sıra
 
-1. İlgili kontrolleri tamamlayıp hedef ortamı doğrulayın. Önce [sohbet durumu migration'ını](../supabase/migrations/20261013180118_nova_chat_state.sql) uygulayın; RPC yetkilerini ve kullanıcı izolasyonunu doğrulayın.
+1. İlgili kontrolleri tamamlayıp hedef ortamı doğrulayın. Önce [sohbet durumu migration'ını](../supabase/migrations/20261013200008_nova_chat_state.sql) uygulayın; RPC yetkilerini ve kullanıcı izolasyonunu doğrulayın. Üretimde bu sürüm uygulanmıştır; dosya adı uzaktaki migration sürümüyle eşleştirilmiştir.
 2. Migration ile uyumlu web sürümünü yayınlayıp sohbet, kuyruk durumu ve tek yanıt davranışını kontrol edin.
 3. Aynı kaynak sürümünden Bridge paketini güncelleyin; DPAPI cihaz kimliğini koruyun. Kurulu modelle **açıkça eşleşen** model adı seçin. `doctor` eşleşmeyi doğrulamadan çalıştırmayın; başka modele sessiz geçiş yapmayın.
 4. Yerel Ollama ve bulutu kapatma ayarını koruyarak Bridge'i başlatın. Kısa bir mesaj, sayfa yenileme, tekrar oluşmaması ve aşama sürelerini doğrulayın. [Windows paket rehberi](NOVA_WINDOWS_PACKAGE.md).

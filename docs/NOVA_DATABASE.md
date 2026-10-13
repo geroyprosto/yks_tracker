@@ -50,7 +50,7 @@ Başlangıç saat dilimi uygulamanın mevcut kullanıcı ayarından `nova_engine
 
 ## Yeni sohbet sorgusunun yayın durumu
 
-`supabase/migrations/20261013180118_nova_chat_state.sql` yalnızca yerelde hazırlanmıştır; üretime uygulanması beklemektedir. Bu RPC'ye bağlı uygulama sürümünden önce migration ayrıca uygulanıp doğrulanmalıdır. Bu çalışma üretim migration'ı, kullanıcı erişimi veya cihaz ayarı değiştirmez.
+`supabase/migrations/20261013200008_nova_chat_state.sql` onaylı yayın sırasında üretime uygulandı ve rol/yetki kontrolleriyle doğrulandı. Dosya sürümü üretim migration geçmişindeki `20261013200008` ile eşleşir; hazırlıktaki SQL içeriği değişmedi. Kullanıcı erişim izinleri değiştirilmedi. Bu RPC'ye bağlı uygulama sürümünü başka ortamlarda yayınlamadan önce migration uygulanıp doğrulanmalıdır.
 
 `nova_chat_state()` aynı onaylı tarayıcı hesabı ve etkin Nova iznini kontrol eder. Public sarmalayıcı `SECURITY INVOKER`, private uygulama `SECURITY DEFINER` ve ikisi de boş `search_path` ile `STABLE` tanımlıdır. `anon`, `PUBLIC` ve `service_role` çağrı izni almaz. Kaynak tabloların mevcut RLS ve yazma yasakları değişmez.
 

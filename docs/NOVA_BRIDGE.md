@@ -1,11 +1,11 @@
 # Nova Bridge: Windows kurulumu ve doğrulama
 
-Nova'nın günlük yaşamı bir simülasyondur; gerçek çalışma kayıtlarını değiştirmez. Konuşma çıkarımı yalnızca Windows bilgisayarınızdaki Ollama'da yapılır. Bilgisayar veya Bridge kapalıysa mesajlar veritabanında bekler; bulut modeline gönderilmez. Bu belgede kurulum adımları verilmesi, donanım testinin yapılmış olduğu anlamına gelmez.
+Nova'nın günlük yaşamı bir simülasyondur; gerçek çalışma kayıtlarını değiştirmez. Konuşma çıkarımı yalnızca Windows bilgisayarınızdaki Ollama'da yapılır. Bilgisayar veya Bridge kapalıysa mesajlar veritabanında bekler; bulut modeline gönderilmez. Bu belge kurulum ve işletim rehberidir; tarihli üretim, donanım ve model sonuçları [doğrulama kaydında](NOVA_VERIFICATION.md) tutulur.
 
 ## Gerekenler
 
-- Bu değişiklikleri içeren YKSim dalı ve onun bağımlılıkları. Depo Node **24.x**, pnpm **11.19.0** kullanır; kurulum komutu `pnpm install --frozen-lockfile`.
-- Nova migration'ları uygulanmış geliştirme/test ortamı, çalışan web uygulaması ve Nova erişimi olan kullanıcı. Üretim migration/deployment için ayrıca onay gerekir.
+- Node **24.x**. Kaynaktan çalıştırmada YKSim deposu ve bağımlılıkları gerekir; `package.json` içindeki pnpm sürümüyle `pnpm install --frozen-lockfile` çalıştırın. Tek dosyalık Windows paketi kaynak depodan bağımsız çalışır.
+- Nova migration'ları uygulanmış hedef ortam, `NOVA_ENABLED=true` ile çalışan web uygulaması ve Nova erişimi olan kullanıcı. Kanonik üretim adresi `https://yks-tracker-puce.vercel.app`; başka ortam için proje ve HTTPS adresi doğrulanmalıdır.
 - Windows 10 22H2 veya üzeri ve güncel Radeon sürücüsü. [Ollama Windows belgesi](https://docs.ollama.com/windows), ROCm v7/HIP7 veya Vulkan uyumlu Radeon sürücüsü ister. RX 7800 XT, [resmî Windows GPU listesinde](https://docs.ollama.com/gpu) bulunur.
 
 ## 1. Ollama'yı ve modeli kurma
@@ -26,7 +26,7 @@ ollama list
 Depo kökünde çalışın. Bridge, `.env.local` dosyasını otomatik yüklemez; PowerShell ortam değişkenlerini veya komut seçeneklerini kullanın. Cihaz sırrını `.env` dosyasına yazmayın.
 
 ```powershell
-$env:NOVA_APP_URL = 'https://kendi-gelistirme-uygulamaniz'
+$env:NOVA_APP_URL = 'https://yks-tracker-puce.vercel.app'
 $env:NOVA_OLLAMA_URL = 'http://127.0.0.1:11434'
 $env:NOVA_OLLAMA_MODEL = 'qwen3:8b'
 $env:NOVA_MODEL_TIMEOUT_MS = '90000'
@@ -54,6 +54,22 @@ pnpm exec tsx scripts/nova-bridge/cli.ts start
 Nova Lab'de cihazın son görülme zamanını ve model durumunu kontrol edin; Sohbet'ten kısa bir Türkçe mesaj gönderin. Yanıt geldikten sonra sayfayı yenileyip mesajın korunduğunu ve çoğalmadığını doğrulayın. Çıkarım devam ederken başka terminalde `ollama ps` çalıştırın: `PROCESSOR` sütunundaki `100% GPU` tam GPU yerleşimini belirtir; CPU/GPU karışımı farklı bir durumdur. [Ollama doğrulama açıklaması](https://docs.ollama.com/faq).
 
 `Ctrl+C` ile güvenli durdurun. İşçi yeni iş almayı bırakır ve etkin HTTP çıkarımını iptal eder. Bitmemiş iş, lease süresi dolunca tekrar alınabilir. Nova Lab'den cihazı iptal ettiğinizde heartbeat/renew yetki denetimi çıkarımı durdurur. Eski claim ile sonuç kabulü ayrıca sunucu tarafından engellenir.
+
+## Windows paketi ve otomatik başlangıç
+
+Paketli kurulumda dosyalar `%LOCALAPPDATA%\YKSim\NovaBridge` klasöründedir. **YKSim Nova** Başlat menüsü klasöründeki **Nova Başlat**, **Nova Durdur** ve **Nova Model Kontrolü** kısayolları aynı CLI'yi kullanır. Bridge gizli bir Node işlemi olarak çalışır; çift başlatma kilitle engellenir. Durdurma yardımcısı kayıtlı PID'nin aynı Bridge dosyasına ait olduğunu doğrular ve etkin işlemin iptalini ister; ilgisiz Node işlemlerini kapatmaz.
+
+```powershell
+& "$env:LOCALAPPDATA\YKSim\NovaBridge\Doctor-NovaBridge.ps1"
+& "$env:LOCALAPPDATA\YKSim\NovaBridge\Start-NovaBridge.ps1"
+& "$env:LOCALAPPDATA\YKSim\NovaBridge\Stop-NovaBridge.ps1"
+```
+
+Paketin `Install-NovaBridge.ps1` komutu mevcut `device.dpapi` dosyasını korur. Güncellemeden önce Bridge'i durdurun; paket ve model sürümü değiştiğinde gerçek eval'i yeniden çalıştırın. ZIP cihaz kimliği veya log içermez; başka Windows kullanıcısı kendi cihazını eşleştirir. Kurulum sonrasında başlatma ve model kontrolü ayrıca yapılır.
+
+`-CreateStartMenuShortcuts` Başlat menüsü kısayollarını, `-EnableStartup` aynı kullanıcıya ait **YKSim Nova Bridge** başlangıç kısayolunu kurar. Otomatik başlangıcı kapatmak için bu kısayolu Windows başlangıç klasöründen kaldırın; çalışan Bridge'i ayrıca durdurun. Ollama'nın kendi başlangıç ayarı bağımsızdır. DPAPI nedeniyle Bridge SYSTEM hesabı altında çalıştırılmamalıdır.
+
+`bridge-status.log` ve `bridge-error.log` güvenli durum mesajları içindir; mesaj metni, prompt veya token içermez. Loglar her başlatmada yenilenir. `manifest.json` kaynak commit'i ve bundle SHA-256 bilgisini tutar; kurulu dosyanın bu özetle eşleşmesi güncelleme kontrolünün parçasıdır.
 
 ## Davranış ve sınırlar
 

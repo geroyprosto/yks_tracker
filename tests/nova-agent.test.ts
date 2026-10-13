@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildAgentMessages, generateAgentReply, selectAgentContext, validateAgentOutput, type AgentContext } from '../src/lib/nova/agent';
-import { FakeModelAdapter } from '../src/lib/nova/model';
+import { agentOutputJsonSchema, buildAgentMessages, generateAgentReply, selectAgentContext, validateAgentOutput, type AgentContext } from '../src/lib/nova/agent';
+import { FakeModelAdapter, type ModelAdapter, type ModelRequest } from '../src/lib/nova/model';
+import { evaluateModel } from '../scripts/nova-bridge/evaluate';
 
 export const context: AgentContext = {
   schemaVersion: 1, trustedNow: '2026-10-13T12:00:00Z', generatedAt: '2026-10-13T12:00:00Z',
@@ -85,4 +86,114 @@ test('one repair maximum and never fabricated fallback', async () => {
   const adapter = new FakeModelAdapter(['bad', 'bad', JSON.stringify(good)]);
   await assert.rejects(() => generateAgentReply(adapter, context));
   assert.equal(adapter.calls, 2);
+});
+
+test('decoder receives only consented memory and available fact choices', async () => {
+  const requests: ModelRequest[] = [];
+  const adapter: ModelAdapter = {
+    available: async () => true,
+    generate: async request => { requests.push(request); return { text: JSON.stringify(good), metrics: { durationMs: 1, inputTokens: 1, outputTokens: 1 } }; },
+  };
+  await generateAgentReply(adapter, { ...context, facts: [] });
+  await generateAgentReply(adapter, context);
+  await generateAgentReply(adapter, { ...context, message: { ...context.message, content: 'Sabah çalışmayı seviyorum; bunu hatırla.' } });
+  await generateAgentReply(adapter, { ...context, message: { ...context.message, content: 'Depresyon tanım var; bunu hatırla.' } });
+  type Schema = { properties: { referencedFactIds: { maxItems: number; items: { enum?: string[] } }; memoryCandidates: { maxItems: number; items: { properties: { sourceMessageId: { const: string } } } } } };
+  const schemas = requests.map(request => request.schema as unknown as Schema);
+  assert.equal(schemas[0].properties.referencedFactIds.maxItems, 0);
+  assert.equal(schemas[0].properties.memoryCandidates.maxItems, 0);
+  assert.deepEqual(schemas[1].properties.referencedFactIds.items.enum, ['energy']);
+  assert.equal(schemas[1].properties.memoryCandidates.maxItems, 0);
+  assert.equal(schemas[2].properties.memoryCandidates.maxItems, 2);
+  assert.equal(schemas[2].properties.memoryCandidates.items.properties.sourceMessageId.const, 'm1');
+  assert.equal(schemas[3].properties.memoryCandidates.maxItems, 0);
+});
+
+test('real-model unauthorized simulation memory is rejected then can be repaired once', async () => {
+  const observed = { ...good, memoryCandidates: [{ content: 'Dinlenme etkinliği tamamlandı.', type: 'routine', sourceMessageId: 'm1', sourceQuote: 'Merhaba', sensitivity: 'ordinary' }] };
+  assert.throws(() => validateAgentOutput(observed, context));
+  const requests: ModelRequest[] = [];
+  const adapter: ModelAdapter = {
+    available: async () => true,
+    generate: async request => {
+      requests.push(request);
+      return { text: JSON.stringify(requests.length === 1 ? observed : good), metrics: { durationMs: 1, inputTokens: 1, outputTokens: 1 } };
+    },
+  };
+  const result = await generateAgentReply(adapter, context);
+  assert.equal(result.attempts, 2);
+  assert.deepEqual(result.result.memoryCandidates, []);
+  assert.match(requests[1].messages[0].content, /memory_without_consent/);
+  assert.match(requests[1].messages[0].content, /memoryCandidates.*\[\]/);
+  assert.ok(!requests[1].messages[0].content.includes(observed.memoryCandidates[0].content));
+});
+
+test('eval reports first-pass failures separately from the single production repair', async () => {
+  const adapter = new FakeModelAdapter(['bad', JSON.stringify(good)]);
+  const report = await evaluateModel(adapter, 'test');
+  assert.equal(report.acceptedRate, 16 / 17);
+  assert.equal(report.finalAcceptedRate, 1);
+  assert.equal(report.repairCount, 1);
+  assert.equal(report.repairAcceptedRate, 1);
+  assert.deepEqual(report.results[0].codes, ['invalid_json']);
+  assert.equal(report.results[0].repair?.accepted, true);
+  assert.equal(adapter.calls, 18);
+});
+
+test('negated memory requests deny candidates in both decoder and validator', () => {
+  const candidate = { content: 'Sabah çalışmayı seviyorum', type: 'preference', sourceMessageId: 'm1', sourceQuote: 'Sabah çalışmayı seviyorum', sensitivity: 'ordinary' };
+  for (const instruction of ['Bunu hatırlama.', 'Bunu kaydetme.', 'Aklında tutma.']) {
+    const source = { ...context, message: { ...context.message, content: `${candidate.content}. ${instruction}` } };
+    const schema = agentOutputJsonSchema(source) as { properties: { memoryCandidates: { maxItems: number } } };
+    assert.equal(schema.properties.memoryCandidates.maxItems, 0, instruction);
+    assert.throws(() => validateAgentOutput({ ...good, memoryCandidates: [candidate] }, source), instruction);
+  }
+});
+
+test('sensitive material anywhere in the source denies even an ordinary quoted candidate', () => {
+  const candidate = { content: 'Sabah çalışmayı seviyorum', type: 'preference', sourceMessageId: 'm1', sourceQuote: 'Sabah çalışmayı seviyorum', sensitivity: 'ordinary' };
+  const source = { ...context, message: { ...context.message, content: `Depresyon tanım var. ${candidate.content}; bunu hatırla.` } };
+  const schema = agentOutputJsonSchema(source) as { properties: { memoryCandidates: { maxItems: number } } };
+  assert.equal(schema.properties.memoryCandidates.maxItems, 0);
+  assert.throws(() => validateAgentOutput({ ...good, memoryCandidates: [candidate] }, source));
+});
+
+test('secret redaction cannot restore memory consent in the decoder, prompt or validator', () => {
+  const candidate = { content: 'Sabah çalışmayı seviyorum', type: 'preference', sourceMessageId: 'm1', sourceQuote: 'Sabah çalışmayı seviyorum', sensitivity: 'ordinary' };
+  const source = { ...context, message: { ...context.message, content: `${candidate.content}; bunu hatırla. parola: test-only-private-value` } };
+  const schema = agentOutputJsonSchema(source) as { properties: { memoryCandidates: { maxItems: number } } };
+  assert.equal(schema.properties.memoryCandidates.maxItems, 0);
+  const messages = buildAgentMessages(source);
+  assert.ok(!JSON.stringify(messages).includes('test-only-private-value'));
+  const schemaLine = messages[0].content.split('\n').find(line => line.startsWith('Çıktı şeması: '))!;
+  const promptSchema = JSON.parse(schemaLine.slice('Çıktı şeması: '.length)) as typeof schema;
+  assert.equal(promptSchema.properties.memoryCandidates.maxItems, 0);
+  assert.throws(() => validateAgentOutput({ ...good, memoryCandidates: [candidate] }, source));
+});
+
+test('dense selected context stays within the adapter budget and exposes only retained fact IDs', () => {
+  const dense: AgentContext = { ...context,
+    message: { ...context.message, content: 'x'.repeat(3900) },
+    facts: Array.from({ length: 32 }, (_, index) => ({ id: `${String(index).padStart(2, '0')}${'x'.repeat(158)}`, text: 'a'.repeat(500), kind: 'state' })),
+  };
+  const selected = selectAgentContext(dense);
+  assert.ok(selected.facts.length < dense.facts.length);
+  const schema = agentOutputJsonSchema(dense) as { properties: { referencedFactIds: { items: { enum: string[] } } } };
+  assert.deepEqual(schema.properties.referencedFactIds.items.enum, selected.facts.map(fact => fact.id));
+  assert.ok(JSON.stringify(buildAgentMessages(dense)).length <= 28000, 'a valid selected context must fit the Ollama message limit');
+});
+
+test('maximum fact IDs reserve enough prompt space for every validator repair instruction', () => {
+  const repairCodes = ['invalid_json', 'invalid_schema', 'unknown_fact', 'duplicate_fact', 'unsupported_number',
+    'numeric_claim_requires_fact', 'spelled_number', 'unsupported_event', 'memory_without_consent', 'sensitive_memory',
+    'manipulation', 'sleep_pressure', 'language', 'markup', 'secret', 'action_intent'];
+  for (let fieldCount = 16; fieldCount <= 28; fieldCount++) {
+    const dense: AgentContext = { ...context,
+      message: { ...context.message, content: 'x'.repeat(3900) },
+      facts: Array.from({ length: 32 }, (_, index) => ({ id: `${String(index).padStart(2, '0')}${'x'.repeat(158)}`, text: 'a', kind: 'state' })),
+      currentState: Object.fromEntries(Array.from({ length: fieldCount }, (_, index) => [`state${index}`, 'b'.repeat(300)])),
+    };
+    const length = JSON.stringify(buildAgentMessages(dense, repairCodes)).length;
+    assert.ok(length <= 28000, `${fieldCount} bounded state values exceed the adapter repair limit: ${length}`);
+  }
 });

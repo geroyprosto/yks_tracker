@@ -2,9 +2,9 @@
 
 Nova, YKSim içinde kalıcı durumu ve simüle programı olan dijital çalışma arkadaşıdır. `/nova` adresinden veya ana menüdeki Nova bölümünden açılır. Sohbet çıkarımı yalnız Windows bilgisayarda çalışan Ollama üzerinden yapılır. Mevcut uygulamanın başka özelliklerindeki bulut AI kodu değiştirilmedi; Nova bu sağlayıcılara bağlanmaz.
 
-## Kodun durumu
+## Etkinleştirme ve dağıtım
 
-Bu geliştirme ayrı `feature/nova-local-companion` dalındadır. Üretim migration'ı, erişim grant'i, main merge veya production deployment yapılmadı. Özellik `NOVA_ENABLED=false` ile kapalı gelir. Yerel PGlite test ortamı gerçek Supabase projesinden ayrıdır.
+Nova, web sunucusunda `NOVA_ENABLED=true` ve hesap için ayrı `nova_access_grants` izniyle açılır; bayrak verilmezse kapalıdır. Kanonik uygulama [yks-tracker-puce.vercel.app](https://yks-tracker-puce.vercel.app/nova), Vercel projesi `yks-tracker` ve üretim dalı `main`'dir. Uygulama, migration, cihaz bağlantısı ve gerçek model kalitesi farklı doğrulama katmanlarıdır; tarihli kanıtlar [doğrulama kaydında](NOVA_VERIFICATION.md) bulunur. Yerel PGlite test ortamı gerçek Supabase projesinden ayrıdır.
 
 ## Mimari
 
@@ -17,7 +17,7 @@ Bu geliştirme ayrı `feature/nova-local-companion` dalındadır. Üretim migrat
 
 ## Geliştirme ortamı
 
-Node.js 24.x ve package.json'da belirtilen pnpm 11.19.0 kullanın. Bu oturumun Windows ortamında Node 24.19.0 / pnpm 11.25.0 ile kurulum ve kontroller çalıştırıldı; lockfile değişmedi.
+Node.js 24.x ve `package.json` içindeki `packageManager` sürümünü kullanın. Doğrulama sırasında kullanılan araç sürümleri test kaydında ayrıca belirtilir.
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -32,7 +32,7 @@ pnpm build
 
 ## Supabase ve web kurulumu
 
-Önce ayrı geliştirme Supabase ortamında mevcut migration'ları ve yeni Nova migration'ını uygulayın. Migration kendi başına hiçbir gerçek kullanıcıya Nova erişimi vermez. Üretim için aşağıdaki adımlar ayrıca onay gerektirir.
+Yeni bir ortamı hazırlarken önce ayrı geliştirme Supabase ortamında mevcut migration'ları ve Nova migration'larını uygulayın. Migration kendi başına hiçbir gerçek kullanıcıya Nova erişimi vermez. Üretimde onaylı hedef proje, commit ve hesap doğrulandıktan sonra aşağıdaki sıra izlenir; kurulmuş ortamda adımlar körlemesine tekrarlanmaz.
 
 1. Veritabanı yedeği ve ayrı ortam testini tamamlayın.
 2. Yeni migration'ı uygulayın; [veritabanı belgesindeki](NOVA_DATABASE.md) RLS/RPC kontrollerini çalıştırın.
@@ -47,15 +47,15 @@ Sunucu secret'ı tarayıcıya veya Bridge'e verilmez. RLS hem onaylı hesabı he
 
 Ayrıntılı, gerçek CLI komutları: [Nova Bridge rehberi](NOVA_BRIDGE.md).
 
-1. [Resmî Ollama Windows kurulumunu](https://docs.ollama.com/windows) tamamlayın. RX 7800 XT [desteklenen AMD kartları](https://docs.ollama.com/gpu) arasında; uyumlu AMD sürücüsü gerekir. Bu oturumda sürücü güncellenmedi, Ollama kurulmadı.
-2. PowerShell'de `ollama pull qwen3:8b` çalıştırın. Model indirimi bu oturumda yapılmadı.
+1. [Resmî Ollama Windows kurulumunu](https://docs.ollama.com/windows) tamamlayın. RX 7800 XT [desteklenen AMD kartları](https://docs.ollama.com/gpu) arasında; uyumlu AMD sürücüsü gerekir.
+2. PowerShell'de `ollama pull qwen3:8b` çalıştırın.
 3. Projede `pnpm install --frozen-lockfile` çalıştırın.
 4. `pnpm nova:bridge doctor` ile modelin yerel listede bulunduğunu kontrol edin.
-5. `pnpm nova:bridge pair --app https://UYGULAMANIN-DOGRULANMIS-ADRESI` çalıştırın. Gösterilen kodu aynı uygulamanın Nova Lab ekranında onaylayın. Şifre veya anahtar paylaşmayın.
+5. `pnpm nova:bridge pair --app https://yks-tracker-puce.vercel.app` çalıştırın. Gösterilen kodu aynı uygulamanın Nova Lab ekranında onaylayın. Şifre veya anahtar paylaşmayın. Başka bir ortam kullanıyorsanız önce onun HTTPS adresini doğrulayın.
 6. `pnpm nova:bridge start` çalıştırın. Bridge eşleştirme sırasında saklanan uygulama adresine dışarıya bağlantı açar; port forwarding/tünel gerekmez.
 7. Nova Lab'de cihaz/model sağlığını kontrol edin ve Sohbet'ten test mesajı gönderin.
 
-Bu depo için yerel `.vercel/project.json` referansıyla doğrulanan proje `yks-tracker`; mevcut uygulama adresi README/GitHub kaydında `https://yks-tracker-puce.vercel.app`. Nova bu adrese yayımlanmadığı için üretim adımları tamamlanmadan canlı eşleştirme çalışmayacaktır.
+Windows dağıtım paketi kullanıldığında Node bağımlılıkları tek Bridge dosyasında bulunur; kaynak depoyu sürekli açık tutmak gerekmez. Paket `%LOCALAPPDATA%\YKSim\NovaBridge` klasörüne kurulur. Başlat menüsü ve isteğe bağlı Windows başlangıç kısayolları aynı kullanıcının DPAPI kimliğini kullanır. Güncelleme sırasında Bridge durdurulur ve mevcut `device.dpapi` korunur. Kaynaktan CLI ile paketli kullanım aynı eşleştirme ve kuyruk protokolünü izler.
 
 ## Gün, puan ve çevrimdışı davranış
 
@@ -80,7 +80,7 @@ Proaktif mesajlar varsayılan kapalıdır; açılınca günlük varsayılan iki,
 ## Güvenlik ve bilinen sınırlar
 
 - JSON ve regex denetimleri tam anlamsal doğruluk garantisi değildir. Sayısal yarış bilgisi doğrulanmış UI kartlarında kalır. Geçersiz çıktıda en fazla bir onarım denenir; yine geçersizse hata görünür.
-- Yerel model henüz gerçek RX 7800 XT üzerinde denenmedi. Gecikme, Türkçe kalite, GPU kullanımı ve tüketim için [eval paketi](../evals/nova/) ayrıca çalıştırılmalı. Fake eval gerçek model başarısı değildir.
+- GPU yerleşimi, yanıt gecikmesi ve Türkçe yanıt kabulü ayrı ölçümlerdir. [Eval paketi](../evals/nova/) gerçek modelle çalıştırılmalı; `ollama ps` çıktısındaki GPU bilgisi Türkçe kaliteyi kanıtlamaz. Fake eval gerçek model başarısı değildir. Son donanım/model ölçümleri [doğrulama kaydındadır](NOVA_VERIFICATION.md).
 - PGlite testleri gerçek gömülü Postgres mantığını kullanır. Ayrı PostgreSQL bağlantılarıyla yük altında yarış testinin ve gerçek Supabase/JWT/RLS kabulünün yerine geçmez.
 - Tarayıcı görünürken 30 saniyelik polling, Bridge boşta 30 saniyelik polling ve düşük sıklıklı heartbeat kullanır. Bu MVP Nova için Realtime uyandırma entegrasyonu içermez. Her token için yazma veya her görünüm için LLM işi yoktur.
 - Günlük program başlangıç MVP'sinde en fazla 300 dakika simüle çalışma planlar. Yüksek çalışma hacminde Nova kullanıcıdan düşük başlayabilir; performans veya bilimsel başarı tahmini yapılmaz.

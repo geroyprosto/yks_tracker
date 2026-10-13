@@ -5,6 +5,14 @@ University students can opt into the Kırklareli University Faculty of Medicine
 an academic year and Dönem 1–4. General university results and YKS topics remain
 accessible independently. No existing account is opted in automatically.
 
+The initial setup and **Ayarlar → Öğrenci alanım → Profilimi düzenle** also
+offer **Üniversite programı → Kırklareli Üniversitesi Tıp** with a Dönem 1–4
+selector. Completing the profile saves the university education profile first,
+then activates the medicine profile for the selected academic year and dönem.
+If activation fails, the editor stays open and retries the same medicine
+request without submitting the unchanged education profile again. The program
+selection also survives a saved setup draft.
+
 ## Curriculum and provenance
 
 The frozen catalog contains the five Dönem I committees, six Dönem II

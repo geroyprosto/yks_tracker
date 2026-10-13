@@ -5,6 +5,7 @@ import {ArrowLeft,ArrowRight,BookOpen,Check,GraduationCap,LayoutDashboard,School
 import type {EducationState,SetupInput} from '@/lib/education';
 import {normalizeCourseName,setupSchema} from '@/lib/education';
 import {academicYear,levelLabels,moduleLabels,parseCourseNames,setupFromEducation,type EducationCommand} from '@/lib/education-ui';
+import {createMedicineProfileSaver,KLU_MEDICINE_DEPARTMENT} from '@/lib/medicine-profile-save';
 import styles from './education-setup.module.css';
 
 type Props={education:EducationState;command:EducationCommand;busy:boolean;editing?:boolean;activeTimer?:boolean;onDone:()=>void;onCancel?:()=>void};
@@ -16,8 +17,15 @@ export function EducationSetup({education,command,busy,editing=false,activeTimer
  const [courseText,setCourseText]=useState('');
  const [error,setError]=useState('');
  const [notice,setNotice]=useState('');
+ const [saving,setSaving]=useState(false);
+ const savingRef=useRef(false);
+ const savedEducation=useRef('');
+ const medicineSaver=useRef<ReturnType<typeof createMedicineProfileSaver>|null>(null);
  const heading=useRef<HTMLHeadingElement>(null);
  const profile=draft.profile;
+ const medicineSelected=profile.education_level==='university'&&profile.department===KLU_MEDICINE_DEPARTMENT;
+ const medicineYear=/^(?:Dönem )?[1-4]$/.test(profile.university_year)?Number(profile.university_year.slice(-1)):1;
+ const working=busy||saving;
  const visibleCourses=draft.courses.filter(course=>course.context==='school'||profile.yks_goal);
  const parsed=parseCourseNames(courseText);
  const patchProfile=(patch:Partial<SetupInput['profile']>)=>setDraft({...draft,profile:{...profile,...patch}});
@@ -31,10 +39,31 @@ export function EducationSetup({education,command,busy,editing=false,activeTimer
    move(step+1);
  };
  const save=async()=>{
+   if(savingRef.current)return;
+   setError('');
    const checked=setupSchema.safeParse(draft);
    if(!checked.success){setError(checked.error.issues[0]?.message??'Seçimlerini kontrol et.');return;}
    if(!education.can_commit){await saveDraft();return;}
-   if(await command('profile.save',{expected_revision:education.profile?.revision??0,...checked.data}))onDone();
+   const medicineAcademic=(checked.data.term?.academic_year??academicYear()).replace('–','-');
+   if(medicineSelected){
+     if(!/^20\d{2}-20\d{2}$/.test(medicineAcademic)||Number(medicineAcademic.slice(5))!==Number(medicineAcademic.slice(0,4))+1){setError('Kırklareli Tıp için eğitim yılını 2026-2027 biçiminde, ardışık iki yıl olarak gir.');return;}
+     checked.data.profile.university_year='Dönem '+medicineYear;
+   }
+   savingRef.current=true;setSaving(true);
+   try{
+     const educationKey=JSON.stringify(checked.data);
+     if(savedEducation.current!==educationKey){
+       if(!await command('profile.save',{expected_revision:education.profile?.revision??0,...checked.data}))return;
+       savedEducation.current=educationKey;
+     }
+     if(medicineSelected){
+       medicineSaver.current??=createMedicineProfileSaver();
+       await medicineSaver.current({academic_year:medicineAcademic,active_year:medicineYear,enabled:true});
+     }
+     onDone();
+   }catch(cause){
+     setError('Öğrenci profilin kaydedildi; Kırklareli Tıp çalışma alanı açılamadı. '+(cause instanceof Error?cause.message:'Bağlantı kurulamadı.')+' Yeniden kaydetmeyi deneyebilirsin.');
+   }finally{savingRef.current=false;setSaving(false);}
  };
  const addPreview=()=>{
    if(!parsed.names.length)return;
@@ -44,7 +73,7 @@ export function EducationSetup({education,command,busy,editing=false,activeTimer
    setDraft({...draft,courses:[...draft.courses,...parsed.names.map(name=>({name,context:'school' as const,exam:null}))]});setCourseText('');setError('');
  };
  return <section className={styles.workspace} aria-label="Öğrenci kişiselleştirme">
-   <header className={styles.intro}><div><p className="eyebrow">SANA AİT BİR ÇALIŞMA ALANI</p><h2>{editing?'Çalışma alanını yeniden düzenle.':'Derslerin bir yerde, yolun sana göre.'}</h2><p>Derslerini bir kere tanımla; çalışmanı planla, süreni kaydet ve sonuçlarının değişimini gör.</p></div>{onCancel&&<button type="button" className="button secondary" onClick={onCancel}>İptal</button>}</header>
+   <header className={styles.intro}><div><p className="eyebrow">SANA AİT BİR ÇALIŞMA ALANI</p><h2>{editing?'Çalışma alanını yeniden düzenle.':'Derslerin bir yerde, yolun sana göre.'}</h2><p>Derslerini bir kere tanımla; çalışmanı planla, süreni kaydet ve sonuçlarının değişimini gör.</p></div>{onCancel&&<button type="button" className="button secondary" disabled={working} onClick={onCancel}>İptal</button>}</header>
    {activeTimer&&<p className="notice">Aktif çalışma oturumunu bitirdikten sonra profilini veya dönemini değiştirebilirsin.</p>}
    {!education.can_commit&&<p className="notice">Hesabın onay bekliyor. Kendi profil taslağını hazırlayabilirsin; çalışma alanın onaydan sonra açılır.</p>}
    <div className={styles.layout}><div className={styles.panel}>
@@ -57,7 +86,10 @@ export function EducationSetup({education,command,busy,editing=false,activeTimer
          ['graduate','Mezunum, YKS’ye hazırlanıyorum','TYT ve AYT konularını, denemelerini ve çalışma düzenini koru.',BookOpen],
        ] as const).map(([value,title,description,Icon])=><label className={styles.choice} key={value}><input type="radio" name="education-level" value={value} checked={profile.education_level===value} onChange={()=>patchProfile({education_level:value,grade:value==='high_school'?profile.grade:null,department:value==='university'?profile.department:'',university_year:value==='university'?profile.university_year:'',...(value==='graduate'?{yks_goal:true}:{})})}/><Icon size={23}/><span><strong>{title}</strong><small>{description}</small></span>{profile.education_level===value&&<Check size={18} className={styles.check}/>}</label>)}</fieldset>
        {profile.education_level==='high_school'&&<label>Sınıfın<select value={profile.grade??''} onChange={e=>patchProfile({grade:e.target.value?Number(e.target.value):null})}><option value="">Sınıf seç</option>{[9,10,11,12].map(grade=><option key={grade} value={grade}>{grade}. sınıf</option>)}</select></label>}
-       {profile.education_level==='university'&&<div className={styles.twoFields}><label>Bölüm (isteğe bağlı)<input value={profile.department} onChange={e=>patchProfile({department:e.target.value})} maxLength={120} placeholder="Örn. Uluslararası Ticaret"/></label><label>Sınıf (isteğe bağlı)<input value={profile.university_year} onChange={e=>patchProfile({university_year:e.target.value})} maxLength={40} placeholder="Örn. 2. sınıf"/></label></div>}
+       {profile.education_level==='university'&&<>
+         <label>Üniversite programı<select value={medicineSelected?'klu-medicine':'other'} disabled={working} onChange={e=>patchProfile(e.target.value==='klu-medicine'?{department:KLU_MEDICINE_DEPARTMENT,university_year:/^Dönem [1-4]$/.test(profile.university_year)?profile.university_year:'Dönem 1'}:{department:'',university_year:''})}><option value="other">Diğer bölüm</option><option value="klu-medicine">Kırklareli Üniversitesi Tıp</option></select></label>
+         {medicineSelected?<><label>Tıp dönemin<select value={medicineYear} disabled={working} onChange={e=>patchProfile({university_year:'Dönem '+e.target.value})}>{[1,2,3,4].map(year=><option key={year} value={year}>Dönem {year}</option>)}</select></label><p className={styles.note}>Çalışma alanını kaydettiğinde seçtiğin dönemin tıp konuları, kurul ve staj notları ile KEG takibi açılır.</p></>:<div className={styles.twoFields}><label>Bölüm (isteğe bağlı)<input value={profile.department} onChange={e=>patchProfile({department:e.target.value})} maxLength={120} placeholder="Örn. Uluslararası Ticaret"/></label><label>Sınıf (isteğe bağlı)<input value={profile.university_year} onChange={e=>patchProfile({university_year:e.target.value})} maxLength={40} placeholder="Örn. 2. sınıf"/></label></div>}
+       </>}
        <label className={styles.choice}><input type="checkbox" checked={profile.yks_goal} disabled={profile.education_level==='graduate'} onChange={e=>patchProfile({yks_goal:e.target.checked})}/><span><strong>YKS’ye hazırlanıyorum</strong><small>Konularım, TYT/AYT denemeleri ve YKS geri sayımı görünür olur.</small></span>{profile.yks_goal&&<Check size={18} className={styles.check}/>}</label>
        {profile.yks_goal&&<><label>YKS alan tercihin<select value={profile.yks_track} onChange={e=>patchProfile({yks_track:e.target.value as SetupInput['profile']['yks_track']})}>{[['undecided','Kararsızım'],['sayisal','Sayısal'],['esit_agirlik','Eşit ağırlık'],['sozel','Sözel'],['dil','Dil']].map(([key,label])=><option key={key} value={key}>{label}</option>)}</select></label><p className={styles.note}>Alan tercihin mevcut denemelerini değiştirmez. Hazır deneme şablonları TYT, AYT Sayısal ve branş ile sınırlıdır.</p></>}
      </div>}
@@ -69,6 +101,7 @@ export function EducationSetup({education,command,busy,editing=false,activeTimer
        <p className={styles.note}>Yeni bir döneme geçince önceki dönem arşivlenir. Önceki sonuçları filtrelerden görebilirsin; çalışma sürelerin değişmez.</p>
      </div>}
      {step===2&&<div className={styles.fields}>
+       {medicineSelected&&<p className={styles.note}>Dönem {medicineYear} tıp konuları hazır gelecek. Kurul ve staj konularını buraya ders olarak eklemene gerek yok; başka derslerini istersen aşağıdan ekleyebilirsin.</p>}
        {profile.education_level!=='graduate'&&<><label>Derslerini alt alta yaz<textarea value={courseText} onChange={e=>setCourseText(e.target.value)} maxLength={10000} rows={4} placeholder={'Matematik\nBilişim\nYabancı Dil\nİktisat'}/><small>Noktalı virgül veya virgülle de ayırabilirsin.</small></label>
        {parsed.names.length>0&&<div><p className="soft-copy">Önizleme · {parsed.names.length} ders</p><div className={styles.tags}>{parsed.names.map(name=><span className={styles.tag} key={name}>{name}</span>)}</div></div>}
        <div><button type="button" className="button secondary" disabled={!parsed.names.length} onClick={addPreview}>Bu dersleri ekle</button>{profile.education_level==='high_school'&&<button type="button" className="text-button" onClick={()=>setCourseText('Türk Dili ve Edebiyatı\nMatematik\nFizik\nKimya\nBiyoloji\nTarih\nCoğrafya\nYabancı Dil')}>Başlangıç önerilerini göster</button>}</div></>}
@@ -76,9 +109,9 @@ export function EducationSetup({education,command,busy,editing=false,activeTimer
        {profile.yks_goal&&<YksCourseChoices draft={draft} onChange={setDraft}/>}
        {editing&&<p className={styles.note}>Buradan kaldırılan mevcut dersler silinmez. Ders arşivleme ve ad değiştirme işlemleri Dönemler ve Dersler alanındadır.</p>}
      </div>}
-     {step===3&&<div className={styles.fields}><fieldset className={styles.choices}><legend>Başlangıçta hangi araçları görmek istersin?</legend>{Object.entries(moduleLabels).map(([key,label])=><label className={styles.choice} key={key}><input type="checkbox" checked={profile.modules[key as keyof typeof moduleLabels]} onChange={e=>patchProfile({modules:{...profile.modules,[key]:e.target.checked}})}/><span><strong>{label}</strong><small>{key==='journal'?'İsteğe bağlı, kendine ait günlük alanın.':'Mevcut kayıtların görünürlüğü değişse de korunur.'}</small></span>{profile.modules[key as keyof typeof moduleLabels]&&<Check className={styles.check} size={18}/>}</label>)}</fieldset><p className={styles.note}>{profile.yks_goal?'Konularım ve YKS Denemeleri menülerine erişebilirsin.':'Konularım ve YKS geri sayımı gizlenecek. YKS hedefini açınca eski konu ilerlemelerin geri gelir.'}</p></div>}
+     {step===3&&<div className={styles.fields}><fieldset className={styles.choices} disabled={working}><legend>Başlangıçta hangi araçları görmek istersin?</legend>{Object.entries(moduleLabels).map(([key,label])=><label className={styles.choice} key={key}><input type="checkbox" checked={profile.modules[key as keyof typeof moduleLabels]} onChange={e=>patchProfile({modules:{...profile.modules,[key]:e.target.checked}})}/><span><strong>{label}</strong><small>{key==='journal'?'İsteğe bağlı, kendine ait günlük alanın.':'Mevcut kayıtların görünürlüğü değişse de korunur.'}</small></span>{profile.modules[key as keyof typeof moduleLabels]&&<Check className={styles.check} size={18}/>}</label>)}</fieldset><p className={styles.note}>{medicineSelected?`Konularım bölümünde Dönem ${medicineYear} tıp konuların ve KEG takibin açılır. Kurul ve staj notlarını Sınav Sonuçları bölümünden takip edebilirsin.${profile.yks_goal?' YKS konuların ve denemelerin de görünür kalır.':''}`:profile.yks_goal?'Konularım ve YKS Denemeleri menülerine erişebilirsin.':'Konularım ve YKS geri sayımı gizlenecek. YKS hedefini açınca eski konu ilerlemelerin geri gelir.'}</p></div>}
      {error&&<p role="alert" className={styles.error}>{error}</p>}{notice&&<p role="status" className="notice">{notice}</p>}
-     <div className={styles.actions}><button type="button" className="text-button" disabled={busy} onClick={()=>void saveDraft()}>Taslağı kaydet</button><div>{step>0&&<button type="button" className="button secondary" disabled={busy} onClick={()=>move(step-1)}><ArrowLeft size={16}/>Geri</button>}{step<3?<button type="button" className="button primary" disabled={busy} onClick={()=>void next()}>İleri<ArrowRight size={16}/></button>:<button type="button" className="button primary" disabled={busy||activeTimer} onClick={()=>void save()}>{education.can_commit?editing?'Değişiklikleri kaydet':'Çalışma alanımı oluştur':'Taslağımı kaydet'}<Check size={17}/></button>}</div></div>
+     <div className={styles.actions}><button type="button" className="text-button" disabled={working} onClick={()=>void saveDraft()}>Taslağı kaydet</button><div>{step>0&&<button type="button" className="button secondary" disabled={working} onClick={()=>move(step-1)}><ArrowLeft size={16}/>Geri</button>}{step<3?<button type="button" className="button primary" disabled={working} onClick={()=>void next()}>İleri<ArrowRight size={16}/></button>:<button type="button" className="button primary" disabled={working||activeTimer} onClick={()=>void save()}>{saving?'Kaydediliyor…':education.can_commit?editing?'Değişiklikleri kaydet':'Çalışma alanımı oluştur':'Taslağımı kaydet'}<Check size={17}/></button>}</div></div>
    </div><aside className={styles.summary} aria-label="Çalışma Alanımın Özeti"><LayoutDashboard size={26}/><h3>Çalışma Alanımın Özeti</h3><dl><dt>Eğitim</dt><dd>{levelLabels[profile.education_level]}{profile.grade?' · '+profile.grade+'. sınıf':''}</dd>{profile.department&&<><dt>Bölüm</dt><dd>{profile.department}{profile.university_year?' · '+profile.university_year:''}</dd></>}<dt>Dönem</dt><dd>{draft.term?.academic_year} / {draft.term?.name||'Henüz seçilmedi'}</dd><dt>Dersler</dt><dd>{visibleCourses.length} ders</dd><dt>YKS hedefi</dt><dd>{profile.yks_goal?'Açık':'Kapalı'}</dd></dl><p>Bu seçimler öğrenci profilini kişiselleştirir. Hesap rolünü veya sınıf erişimini değiştirmez.</p></aside></div>
  </section>;
 }

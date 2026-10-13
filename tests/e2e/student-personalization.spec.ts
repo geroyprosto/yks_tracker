@@ -1,6 +1,7 @@
 import {expect,test,type Page,type Route} from '@playwright/test';
 import {emptyState,type AppState} from '../../src/lib/domain/types';
 import {defaultModules,emptyEducation,type EducationCommand} from '../../src/lib/education';
+import {emptyMedicine} from '../../src/lib/medicine';
 
 const stamp='2026-09-27T10:00:00.000Z';
 const termId='10000000-0000-4000-8000-000000000001';
@@ -18,6 +19,8 @@ async function prepare(page:Page){
  await page.clock.setFixedTime(new Date(stamp));
  // External integrations remain inert; all study/profile rows below are synthetic.
  await page.route('**/api/calendar/today',route=>route.fulfill({json:{connected:false,date:'2026-09-27',timezone:'Europe/Istanbul',events:[],refreshedAt:null}}));
+ await page.route('**/api/realtime?session=1',route=>route.fulfill({json:{enabled:false}}));
+ await page.route('**/api/medicine',route=>{expect(route.request().method()).toBe('GET');return route.fulfill({json:emptyMedicine()});});
 }
 async function settings(page:Page){
  await page.getByRole('navigation',{name:'Ana gezinme'}).getByRole('button',{name:'Ayarlar',exact:true}).click();
@@ -40,16 +43,19 @@ test('a delayed state GET cannot replace a newer atomic education result',async(
   expect(request.type).toBe('results.batch');
   if(request.type!=='results.batch')throw new Error('Unexpected mutation');
   state.education!.results=request.payload.rows.map((row,index)=>({...row,assessment_name:row.assessment_name??'',id:'result-'+index,term_id:termId,course_name:'Matematik',revision:1,created_at:stamp,updated_at:stamp}));
-  await route.fulfill({json:{ok:true,state:state.education}});
+  await route.fulfill({json:{ok:true,result:{id:request.request_id,request_id:request.request_id,replayed:false},state:state.education}});
  });
+ const baseline=page.waitForResponse(response=>response.url().endsWith('/api/realtime?session=1'));
  await page.goto('/');
+ await (await baseline).finished();
  await page.getByRole('navigation',{name:'Ana gezinme'}).getByRole('button',{name:'Sınav Sonuçları',exact:true}).click();
  await page.getByRole('button',{name:'Hızlı sonuç girişini aç'}).click();
  await expect(page.getByLabel('Matematik puanı',{exact:true})).toBeVisible();
  // Arm only after the UI is ready: development Strict Mode may issue two initial reads.
  nextReadArmed=true;
- // Begin an ordinary focus refresh BEFORE the write, and hold its old response.
- await page.evaluate(()=>window.dispatchEvent(new Event('focus')));
+ // The current visible-tab refresh resumes on pageshow, after its initial
+ // version check has completed. Hold that read BEFORE starting the write.
+ await page.evaluate(()=>window.dispatchEvent(new Event('pageshow')));
  const staleRoute=await delayed;
  await page.getByLabel('Matematik puanı',{exact:true}).fill('72');
  await page.getByRole('button',{name:'Tümünü kaydet',exact:true}).click();
@@ -107,7 +113,7 @@ test('new onboarding saves a partial draft, preserves back navigation and resume
   if(request.type!=='draft.save')throw new Error('Onboarding must remain a draft until explicit completion');
   expect(request.payload.expected_revision).toBe(state.education!.draft?.revision??0);
   state.education!.draft={step:request.payload.step,data:request.payload.data,revision:(state.education!.draft?.revision??0)+1,updated_at:stamp};
-  await route.fulfill({json:{ok:true,state:state.education}});
+  await route.fulfill({json:{ok:true,result:{id:request.request_id,request_id:request.request_id,replayed:false},state:state.education}});
  });
  await page.goto('/');
  await page.getByRole('radio',{name:/Üniversitede okuyorum/}).check();

@@ -5,7 +5,7 @@ import {emptyMedicine,type MedicineCommand,type MedicineState} from '@/lib/medic
 type MedicineContextValue={state:MedicineState;loading:boolean;busy:boolean;error:string;refresh:()=>Promise<void>;save:(type:MedicineCommand['type'],payload:Record<string,unknown>)=>Promise<boolean>};
 const Context=createContext<MedicineContextValue|null>(null);
 export function useMedicine(){const value=useContext(Context);if(!value)throw new Error('MedicineProvider gerekli.');return value;}
-export function MedicineProvider({enabled,children}:{enabled:boolean;children:ReactNode}){
+export function MedicineProvider({enabled,refreshRevision=0,children}:{enabled:boolean;refreshRevision?:number;children:ReactNode}){
  const [state,setState]=useState(emptyMedicine),[loading,setLoading]=useState(enabled),[busy,setBusy]=useState(false),[error,setError]=useState('');
  const pending=useRef(false),epoch=useRef(0),identities=useRef(new Map<string,string>());
  const refresh=useCallback(async()=>{
@@ -25,7 +25,7 @@ export function MedicineProvider({enabled,children}:{enabled:boolean;children:Re
   queueMicrotask(()=>{if(mounted&&enabled)void refresh();});
   const clock=epoch;
   return()=>{mounted=false;clock.current++;};
- },[enabled,refresh]);
+ },[enabled,refresh,refreshRevision]);
  const save=async(type:MedicineCommand['type'],payload:Record<string,unknown>)=>{
   if(pending.current||!enabled)return false;
   pending.current=true;setBusy(true);setError('');epoch.current++;

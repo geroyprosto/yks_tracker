@@ -8,6 +8,7 @@ import {levelLabels} from '@/lib/education-ui';
 import {EducationSetup} from './education-setup';
 import {CourseSelector} from './course-selector';
 import {Card} from './primitives';
+import {MedicineSettings} from './medicine/setup';
 import styles from './education-setup.module.css';
 
 export function EducationSettings({state,command,busy,onSaved}:{state:AppState;command:EducationCommand;busy:boolean;onSaved:()=>void}){
@@ -24,6 +25,7 @@ export function EducationSettings({state,command,busy,onSaved}:{state:AppState;c
  const activeTerm=education.terms.find(term=>term.id===profile?.active_term_id);
  return <div className={styles.fields}>
    {notice&&<p role="status" className="notice">{notice}</p>}
+   {profile?.education_level==='university'&&<MedicineSettings/>}
    <Card title="Öğrenci Profilim" action={<GraduationCap size={23}/>}><p className="soft-copy">{profile?`${levelLabels[profile.education_level]}${profile.grade?' · '+profile.grade+'. sınıf':''}${profile.department?' · '+profile.department:''} · YKS hedefi ${profile.yks_goal?'açık':'kapalı'}`:'YKS çalışma alanını koruyarak okul veya üniversite derslerini ekleyebilirsin.'}</p><button className="button primary" onClick={()=>setEditing(true)}>Profilimi düzenle</button>{education.draft&&<button className="text-button" onClick={()=>{setResume(true);setEditing(true);}}>Kaydedilmiş taslaktan devam et</button>}</Card>
    <Card title="Dönemler ve Dersler" action={<BookOpen size={22}/>}>
      {activeTimer&&<p className="notice">Dönem değiştirmek veya ders arşivlemek için aktif sayacını bitir.</p>}

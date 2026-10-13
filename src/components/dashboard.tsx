@@ -24,11 +24,15 @@ import {EducationCommandContext} from './course-selector';
 import {EducationSetup} from './education-setup';
 import {EducationSettings} from './education-settings';
 import {SchoolResults} from './school-results';
+import dynamic from 'next/dynamic';
+import {MedicineProvider} from './medicine/provider';
+import {MedicineSchoolResults} from './medicine/school-view';
 import type {EducationCommand} from '@/lib/education-ui';
 import {levelLabels} from '@/lib/education-ui';
 import {createSaveMetrics,type SaveMeasurement} from '@/lib/save-metrics';
 import {createStudyCommandQueue,CommandRequestError} from '@/lib/study-command-queue';
 import {useStudyRealtime} from '@/lib/realtime-client';
+const StudentTopics=dynamic(()=>import('./medicine/student-views').then(module=>module.StudentTopics));
 
 const navigation=[
  {id:'today',label:'Bugün',icon:LayoutDashboard},
@@ -315,12 +319,12 @@ export function Dashboard(){
  const profile=state?.education?.profile;
  const yksEnabled=profile?.yks_goal??true;
  const schoolEnabled=Boolean(profile&&(profile.education_level!=='graduate'||state?.education?.courses.some(course=>course.context==='school')||state?.education?.results.length));
- const visibleNavigation=navigation.filter(item=>item.id==='topics'?yksEnabled:item.id==='tasks'?profile?.modules.tasks??true:item.id==='exams'?profile?.modules.results??true:item.id==='stats'?profile?.modules.statistics??true:item.id==='journal'?profile?.modules.journal??true:true);
+ const visibleNavigation=navigation.filter(item=>item.id==='topics'?yksEnabled||profile?.education_level==='university':item.id==='tasks'?profile?.modules.tasks??true:item.id==='exams'?profile?.modules.results??true:item.id==='stats'?profile?.modules.statistics??true:item.id==='journal'?profile?.modules.journal??true:true);
  const viewNotice=viewError&&<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError}</span>{canRetryView&&<button className="button secondary" disabled={reconciling||busy} onClick={()=>void refresh()}>Görünümü yeniden dene</button>}</div>;
  if(!state)return <main className="login-page">{viewError||error?<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError||error}</span><button className="button secondary" disabled={reconciling} onClick={()=>void refresh()}>Tekrar dene</button></div>:<p className="loading" role="status">Çalışma alanı yükleniyor…</p>}</main>;
  if(state.configured&&!state.authenticated)return <Login/>;
  if(state.education?.needs_onboarding)return <EducationCommandContext value={educationCommand}><main style={{maxWidth:1200,margin:'auto',padding:'24px'}}><StudentClassroom state={state}/>{error&&<div role="alert" className="notice error">{error}{queuePaused&&<button className="button secondary" onClick={retryQueue}>Bekleyen kayıtları yeniden dene</button>}</div>}{viewNotice}<EducationSetup education={state.education} command={educationCommand} busy={busy} onDone={()=>{setPage('today');setWelcome(true);}}/></main></EducationCommandContext>;
- return <EducationCommandContext value={educationCommand}><ModalErrorContext value={error}><ModalRetryContext value={queuePaused?retryQueue:null}><div className="app-shell" ref={metricsRoot} data-save-metrics="[]" data-realtime-status={realtime.status}>
+ return <MedicineProvider enabled={profile?.education_level==='university'}><EducationCommandContext value={educationCommand}><ModalErrorContext value={error}><ModalRetryContext value={queuePaused?retryQueue:null}><div className="app-shell" ref={metricsRoot} data-save-metrics="[]" data-realtime-status={realtime.status}>
    <a className="skip-link" href="#main">İçeriğe geç</a>
    <aside className={'sidebar '+(mobileMenu?'is-open':'')}>
      <div className="brand"><span className="brand-mark">y</span><span>YKSim<span className="brand-dot">.</span></span><button className="mobile-only icon-button" onClick={e=>{e.preventDefault();setMobileMenu(false)}} aria-label="Menüyü kapat"><X size={20}/></button></div>
@@ -341,9 +345,9 @@ export function Dashboard(){
        {page==='today'&&(!profile||welcome)&&<div className="setup-banner"><GraduationCap size={22}/><div><strong>{welcome?'Çalışma alanın hazır.':'Okul ve üniversite derslerine de yer aç.'}</strong><p>{welcome?'İlk görevini oluşturabilir, dersini seçip sayacı başlatabilir veya sınav sonuçlarını girebilirsin.':'YKS geçmişini koruyarak öğrenci profilini ve derslerini kişiselleştir.'}</p></div><button className="text-button" onClick={()=>{setPersonalizing(true);go('settings');}}>Öğrenci profilim<ChevronRight size={16}/></button>{welcome&&<button className="icon-button" aria-label="Karşılama bilgisini kapat" onClick={()=>setWelcome(false)}><X size={16}/></button>}</div>}
        {todayState&&page==='today'&&<Today state={todayState} preview={previewEnabled} command={command} busy={instantBusy} offset={offset} go={go} openTimer={openTimer} expandTimer={openFocusTimer} addTask={()=>{go('tasks');setNewTask(true)}} openExamDateSettings={openExamDateSettings} openPractice={openPractice}/>}
        {state&&page==='tasks'&&<Tasks state={state} command={command} busy={instantBusy} requestNew={newTask} onNewHandled={()=>setNewTask(false)}/>}
-       {state&&page==='topics'&&<Topics state={state} command={command} busy={instantBusy}/>}
+       {state&&page==='topics'&&(profile?.education_level==='university'?<StudentTopics yksEnabled={yksEnabled} legacy={<Topics state={state} command={command} busy={instantBusy}/>}/>:<Topics state={state} command={command} busy={instantBusy}/>)}
        {state&&page==='settings'&&<><div className="settings-tabs"><button aria-pressed={personalizing} className={personalizing?'active':''} onClick={()=>setPersonalizing(true)}>Öğrenci alanım</button><button aria-pressed={!personalizing} className={!personalizing?'active':''} onClick={()=>setPersonalizing(false)}>Genel ayarlar</button></div>{personalizing?<EducationSettings state={state} command={educationCommand} busy={instantBusy||queuedEducation} onSaved={()=>{setWelcome(true);go('today');}}/>:<Preferences key={settingsVisit} profilePhoto={profilePhoto} state={state} command={command} busy={instantBusy} initialTab={settingsInitialTab} theme={theme} appearance={appearance} reduced={reduced} simple={simple} setTheme={v=>{preferenceDirty.current=true;setTheme(v);localStorage.setItem('yksim-theme',v)}} setAppearance={v=>{setAppearance(v);localStorage.setItem('yksim-appearance',v)}} setReduced={v=>{preferenceDirty.current=true;setReduced(v);localStorage.setItem('yksim-reduced',String(v))}} setSimple={v=>{preferenceDirty.current=true;setSimple(v);localStorage.setItem('yksim-simple',String(v))}}/>}</>}
-       {state&&page==='exams'&&<>{schoolEnabled&&yksEnabled&&<div className="settings-tabs"><button className={resultView==='school'?'active':''} onClick={()=>setResultView('school')}>Ders Sınavları</button><button className={resultView==='yks'?'active':''} onClick={()=>setResultView('yks')}>YKS Denemeleri</button></div>}{state.education&&schoolEnabled&&(!yksEnabled||resultView==='school')?<SchoolResults education={state.education} command={educationCommand} busy={instantBusy||queuedEducation}/>:<Exams key={linkedDate??'all'} initialDate={linkedDate??undefined} state={previewEnabled&&todayState?todayState:state} command={command} busy={instantBusy} preview={previewEnabled}/>}</>}
+       {state&&page==='exams'&&<>{schoolEnabled&&yksEnabled&&<div className="settings-tabs"><button className={resultView==='school'?'active':''} onClick={()=>setResultView('school')}>Ders Sınavları</button><button className={resultView==='yks'?'active':''} onClick={()=>setResultView('yks')}>YKS Denemeleri</button></div>}{state.education&&schoolEnabled&&(!yksEnabled||resultView==='school')?(profile?.education_level==='university'?<MedicineSchoolResults education={state.education} command={educationCommand} busy={instantBusy||queuedEducation}/>:<SchoolResults education={state.education} command={educationCommand} busy={instantBusy||queuedEducation}/>):<Exams key={linkedDate??'all'} initialDate={linkedDate??undefined} state={previewEnabled&&todayState?todayState:state} command={command} busy={instantBusy} preview={previewEnabled}/>}</>}
        {state&&page==='journal'&&<Journal key={linkedDate??'today'} initialDate={linkedDate??undefined} state={state} command={command} busy={instantBusy}/>}
        {state&&page==='analysis'&&<Analysis onOpenDay={date=>goFromReport('stats',date)} onOpenTasks={()=>go('tasks')} onOpenJournal={()=>go('journal')} journalAnalysisEnabled={state.settings?.journal_analysis_enabled===true}/>}
        {state&&page==='stats'&&<StatisticsWorkspace initialDate={linkedDate} state={state} practiceState={previewEnabled&&todayState?todayState:state} command={command} busy={instantBusy} preview={previewEnabled} go={goFromReport} view={statisticsView} onViewChange={setStatisticsView}/>}
@@ -354,5 +358,5 @@ export function Dashboard(){
    </div>
    <nav className="bottom-nav" aria-label="Mobil gezinme">{visibleNavigation.slice(0,3).map(({id,label,icon:Icon})=><button key={id} onClick={()=>go(id)} aria-current={page===id?'page':undefined}><Icon size={21}/>{label}</button>)}<button onClick={()=>go('settings')} aria-current={page==='settings'?'page':undefined}><Settings2 size={21}/>Ayarlar</button></nav>
    {state&&((profile?.modules.timer??true)||state.sessions.some(session=>session.status!=='finished'))&&<TimerPanel state={state} command={command} busy={instantBusy} offset={offset} expanded={timerOpen} focus={timerFocus} origin={timerOrigin} onFocus={openFocusTimer} onClose={closeTimer}/>}
- </div></ModalRetryContext></ModalErrorContext></EducationCommandContext>
+ </div></ModalRetryContext></ModalErrorContext></EducationCommandContext></MedicineProvider>
 }

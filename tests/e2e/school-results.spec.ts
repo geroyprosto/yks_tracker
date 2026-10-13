@@ -103,7 +103,8 @@ test('a failed background refresh reuses the saved batch identity on retry', asy
 
 test('quick table skips blanks, keeps zero/decimal, Enter advances, failed response retries one atomic request', async ({page}) => {
   const state = fixture(), sent = await openResults(page, state, true);
-  await expect(page.getByRole('button', {name: 'Konularım', exact: true})).toHaveCount(0);
+  // University students can now open the optional medical topic catalog without a YKS goal.
+  await expect(page.getByRole('navigation',{name:'Ana gezinme'}).getByRole('button', {name: 'Konularım', exact: true})).toBeVisible();
   const entryToggle = page.getByRole('button', {name: 'Hızlı sonuç girişini aç'});
   await expect(entryToggle).toHaveAttribute('aria-expanded', 'false');
   await expect(page.locator('input[aria-label="Matematik puanı"]')).toBeHidden();

@@ -13,6 +13,7 @@ import { TimerPanel } from './timer';
 import type { FocusOrigin } from './timer-focus-view';
 import { StatisticsWorkspace, type StatisticsView } from './statistics-workspace';
 import { FriendsWorkspace } from './friends-workspace';
+import { NovaWorkspace } from './nova/workspace';
 import { Exams } from './exams';
 import { Journal } from './journal';
 import { ModalErrorContext,ModalRetryContext } from './modal';
@@ -36,6 +37,7 @@ const navigation=[
  {id:'exams',label:'Sınav Sonuçları',icon:ChartNoAxesCombined},
  {id:'stats',label:'Çalışma İstatistikleri',icon:BarChart3},
  {id:'friends',label:'Arkadaşlar',icon:UsersRound},
+ {id:'nova',label:'Nova',icon:Sparkles},
  {id:'journal',label:'Günlüğüm',icon:NotebookPen},
  {id:'analysis',label:'Analiz',icon:Sparkles},
  {id:'settings',label:'Ayarlar',icon:Settings2},
@@ -309,7 +311,7 @@ export function Dashboard(){
  const instantBusy=busy&&(queuedJobs===0||queuePaused);
  const initials=displayName.split(/\s+/).map(part=>Array.from(part)[0]).filter(Boolean).slice(0,2).join('').toLocaleUpperCase('tr-TR');
  const title=page==='today'?'Merhaba, '+displayName+'.':page==='analysis'?'Çalışma Analizi':navigation.find(n=>n.id===page)?.label;
- const descriptions:Record<PageId,string>={today:'Kendi ritminde, hedefe doğru. İşte bugünün çalışma alanı.',tasks:'Planını oluştur, adım adım ilerle.',topics:'Ne öğrendiğini ve bir sonraki adımını gör.',exams:'Sonuçlarını zaman içinde birlikte değerlendirelim.',stats:'Çalışma süreni, çözdüğün soru ve testleri birlikte incele.',friends:'Birlikte çalış, birbirinizi tatlı bir şekilde motive edin.',journal:'Günün düşüncelerine küçük bir alan.',analysis:'Kayıtlarından anlamlı gözlemlere.',settings:'Çalışma alanını kendine göre düzenle.'};
+ const descriptions:Record<PageId,string>={today:'Kendi ritminde, hedefe doğru. İşte bugünün çalışma alanı.',tasks:'Planını oluştur, adım adım ilerle.',topics:'Ne öğrendiğini ve bir sonraki adımını gör.',exams:'Sonuçlarını zaman içinde birlikte değerlendirelim.',stats:'Çalışma süreni, çözdüğün soru ve testleri birlikte incele.',friends:'Birlikte çalış, birbirinizi tatlı bir şekilde motive edin.',nova:'Dijital çalışma arkadaşınla kendi ritminde ilerle.',journal:'Günün düşüncelerine küçük bir alan.',analysis:'Kayıtlarından anlamlı gözlemlere.',settings:'Çalışma alanını kendine göre düzenle.'};
  const profile=state?.education?.profile;
  const yksEnabled=profile?.yks_goal??true;
  const schoolEnabled=Boolean(profile&&(profile.education_level!=='graduate'||state?.education?.courses.some(course=>course.context==='school')||state?.education?.results.length));
@@ -346,6 +348,7 @@ export function Dashboard(){
        {state&&page==='analysis'&&<Analysis onOpenDay={date=>goFromReport('stats',date)} onOpenTasks={()=>go('tasks')} onOpenJournal={()=>go('journal')} journalAnalysisEnabled={state.settings?.journal_analysis_enabled===true}/>}
        {state&&page==='stats'&&<StatisticsWorkspace initialDate={linkedDate} state={state} practiceState={previewEnabled&&todayState?todayState:state} command={command} busy={instantBusy} preview={previewEnabled} go={goFromReport} view={statisticsView} onViewChange={setStatisticsView}/>}
        {state&&page==='friends'&&<FriendsWorkspace/>}
+       {state&&page==='nova'&&<NovaWorkspace/>}
        <footer className="page-footer"><span>Her gün aynı olmak zorunda değil.</span><a href="/classroom">Hesap ve sınıf alanı</a><span>YKSim <span className="subtle">·</span> Kişisel çalışma alanın</span></footer>
      </main>
    </div>

@@ -1,0 +1,78 @@
+name: Nova doğrulaması
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/nova.yml'
+      - 'src/**'
+      - 'scripts/nova-bridge/**'
+      - 'tests/nova*'
+      - 'tests/nova-e2e/**'
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - 'evals/nova/**'
+      - 'docs/NOVA*'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - '.npmrc'
+      - 'tsconfig.json'
+      - 'next.config.*'
+      - 'eslint.config.*'
+      - 'playwright.nova.config.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nova-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Kod, veritabanı ve tarayıcı doğrulaması
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: 'true'
+      NEXT_TELEMETRY_DISABLED: '1'
+      OLLAMA_NO_CLOUD: '1'
+    steps:
+      - name: Depoyu oku
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+
+      - name: Node 24 kur
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '24'
+
+      - name: Sabit pnpm sürümünü kur
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+        with:
+          version: '11.19.0'
+          run_install: false
+          cache: true
+
+      - name: Kilitli bağımlılıkları kur
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Tip denetimi
+        run: pnpm typecheck
+
+      - name: Nova birim ve veritabanı testleri
+        run: pnpm test:nova
+
+      - name: Chromium ve sistem bağımlılıklarını kur
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Yerel sahte modelle tarayıcı testleri
+        run: pnpm test:nova:e2e
+
+      - name: Uygulamayı derle
+        run: pnpm build

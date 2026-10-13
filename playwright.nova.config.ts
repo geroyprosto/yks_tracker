@@ -1,0 +1,11 @@
+import {defineConfig} from '@playwright/test';
+import {randomUUID} from 'node:crypto';
+const baseURL='http://127.0.0.1:3400';
+export default defineConfig({
+ testDir:'./tests/nova-e2e',fullyParallel:false,forbidOnly:!!process.env.CI,retries:0,workers:1,timeout:90000,expect:{timeout:20000},reporter:'list',outputDir:'tmp/playwright-nova-results',
+ use:{baseURL,channel:process.env.PLAYWRIGHT_CHANNEL??(process.platform==='win32'?'msedge':undefined),viewport:{width:1440,height:1000},locale:'tr-TR',timezoneId:'Europe/Istanbul',serviceWorkers:'block',trace:'retain-on-failure',screenshot:'only-on-failure'},
+ webServer:{command:'node node_modules/next/dist/bin/next dev --hostname 127.0.0.1 --port 3400',url:baseURL,reuseExistingServer:false,timeout:120000,env:{
+  CLASSROOM_DEMO_ENABLED:'true',NOVA_ENABLED:'true',NOVA_DEMO_ENABLED:'true',YKSIM_E2E:'1',CLASSROOM_DEMO_TEST_RUN:randomUUID(),APP_ORIGIN:baseURL,
+  NEXT_PUBLIC_SUPABASE_URL:'',NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:'',NEXT_PUBLIC_SUPABASE_ANON_KEY:'',SUPABASE_SECRET_KEY:'',SUPABASE_SERVICE_ROLE_KEY:'',ALLOWED_USER_EMAIL:'',GOOGLE_CLIENT_ID:'',GOOGLE_CLIENT_SECRET:'',GOOGLE_TOKEN_ENCRYPTION_KEY:'',OPENAI_API_KEY:'',RESEND_API_KEY:'',CLASSROOM_EMAIL_FROM:'',
+ }},
+});

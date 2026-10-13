@@ -1,10 +1,10 @@
 # Nova doğrulama kaydı
 
-Tarih: 13 Ekim 2026. Yerel sonuçlar, GitHub Actions ve üretim/gerçek model doğrulamaları ayrı tutulur. Başlangıç commit'i: `9638346fc10a2e6ee4ad793ae9aa2a48220ba5e3`.
+Tarih: 13 Ekim 2026. Yerel sonuçlar, GitHub Actions ve üretim/gerçek model doğrulamaları ayrı tutulur. İlk başlangıç `9638346`, teslim dalının güncel tabanı `c934f4a`.
 
 ## Başlangıç durumu
 
-Nova değişikliklerinden önceki tam test koşusunda **499 testin 498'i geçti**. `tests/mcp-analysis-tool.test.ts:50` içindeki `priority_summary.high` okuması `undefined` olduğu için bir test başarısızdı. Başlangıç logunda hata `Cannot read properties of undefined (reading 'high')` olarak kayıtlıdır. Bu önceden mevcut hata Nova regresyonu olarak sunulmamalı; tam depo testleri de tamamen geçti diye raporlanmamalıdır.
+Nova değişikliklerinden önceki ilk tam test koşusunda **499 testin 498'i geçti**. `tests/mcp-analysis-tool.test.ts:50` içindeki `priority_summary.high` okuması `undefined` olduğu için bir test başarısızdı. Çalışma sürerken ana dala gelen `ffccdcb` bu eski testi düzeltti; `c934f4a` mevcut gerçek zamanlı bağlantı davranışını güncelledi. Nova dalı bu iki commit üzerine çatışmasız taşındı ve kontroller tekrar çalıştırıldı. Güncel tam birim/veritabanı paketi **567/567** geçiyor.
 
 Yerel çalışma Node 24 kullandı. `package.json` pnpm **11.19.0** sürümünü bildiriyor; bu oturumdaki mevcut yerel pnpm **11.25** idi. CI depo sözleşmesini izleyerek 11.19.0 sürümünü kurar. Dolayısıyla yereldeki sonuç, GitHub runner üzerinde aynı araç zinciriyle tamamlanmış bir CI koşusu yerine geçmez.
 
@@ -13,12 +13,12 @@ Yerel çalışma Node 24 kullandı. `package.json` pnpm **11.19.0** sürümünü
 | Kapsam | Sonuç | Kanıtın sınırı |
 | --- | --- | --- |
 | Nova birim/veritabanı testleri | **58/58 geçti** | Core 19, Agent/Bridge 16, sunum 5, RLS/kuyruk 18; tam depo koşusuna dahil. |
-| Tam depo birim/veritabanı | **557 test: 556 geçti, 1 başarısız** | Tek başarısızlık başlangıçta da bulunan `mcp-analysis-tool` testi. |
+| Tam depo birim/veritabanı | **567/567 geçti** | Ana daldaki güncellemeler alındıktan sonra. Önceki 556/557 sonucu tarihsel başlangıç ayrımına aittir. |
 | Gerçek Windows DPAPI denemesi | Şifreleme → dosya → yükleme → çözme başarılı | Sentetik cihaz verisi kullanıldı; canlı token kullanılmadı; diskte açık token bulunmadığı kontrol edildi; sentetik dosya kaldırıldı. |
 | Türkçe eval yürütücüsü | **17/17 fake vaka kabul edildi** | Sıfır token/gecikme gerçek model performansı değildir. |
 | Nova tarayıcı testleri | **2/2 geçti** | Yerel demo/PGlite ve FakeModelAdapter; gerçek Supabase/Ollama veya üretim hesabı değil. |
 | Tam ESLint, TypeScript, Next build | **Üçü de geçti** | Son kaynak değişikliklerinden sonra `pnpm lint`, `pnpm typecheck`, `pnpm build`. |
-| Mevcut genel tarayıcı paketi | **149 geçti, 18 başarısız** | Aynı 18 hata, temiz başlangıç commit'inde aynı hata imzalarıyla tekrarlandı. |
+| Mevcut genel tarayıcı paketi, ilk taban | **149 geçti, 18 başarısız** | `9638346` tabanlı Nova dalındaki aynı 18 hata, temiz başlangıç commit'inde aynı hata imzalarıyla tekrarlandı. |
 
 Agent testleri şema/JSON hataları, bilinmeyen fact, kaynaksız sayı ve olay, prompt injection, unutulmuş kaynak, hassas/izinsiz hafıza, manipülatif Türkçe ifadeler, uykusuzluk övgüsü, bariz İngilizce çıktı ve tek onarım sınırını kapsar. Bridge testleri model yokken claim yapılmaması, lease kaybında iptal, iptal edilmiş cihaz, güvenli URL/kimlik taşıma, model timeout'u ve yanıt boyutu sınırlarını kapsar.
 

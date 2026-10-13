@@ -77,6 +77,12 @@ async function seedStudyGraph(db: PGlite, user: string) {
   await insert(db, 'public.profiles', { user_id: user });
   await insert(db, 'public.education_terms', { id: term, user_id: user, academic_year: '2026–2027', name: 'Güz' });
   await insert(db, 'public.education_profiles', { user_id: user, education_level: 'university', yks_goal: true, active_term_id: term });
+  const medicalTopic=(await db.query<{id:string}>("select id from private.medicine_topics where year=1 order by id limit 1")).rows[0].id;
+  await insert(db, 'public.medicine_profiles', {user_id:user,academic_year:'2026-2027',active_year:1});
+  await insert(db, 'public.medicine_topic_progress', {user_id:user,academic_year:'2026-2027',topic_id:medicalTopic,mastery:2,notes:'Synthetic private medical note'});
+  await insert(db, 'public.medicine_results', {user_id:user,academic_year:'2026-2027',year:1,unit_id:'d1-k1',attempt:'regular',exam_date:'2026-10-01',reported_score:70});
+  await insert(db, 'public.medicine_keg', {user_id:user,academic_year:'2026-2027',year:1,status:'sufficient'});
+  await insert(db, 'private.medicine_receipts', {user_id:user,request_id:randomUUID(),command_type:'profile.save',payload:{},result:{}});
   await insert(db, 'public.education_drafts', { user_id: user, step: 1, data: { target: user } });
   await insert(db, 'public.education_courses', { id: course, user_id: user, term_id: term, name: 'Matematik', context: 'school' });
   await insert(db, 'public.course_exam_results', { user_id: user, course_id: course, term_id: term, course_name: 'Matematik', exam_date: '2026-10-01', assessment_type: 'Vize', score: 80, scale: 100 });

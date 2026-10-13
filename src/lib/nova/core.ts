@@ -261,7 +261,14 @@ export function projectDay(day:NovaDay,nowIso:string):NovaProjection {
     event.reasonCodes.forEach(reason=>reasonCodes.add(reason));
     if(event.result) {studyMinutes+=event.result.studyMinutes;questions+=event.result.questions;correct+=event.result.correct??0;topicProgress+=event.result.topicProgress;tasksCompleted+=event.result.tasksCompleted;}
   }
-  const timeline=unique(day.events).map(event=>({id:event.id,kind:event.kind,label:event.label,startsAt:event.startsAt,endsAt:event.endsAt,subject:event.subject,status:Date.parse(event.endsAt)<=now?'completed' as const:Date.parse(event.startsAt)<=now?'active' as const:'planned' as const,result:Date.parse(event.endsAt)<=now?event.result:null,reasonCodes:Date.parse(event.endsAt)<=now?event.reasonCodes:[]}));
+  const timeline:NovaProjection['timeline']=unique(day.events).map(event=>{
+    const completed=Date.parse(event.endsAt)<=now;
+    const started=Date.parse(event.startsAt)<=now;
+    const hideDistraction=!started&&event.kind==='distraction';
+    return {id:event.id,kind:hideDistraction?'study':event.kind,label:hideDistraction?'Çalışma bloğu':event.label,
+      startsAt:event.startsAt,endsAt:event.endsAt,subject:event.subject,status:completed?'completed':started?'active':'planned',
+      result:completed?event.result:null,reasonCodes:completed?event.reasonCodes:[]};
+  });
   const baseline=day.inputSnapshot.baseline;
   const metrics:NovaMetrics={studyMinutes:round(studyMinutes),studyTargetMinutes:day.targets.studyMinutes,tasksCompleted:baseline.taskCompletionPercent===null?null:tasksCompleted,taskTotal:baseline.taskCompletionPercent===null?null:day.targets.tasks,questions:baseline.averageQuestions===null?null:questions,questionTarget:baseline.averageQuestions===null?null:day.targets.questions,accuracyPercent:baseline.questionAccuracyPercent!==null&&questions?round(correct/questions*100):null,topicProgress:baseline.averageTopicProgress===null?null:round(topicProgress),topicTarget:baseline.averageTopicProgress===null?null:day.targets.topicProgress,activeDays:studyMinutes>0?1:0,observedDays:1};
   return {localDate:day.localDate,now:nowIso,completed:now>=Date.parse(day.endsAt),state,mood:mood(state),reasonCodes:[...reasonCodes],currentEvent:timeline.find(e=>e.status==='active')??null,timeline,metrics,score:scoreDay(metrics)};

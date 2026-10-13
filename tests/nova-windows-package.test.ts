@@ -29,9 +29,10 @@ const waitFor = async (check: () => Promise<boolean>, message: string) => {
   assert.fail(message);
 };
 
-test('Windows host excludes duplicate instances, recovers stale record and stops only for its own request', { skip: process.platform !== 'win32' }, async () => {
+test('Windows host excludes duplicate instances, recovers stale record and stops only for its own request', { skip: process.platform !== 'win32' }, async (context) => {
   const directory = await mkdtemp(path.join(tmpdir(), 'NovaHostTest-'));
   const children: ChildProcess[] = [];
+  const childTrace = new Map<ChildProcess, { started: number; stdout: string; stderr: string; spawnError?: string; exitedAfterMs?: number }>();
   try {
     for (const name of ['bridge-host.cjs', 'Common-NovaBridge.ps1', 'Stop-NovaBridge.ps1', 'Start-NovaBridge.ps1']) {
       const text = await readFile(path.join(source, name), 'utf8');
@@ -43,7 +44,13 @@ test('Windows host excludes duplicate instances, recovers stale record and stops
     const local = path.join(directory, 'isolated-local');
     await mkdir(local);
     const start = (folder = directory) => {
-      const child = spawn(process.execPath, [path.join(folder, 'bridge-host.cjs')], { env: { ...process.env, LOCALAPPDATA: local }, windowsHide: true, stdio: 'ignore' });
+      const trace = { started: Date.now(), stdout: '', stderr: '' } as { started: number; stdout: string; stderr: string; spawnError?: string; exitedAfterMs?: number };
+      const child = spawn(process.execPath, [path.join(folder, 'bridge-host.cjs')], { env: { ...process.env, LOCALAPPDATA: local }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      child.stdout?.on('data', (chunk: Buffer) => { trace.stdout = (trace.stdout + chunk.toString()).slice(-8000); });
+      child.stderr?.on('data', (chunk: Buffer) => { trace.stderr = (trace.stderr + chunk.toString()).slice(-8000); });
+      child.once('error', error => { trace.spawnError = error.message; });
+      child.once('exit', () => { trace.exitedAfterMs = Date.now() - trace.started; });
+      childTrace.set(child, trace);
       children.push(child); return child;
     };
     const first = start();
@@ -82,10 +89,65 @@ test('Windows host excludes duplicate instances, recovers stale record and stops
     const recoveredLock = JSON.parse(await readFile(lockPath, 'utf8'));
     await writeFile(path.join(directory, 'stop-request.json'), JSON.stringify({ instanceId: recoveredLock.instanceId }));
     await waitFor(async () => recovered.exitCode !== null, 'Recovered fake host did not stop');
+  } catch (error) {
+    // Capture only this test's synthetic hosts. Keep failures actionable without
+    // reading installed credentials or adding waits to the successful path.
+    const lock = await readFile(path.join(directory, 'bridge-process.json'), 'utf8').catch(() => 'No record remains');
+    const traces = children.map(child => ({ pid: child.pid, exitCode: child.exitCode, signalCode: child.signalCode, elapsedMs: Date.now() - childTrace.get(child)!.started, ...childTrace.get(child) }));
+    let processes = '';
+    const fakePids = children.flatMap(child => child.pid ? [child.pid] : []);
+    if (fakePids.length) {
+      const code = `Get-CimInstance Win32_Process -Filter '${fakePids.map(pid => `ProcessId = ${pid}`).join(' OR ')}' | Select-Object ProcessId,Name,CommandLine,CreationDate | ConvertTo-Json -Compress`;
+      try { processes = execFileSync('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from(code, 'utf16le').toString('base64')], { windowsHide: true, encoding: 'utf8', stdio: 'pipe', timeout: 15000 }); }
+      catch { processes = 'Fake process metadata unavailable'; }
+    }
+    context.diagnostic(JSON.stringify({ lock, traces, processes }));
+    throw error;
   } finally {
     for (const child of children) if (child.exitCode === null && child.signalCode === null) { child.kill(); await new Promise(resolve => child.once('exit', resolve)); }
     assert.equal(path.dirname(directory), path.resolve(tmpdir()));
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('Windows record publication bounds sharing retries, protects a new live owner and stops despite cleanup contention', { skip: process.platform !== 'win32' }, async () => {
+  for (const mode of ['recover', 'exhaust', 'permanent', 'legacy-live'] as const) {
+    const directory = await mkdtemp(path.join(tmpdir(), 'NovaSharingTest-'));
+    let child: ChildProcess | undefined;
+    let output = '';
+    try {
+      await copyFile(path.join(source, 'bridge-host.cjs'), path.join(directory, 'bridge-host.cjs'));
+      await writeFile(path.join(directory, 'bridge.cjs'), `const fs=require('node:fs');fs.writeFileSync(require('node:path').join(__dirname,'worker-started'),'yes');const timer=setInterval(()=>{},100);process.once('SIGTERM',()=>clearInterval(timer));`);
+      const lockPath = path.join(directory, 'bridge-process.json');
+      const stale = { pid: 2000000000, instanceId: 'stale-instance' };
+      await writeFile(lockPath, JSON.stringify(stale));
+      await writeFile(path.join(directory, 'sharing-fault.cjs'), `const fs=require('node:fs');const originalRename=fs.promises.rename.bind(fs.promises);const originalUnlink=fs.unlinkSync;let attempts=0;fs.promises.rename=async(...args)=>{console.log('RENAME_ATTEMPT:'+ ++attempts);if(${JSON.stringify(mode)}==='legacy-live'){fs.writeFileSync(args[1],JSON.stringify({pid:${process.pid},instanceId:'new-live-owner'}));throw Object.assign(new Error('Synthetic sharing failure'),{code:'EPERM'});}if(${JSON.stringify(mode)}==='permanent')throw Object.assign(new Error('Synthetic permanent failure'),{code:'EIO'});if(${JSON.stringify(mode)}==='exhaust'||attempts<=2)throw Object.assign(new Error('Synthetic sharing failure'),{code:attempts%2?'EPERM':'EACCES'});return originalRename(...args);};if(${JSON.stringify(mode)}==='recover')fs.unlinkSync=file=>{if(file.endsWith('stop-request.json'))throw Object.assign(new Error('Synthetic cleanup sharing failure'),{code:'EPERM'});return originalUnlink(file);};`);
+      child = spawn(process.execPath, ['--require', path.join(directory, 'sharing-fault.cjs'), path.join(directory, 'bridge-host.cjs')], { env: { ...process.env, LOCALAPPDATA: path.join(directory, 'isolated-local') }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+      child.stdout?.on('data', (chunk: Buffer) => { output += chunk.toString(); });
+      child.stderr?.resume();
+      const closed = new Promise<void>((resolve, reject) => { child!.once('close', () => resolve()); child!.once('error', reject); });
+      if (mode === 'recover') {
+        await waitFor(async () => JSON.parse(await readFile(lockPath, 'utf8')).pid === child!.pid, 'Sharing retry did not publish the complete record');
+        const active = JSON.parse(await readFile(lockPath, 'utf8'));
+        await writeFile(path.join(directory, 'stop-request.json'), JSON.stringify({ instanceId: active.instanceId }));
+        await waitFor(async () => child!.exitCode !== null, 'Stop was blocked by request cleanup contention');
+        await closed;
+        assert.equal(child.exitCode, 0);
+        assert.equal(output.match(/RENAME_ATTEMPT:/gu)?.length, 3);
+        assert.equal(JSON.parse(await readFile(path.join(directory, 'stop-request.json'), 'utf8')).instanceId, active.instanceId);
+      } else {
+        await waitFor(async () => child!.exitCode !== null, 'Rejected publisher did not exit within the bounded startup window');
+        await closed;
+        assert.equal(child.exitCode, 1);
+        assert.equal(output.match(/RENAME_ATTEMPT:/gu)?.length, mode === 'exhaust' ? 21 : 1);
+        assert.deepEqual(JSON.parse(await readFile(lockPath, 'utf8')), mode === 'legacy-live' ? { pid: process.pid, instanceId: 'new-live-owner' } : stale);
+        await assert.rejects(() => readFile(path.join(directory, 'worker-started')), /ENOENT/);
+      }
+    } finally {
+      if (child && child.exitCode === null && child.signalCode === null) { child.kill(); await new Promise(resolve => child!.once('exit', resolve)); }
+      assert.equal(path.dirname(directory), path.resolve(tmpdir()));
+      await rm(directory, { recursive: true, force: true });
+    }
   }
 });
 

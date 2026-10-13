@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { ModelAdapter, ModelMessage, ModelMetrics } from './model';
+import { normalizeNovaReplyText } from './terminology';
 
 const iso = z.string().datetime({ offset: true });
 const id = z.string().min(1).max(160);
@@ -146,6 +147,9 @@ export function buildAgentMessages(context: AgentContext, repairCodes: string[] 
 export function validateAgentOutput(raw: unknown, context: AgentContext): AgentOutput {
   let json = raw;
   if (typeof raw === 'string') { try { json = JSON.parse(raw); } catch { throw new AgentValidationError(['invalid_json']); } }
+  if (json !== null && typeof json === 'object' && !Array.isArray(json) && 'reply' in json && typeof json.reply === 'string') {
+    json = { ...json, reply: normalizeNovaReplyText(json.reply) };
+  }
   const parsed = agentOutputSchema.safeParse(json);
   if (!parsed.success) throw new AgentValidationError(['invalid_schema']);
   const output = parsed.data;

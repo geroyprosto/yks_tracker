@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { agentOutputJsonSchema, buildAgentMessages, generateAgentReply, selectAgentContext, validateAgentOutput, type AgentContext } from '../src/lib/nova/agent';
+import { AgentValidationError, agentOutputJsonSchema, buildAgentMessages, generateAgentReply, selectAgentContext, validateAgentOutput, type AgentContext } from '../src/lib/nova/agent';
 import { FakeModelAdapter, type ModelAdapter, type ModelRequest } from '../src/lib/nova/model';
 import { evaluateModel } from '../scripts/nova-bridge/evaluate';
 
@@ -196,4 +196,33 @@ test('maximum fact IDs reserve enough prompt space for every validator repair in
     const length = JSON.stringify(buildAgentMessages(dense, repairCodes)).length;
     assert.ok(length <= 28000, `${fieldCount} bounded state values exceed the adapter repair limit: ${length}`);
   }
+});
+
+test('the observed English duel term is normalized only in Nova reply text', () => {
+  const output = validateAgentOutput({ ...good, reply: 'Merhaba! Bugün sakin bir başlangıç için kısa bir yürüyüş veya dinlenme etkinliği yapmayı öneririm. Dilersen bir Focus Duel önerisi de sunabilirim.' }, context);
+  assert.equal(output.reply, 'Merhaba! Bugün sakin bir başlangıç için kısa bir yürüyüş veya dinlenme etkinliği yapmayı öneririm. Dilersen bir odak düellosu önerisi de sunabilirim.');
+});
+
+test('duel reply normalization preserves exact user source quotes and original inputs', () => {
+  const source = { ...context, message: { ...context.message, content: 'Focus Duel yapmayı seviyorum; bunu hatırla.' } };
+  const candidate = { content: 'Focus Duel yapmayı seviyorum', type: 'preference', sourceMessageId: 'm1', sourceQuote: 'Focus Duel yapmayı seviyorum', sensitivity: 'ordinary' };
+  const raw = { ...good, reply: 'Focus Duel tercihini anladım; hafıza önerisi için onayın gerekiyor.', memoryCandidates: [candidate] };
+  const sourceBefore = structuredClone(source), rawBefore = structuredClone(raw);
+  const output = validateAgentOutput(raw, source);
+  assert.equal(output.reply, 'odak düellosu tercihini anladım; hafıza önerisi için onayın gerekiyor.');
+  assert.deepEqual(output.memoryCandidates, [candidate]);
+  assert.deepEqual(source, sourceBefore);
+  assert.deepEqual(raw, rawBefore);
+});
+
+test('duel terminology normalization does not bypass unsupported numeric claim validation', () => {
+  assert.throws(() => validateAgentOutput({ ...good, reply: 'Focus Duel ile 90 soru çözdüm.' }, context),
+    error => error instanceof AgentValidationError && error.codes.includes('unsupported_number'));
+});
+
+test('reply length validation still applies after terminology expansion', () => {
+  const reply = `${'x'.repeat(1588)} Focus Duel`;
+  assert.equal(reply.length, 1599);
+  assert.throws(() => validateAgentOutput({ ...good, reply }, context),
+    error => error instanceof AgentValidationError && error.codes.includes('invalid_schema'));
 });

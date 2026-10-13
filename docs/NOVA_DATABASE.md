@@ -33,6 +33,7 @@ on conflict(owner_id) do nothing;
 | --- | --- | --- |
 | `nova_access` | yok | boolean |
 | `nova_state` | yok | profile, settings, relationship, son 14 days, son 200 events, son 100 messages/jobs/memories, devices, forgotten_source_ids |
+| `nova_chat_state` | yok | server_now, son 100 messages/jobs, etkin cihazlar önce olmak üzere son 25 devices; salt okunur |
 | `nova_enqueue` | `p_request_id uuid, p_content text` | message_id, job_id, replayed |
 | `nova_messages_page` | `p_before_seq bigint = null` | eski→yeni sıralı en fazla 50 mesaj |
 | `nova_message_source` | `p_message_id uuid` | sahibi olunan mesaj veya null |
@@ -46,6 +47,20 @@ on conflict(owner_id) do nothing;
 Ayar anahtarları: `timezone`, `quiet_start`, `quiet_end`, `proactive_enabled`, `proactive_daily_limit`, `duel_weekly_limit`, `memory_enabled`, `notifications_enabled`, `weekly_adaptation_limit`. Proaktif mesaj varsayılan kapalıdır. Açıldığında günlük sınır 2 (en fazla 4), sessiz saat 23–08 ve haftalık proaktif düello sınırı 3 (en fazla 5) olur. `quiet_start == quiet_end` sessiz saatleri kaldırır. Bildirim tercihi ile uygulama içi proaktif mesaj tercihi ayrı sütunlardır; bu migration push servisi kurmaz.
 
 Başlangıç saat dilimi uygulamanın mevcut kullanıcı ayarından `nova_engine_initialize` aracılığıyla alınır ve IANA adı doğrulanır. İlk resmî gün oluştuktan sonra farklı saat dilimine geçiş `NOVA_TIMEZONE_LOCKED` ile reddedilir; böylece gün kimliği/seed sınırları değişmez. Aynı dilimin tekrar kaydı serbesttir.
+
+## Yeni sohbet sorgusunun yayın durumu
+
+`supabase/migrations/20261013180118_nova_chat_state.sql` yalnızca yerelde hazırlanmıştır; üretime uygulanması beklemektedir. Bu RPC'ye bağlı uygulama sürümünden önce migration ayrıca uygulanıp doğrulanmalıdır. Bu çalışma üretim migration'ı, kullanıcı erişimi veya cihaz ayarı değiştirmez.
+
+`nova_chat_state()` aynı onaylı tarayıcı hesabı ve etkin Nova iznini kontrol eder. Public sarmalayıcı `SECURITY INVOKER`, private uygulama `SECURITY DEFINER` ve ikisi de boş `search_path` ile `STABLE` tanımlıdır. `anon`, `PUBLIC` ve `service_role` çağrı izni almaz. Kaynak tabloların mevcut RLS ve yazma yasakları değişmez.
+
+Yanıt yalnızca `server_now`, `messages`, `jobs`, `devices` içerir. Mesajlar son 100 kayıttan eski→yeni sırada gelir; `result` yalnızca `proposedAction.type`/`durationMinutes` içerir. İşler son 100 kayıtla sınırlıdır: kimlik, kaynak mesaj, tür, durum, deneme sayısı, hata, oluşturma/başlama/tamamlama/sonraki deneme zamanları ve sunucuda doğrulanmış `generation_metrics`. Claim token'ı, lease, ham istek, model bağlamı, hafıza adayları ve cihaz sırları dönmez. Cihazlar etkinler önce olacak şekilde son 25 kayıtla sınırlıdır; yalnızca görüntüleme ve son bağlantı alanları döner.
+
+Bu sorgu profil/gün/olay/yarış verisi okumaz veya oluşturmaz, simülasyon çalıştırmaz, iş claim etmez, heartbeat yazmaz. Profil henüz yoksa boş diziler döner. Yerel PGlite testi salt okunur transaction içinde çağrıyı, sahip izolasyonunu, izinsiz/iptal edilmiş/OAuth oturumlarını ve hassas alanların çıkmamasını doğrular. Demo migration yükleyicisi tüm `.sql` dosyalarını sıralı okuduğundan ayrıca dosya listesi güncellemesi gerekmez. Geri alma, uygulamanın önceki sorguya dönmesiyle yapılabilir; eklenen fonksiyonları hemen silmek veya mevcut verileri değiştirmek gerekmez.
+
+```powershell
+pnpm exec tsx --test supabase/tests/nova-chat-state.test.ts supabase/tests/nova-security-queue.test.ts
+```
 
 ## Sunucu RPC'leri
 

@@ -7,7 +7,7 @@ import { CredentialStore, defaultCredentialPath, windowsDpapi } from './credenti
 import { BridgeError, HttpBridgeApi, NovaBridgeWorker, appOrigin, postBridge, wait } from './worker';
 import { evaluateModel } from './evaluate';
 
-const configSchema = z.object({ model: z.string().min(1), ollamaUrl: z.string().url(), timeoutMs: z.coerce.number().int().min(100).max(120000) });
+const configSchema = z.object({ model: z.string().min(1), ollamaUrl: z.string().url(), timeoutMs: z.coerce.number().int().min(100).max(120000), keepAlive:z.string(),pollMs:z.coerce.number().int().min(5000).max(60000) });
 const messages: Record<string, string> = {
   ready: 'Nova Bridge hazır; iş bekleniyor.', model_missing: 'Yerel model bulunamadı. Mesajlar kuyrukta korunuyor.',
   completed: 'Yanıt güvenli biçimde teslim edildi.', retry: 'Bağlantı veya işlem hatası; kontrollü yeniden deneme yapılacak.',
@@ -18,7 +18,7 @@ const messages: Record<string, string> = {
 };
 function flags(args: string[]) {
   const values: Record<string, string> = {};
-  const allowed = new Set(['app', 'name', 'model', 'ollama', 'timeout', 'output', 'fake']);
+  const allowed = new Set(['app', 'name', 'model', 'ollama', 'timeout', 'output', 'fake','keep-alive','poll-ms']);
   for (let i = 0; i < args.length; i++) {
     const name = args[i].slice(2);
     if (!args[i].startsWith('--') || !allowed.has(name)) throw new Error('ARGUMENT_INVALID');
@@ -32,16 +32,18 @@ async function main() {
   if (Number(process.versions.node.split('.')[0]) < 24) throw new Error('NODE_24_REQUIRED');
   const [command, ...args] = process.argv.slice(2);
   const options = flags(args);
-  const config = configSchema.parse({ model: options.model ?? process.env.NOVA_OLLAMA_MODEL ?? 'qwen3:8b', ollamaUrl: options.ollama ?? process.env.NOVA_OLLAMA_URL ?? 'http://127.0.0.1:11434', timeoutMs: options.timeout ?? process.env.NOVA_MODEL_TIMEOUT_MS ?? 90000 });
-  const adapter = new OllamaModelAdapter({ model: config.model, baseUrl: config.ollamaUrl, timeoutMs: config.timeoutMs });
+  const config = configSchema.parse({ model: options.model ?? process.env.NOVA_OLLAMA_MODEL ?? 'qwen3:8b', ollamaUrl: options.ollama ?? process.env.NOVA_OLLAMA_URL ?? 'http://127.0.0.1:11434', timeoutMs: options.timeout ?? process.env.NOVA_MODEL_TIMEOUT_MS ?? 90000,keepAlive:options['keep-alive']??process.env.NOVA_OLLAMA_KEEP_ALIVE??'15m',pollMs:options['poll-ms']??process.env.NOVA_POLL_MS??10000 });
+  const adapter = new OllamaModelAdapter({ model: config.model, baseUrl: config.ollamaUrl, timeoutMs: config.timeoutMs,keepAlive:config.keepAlive });
   const controller = new AbortController();
   const stop = () => controller.abort(new Error('SHUTDOWN'));
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try {
     if (command === 'doctor') {
-      const available = await adapter.available(controller.signal);
-      console.log(JSON.stringify({ node: process.versions.node, windows: process.platform === 'win32', model: config.model, yerelModelHazır: available, adres: config.ollamaUrl, çıkarımTesti: 'Çalıştırılmadı; bu kontrol model listesini okur.' }, null, 2));
-      if (!available) process.exitCode = 1;
+      const health = await adapter.inspect(controller.signal);
+      console.log(JSON.stringify({ node: process.versions.node, windows: process.platform === 'win32', model: config.model, yerelModelHazır: health.available,kuruluYerelModeller:health.models,
+        durum:health.reason==='ready'?'Seçili model hazır.':health.reason==='model_missing'?'Ollama açık, ancak yapılandırılan model bulunamadı. Model adını açıkça seçin; otomatik model değişimi yapılmadı.':'Ollama yerel bağlantısına ulaşılamıyor.',
+        adres: config.ollamaUrl,sıcakTutma:config.keepAlive,kuyrukKontrolMs:config.pollMs, çıkarımTesti: 'Çalıştırılmadı; bu kontrol model listesini okur.' }, null, 2));
+      if (!health.available) process.exitCode = 1;
       return;
     }
     if (command === 'eval') {
@@ -71,10 +73,10 @@ async function main() {
     }
     if (command === 'start') {
       const credentials = await new CredentialStore(defaultCredentialPath(), windowsDpapi()).load();
-      const worker = new NovaBridgeWorker(new HttpBridgeApi(credentials), adapter, { modelName: config.model, onStatus: status => console.log(messages[status]) });
+      const worker = new NovaBridgeWorker(new HttpBridgeApi(credentials), adapter, { modelName: config.model,pollMs:config.pollMs, onStatus: status => console.log(messages[status]),onMetrics:metrics=>console.log(JSON.stringify({olcum:metrics})) });
       await worker.run(controller.signal); return;
     }
-    console.log('Kullanım: pnpm exec tsx scripts/nova-bridge/cli.ts pair --app https://uygulama-adresi\nKomutlar: pair, start, doctor, eval\nModel seçenekleri: --model qwen3:8b --ollama http://127.0.0.1:11434 --timeout 90000\nDeğerlendirme: eval [--fake] [--output rapor.json]');
+    console.log('Kullanım: pnpm exec tsx scripts/nova-bridge/cli.ts pair --app https://uygulama-adresi\nKomutlar: pair, start, doctor, eval\nModel seçenekleri: --model qwen3:8b --ollama http://127.0.0.1:11434 --timeout 90000 --keep-alive 15m --poll-ms 10000\nDeğerlendirme: eval [--fake] [--output rapor.json]');
   } finally { process.removeListener('SIGINT', stop); process.removeListener('SIGTERM', stop); }
 }
 void main().catch(error => {

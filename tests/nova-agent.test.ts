@@ -199,7 +199,7 @@ test('maximum fact IDs reserve enough prompt space for every validator repair in
 });
 
 test('the observed English duel term is normalized only in Nova reply text', () => {
-  const output = validateAgentOutput({ ...good, reply: 'Merhaba! Bugün sakin bir başlangıç için kısa bir yürüyüş veya dinlenme etkinliği yapmayı öneririm. Dilersen bir Focus Duel önerisi de sunabilirim.' }, context);
+  const output = validateAgentOutput({ ...good, reply: 'Merhaba! Bugün sakin bir başlangıç için kısa bir yürüyüş veya dinlenme etkinliği yapmayı öneririm. Dilersen bir Focus Duel önerisi de sunabilirim.' }, { ...context, message: { ...context.message, content: 'Odak düellosu teklif eder misin?' } });
   assert.equal(output.reply, 'Merhaba! Bugün sakin bir başlangıç için kısa bir yürüyüş veya dinlenme etkinliği yapmayı öneririm. Dilersen bir odak düellosu önerisi de sunabilirim.');
 });
 
@@ -225,4 +225,130 @@ test('reply length validation still applies after terminology expansion', () => 
   assert.equal(reply.length, 1599);
   assert.throws(() => validateAgentOutput({ ...good, reply }, context),
     error => error instanceof AgentValidationError && error.codes.includes('invalid_schema'));
+});
+
+test('recent conversation reaches the model as ordered turns without forgotten text or duplicate last message', async () => {
+  const chat: AgentContext = { ...context, message: { ...context.message, content: 'Peki nereden başlayayım?' },
+    history: [
+      { id: 'forgotten-turn', role: 'user', content: 'Bu eski tercihi sil.', sentAt: context.trustedNow },
+      { id: 'h1', role: 'user', content: 'Üçgen benzerliğini karıştırıyorum.', sentAt: context.trustedNow },
+      { id: 'h2', role: 'assistant', content: 'Şekil çizerek benzer açıları işaretleyebilirsin.', sentAt: context.trustedNow },
+      { ...context.message, role: 'user', content: 'Peki nereden başlayayım?' },
+    ], forgottenSourceIds: ['forgotten-turn'] };
+  let observed: ModelRequest | undefined;
+  const adapter: ModelAdapter = { available: async () => true, generate: async request => {
+    observed = request; return { text: JSON.stringify({ ...good, reply: 'Bir üçgen çizip eşit açıları aynı işaretle göstererek başlayabilirsin.' }), metrics: { durationMs: 1, inputTokens: 1, outputTokens: 1 } };
+  } };
+  await generateAgentReply(adapter, chat);
+  const messages = observed!.messages;
+  assert.deepEqual(messages.slice(-3).map(item => [item.role, item.content]), [
+    ['user', 'Üçgen benzerliğini karıştırıyorum.'],
+    ['assistant', 'Şekil çizerek benzer açıları işaretleyebilirsin.'],
+    ['user', 'Peki nereden başlayayım?'],
+  ]);
+  assert.equal(messages.filter(item => item.content === chat.message.content).length, 1);
+  assert.ok(!JSON.stringify(messages).includes('Bu eski tercihi sil.'));
+});
+
+test('ordinary chat cannot propose a duel, including a text-only unsolicited offer', () => {
+  const schema = agentOutputJsonSchema(context) as { properties: { proposedAction: { type: string }; intent: { enum: string[] } } };
+  assert.equal(schema.properties.proposedAction.type, 'null');
+  assert.ok(!schema.properties.intent.enum.includes('OFFER_FOCUS_DUEL'));
+  const proposal = { ...good, intent: 'OFFER_FOCUS_DUEL', proposedAction: { type: 'OFFER_FOCUS_DUEL', durationMinutes: 25 } };
+  assert.throws(() => validateAgentOutput(proposal, context), error => error instanceof AgentValidationError && error.codes.includes('unsolicited_action'));
+  assert.throws(() => validateAgentOutput({ ...good, reply: 'Dilersen bir odak düellosu teklif edebilirim.' }, context),
+    error => error instanceof AgentValidationError && error.codes.includes('unsolicited_action'));
+});
+
+test('only a current positive duel request without a pending proposal enables an action', () => {
+  const requested: AgentContext = { ...context, message: { ...context.message, content: 'Kısa bir odak düellosu teklif eder misin?' } };
+  const proposal = { ...good, reply: 'Kısa bir odak düellosu önerebilirim; başlamak sana bağlı.', intent: 'OFFER_FOCUS_DUEL', proposedAction: { type: 'OFFER_FOCUS_DUEL', durationMinutes: 25 } };
+  assert.equal(validateAgentOutput(proposal, requested).proposedAction?.durationMinutes, 25);
+  for (const content of ['Düello istemiyorum.', 'Odak düellosu nedir?', 'Düello teklif etme.', 'Düello yapmayalım.']) {
+    assert.throws(() => validateAgentOutput(proposal, { ...requested, message: { ...requested.message, content } }), content);
+  }
+  assert.throws(() => validateAgentOutput(proposal, { ...requested, conversationState: { pendingDuel: true } }));
+  assert.equal(validateAgentOutput({ ...good, reply: 'Bekleyen teklifi karttan yanıtlayabilirsin.' }, { ...requested, conversationState: { pendingDuel: true } }).proposedAction, null);
+});
+
+test('near repetition of a long recent reply is repaired once while a requested repeat remains possible', async () => {
+  const previous = 'Bugün biraz dinlenme ile odaklanmayı dengede tutuyorum. Sakin bir başlangıç bana iyi geliyor.';
+  const chat: AgentContext = { ...context, message: { ...context.message, content: 'Peki başka ne var?' },
+    history: [{ id: 'last-answer', role: 'assistant', content: previous, sentAt: context.trustedNow }] };
+  const repeated = { ...good, reply: `${previous} Sen nasılsın?` };
+  assert.throws(() => validateAgentOutput(repeated, chat), error => error instanceof AgentValidationError && error.codes.includes('repeated_reply'));
+  const repaired = await generateAgentReply(new FakeModelAdapter([JSON.stringify(repeated), JSON.stringify({ ...good, reply: 'Yeni bir konu açalım. Son günlerde aklına takılan bir şey var mı?' })]), chat);
+  assert.equal(repaired.attempts, 2);
+  assert.equal(validateAgentOutput(repeated, { ...chat, message: { ...chat.message, content: 'Son söylediğini tekrar eder misin?' } }).reply, repeated.reply);
+});
+
+test('modest optional break advice is not a fabricated achievement but past numbers still need evidence', () => {
+  for (const reply of ['İstersen 5 dakika mola verebilirsin.', '10 dakika dinlenmeyi deneyebilirsin.', 'Beş dakika ara verebilirsin.']) {
+    assert.equal(validateAgentOutput({ ...good, reply }, context).reply, reply);
+  }
+  for (const reply of ['Bugün 5 dakika çalıştım.', '5 dakika çalıştım; istersen mola verebilirsin.', 'Enerjin 5.', 'İstersen 90 dakika mola verebilirsin.', 'İki saat uyumayı deneyebilirsin.']) {
+    assert.throws(() => validateAgentOutput({ ...good, reply }, context), reply);
+  }
+  const event: AgentContext = { ...context, message: { ...context.message, content: 'Bugün ne yaptın?' }, facts: [{ id: 'math', text: 'Bugün matematik tekrarı yaptım.', kind: 'event' }] };
+  assert.equal(validateAgentOutput({ ...good, reply: 'Bugün matematik tekrarı yaptım.', referencedFactIds: ['math'] }, event).reply, event.facts[0].text);
+  assert.throws(() => validateAgentOutput({ ...good, reply: 'Bugün matematik tekrarı yaptım.' }, context));
+});
+
+test('irrelevant Nova activities do not drown ordinary conversation but day questions retain them', () => {
+  const event = { id: 'math', text: 'Bugün matematik tekrarı yaptım.', kind: 'event' as const };
+  const chat: AgentContext = { ...context, facts: [...context.facts, event],
+    currentEvent: { id: 'exam', label: 'Deneme', status: 'planned' } };
+  for (const content of ['Nasılsın?', 'Sadece sohbet edelim.', 'Üçgenlerde şekil çizmek neden önemli?', 'Çok yoruldum, nasıl dinlenebilirim?']) {
+    const selected = selectAgentContext({ ...chat, message: { ...chat.message, content } });
+    assert.deepEqual(selected.facts, context.facts, content);
+    assert.equal(selected.currentEvent, null);
+  }
+  for (const content of ['Bugün ne yaptın?', 'Günün nasıl geçti?', 'Deneme sınavın nasıl geçti?', 'Kaç soru çözdün?']) {
+    const selected = selectAgentContext({ ...chat, message: { ...chat.message, content } });
+    assert.ok(selected.facts.some(fact => fact.id === event.id), content);
+    assert.equal(selected.currentEvent?.id, 'exam');
+  }
+  const followup = selectAgentContext({ ...chat, message: { ...chat.message, content: 'Peki sonra?' },
+    history: [{ id: 'previous-question', role: 'user', content: 'Bugün ne yaptın?', sentAt: context.trustedNow }] });
+  assert.ok(followup.facts.some(fact => fact.id === event.id));
+});
+
+test('asking about the user or suggesting a future break is not an asserted completed event', () => {
+  for (const reply of ['Bugün sen ne yaptın?', 'Çalıştıktan sonra ara verebilirsin.', 'İyiyim, sen nasılsın?']) {
+    assert.equal(validateAgentOutput({ ...good, reply }, context).reply, reply);
+  }
+  for (const reply of ['Bugün matematik çalıştığını hatırlıyorum.', 'Matematik çalıştın ve mola verdin.', 'Biraz ara verdim.']) {
+    assert.throws(() => validateAgentOutput({ ...good, reply }, context), reply);
+  }
+});
+
+test('agent telemetry preserves first token and separates repair cost without double counting', async () => {
+  let attempts = 0;
+  const adapter: ModelAdapter = { available: async () => true, generate: async () => {
+    attempts++;
+    return { text: attempts === 1 ? 'broken' : JSON.stringify(good), metrics: {
+      durationMs: 100, inputTokens: 20, outputTokens: 10, provider: 'ollama', model: 'test-local',
+      firstTokenMs: attempts * 10, loadMs: 5, promptEvalMs: 20, decodeMs: 70, totalModelMs: 95, contextChars: 1000,
+    } };
+  } };
+  const reply = await generateAgentReply(adapter, context);
+  assert.equal(reply.metrics.firstTokenMs, 10);
+  assert.equal(reply.metrics.durationMs, 200);
+  assert.equal(reply.metrics.repairMs, 100);
+  assert.equal(reply.metrics.totalModelMs, 190);
+  assert.equal(reply.metrics.contextChars, 2000);
+  assert.equal(reply.metrics.generationAttempts, 2);
+});
+
+test('an explicitly requested duel may state only its own proposed duration without claiming a result', () => {
+  const requested: AgentContext = { ...context, message: { ...context.message, content: 'Kısa bir odak düellosu teklif eder misin?' } };
+  const proposal = { ...good, intent: 'OFFER_FOCUS_DUEL', proposedAction: { type: 'OFFER_FOCUS_DUEL', durationMinutes: 15 } };
+  for (const reply of ['Tamam, 15 dakikalık kısa bir odak düellosuna başlamak ister misin?', 'Tabii ki, kısa ve verimli bir odak düellosu için 15 dakikalık bir süre öneriyorum.', 'İstersen 15 dakikalık bir odak düellosu yapabiliriz.']) {
+    assert.equal(validateAgentOutput({ ...proposal, reply }, requested).reply, reply);
+    assert.throws(() => validateAgentOutput({ ...proposal, reply }, context));
+    assert.throws(() => validateAgentOutput({ ...proposal, reply }, { ...requested, conversationState: { pendingDuel: true } }));
+  }
+  for (const reply of ['30 dakikalık bir odak düellosu öneriyorum.', '15 dakika çalıştım ve odak düellosu öneriyorum.', 'Odak düellosu ile puanın 15.', '15 dakikalık bir odak düellosu yapabiliriz; bugün 15 soru çözdüm.']) {
+    assert.throws(() => validateAgentOutput({ ...proposal, reply }, requested), reply);
+  }
 });

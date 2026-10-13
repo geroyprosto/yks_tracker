@@ -98,6 +98,7 @@ export function agentOutputJsonSchema(context: AgentContext): Record<string, unk
   const memoryAllowed = mayProposeMemory(context, selected);
   const memory = agentOutputSchema.shape.memoryCandidates.element.extend({ sourceMessageId: z.literal(selected.message.id) });
   return z.toJSONSchema(agentOutputSchema.extend({
+    reply: agentOutputSchema.shape.reply.regex(/^[^0-9]*$/u),
     referencedFactIds: factIds.length ? z.array(z.enum(factIds as [string, ...string[]])).max(16) : agentOutputSchema.shape.referencedFactIds.max(0),
     memoryCandidates: z.array(memory).max(memoryAllowed ? 2 : 0),
   }));

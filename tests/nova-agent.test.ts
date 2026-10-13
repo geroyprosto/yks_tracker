@@ -4,6 +4,31 @@ import { AgentValidationError, agentOutputJsonSchema, buildAgentMessages, genera
 import { FakeModelAdapter, type ModelAdapter, type ModelRequest } from '../src/lib/nova/model';
 import { evaluateModel } from '../scripts/nova-bridge/evaluate';
 
+test('decoder excludes reply digits without restricting action duration, fact IDs or quoted sources', () => {
+  const source: AgentContext = { ...context,
+    message: { ...context.message, content: '25 dakikalık çalışma bloklarını seviyorum; bunu hatırla.' },
+    facts: [{ id: 'energy-60', text: 'Enerji: 60', kind: 'state', numbers: [60] }],
+  };
+  type Schema = { properties: {
+    reply: { pattern?: string };
+    referencedFactIds: { items: { enum: string[] } };
+    memoryCandidates: { items: { properties: { sourceQuote: { pattern?: string }; sourceMessageId: { const: string } } } };
+    proposedAction: { anyOf: Array<{ properties?: { durationMinutes: { type: string; minimum: number; maximum: number } } }> };
+  } };
+  const schema = agentOutputJsonSchema(source) as unknown as Schema;
+  assert.equal(schema.properties.reply.pattern, '^[^0-9]*$');
+  assert.deepEqual(schema.properties.referencedFactIds.items.enum, ['energy-60']);
+  assert.equal(schema.properties.memoryCandidates.items.properties.sourceQuote.pattern, undefined);
+  assert.equal(schema.properties.memoryCandidates.items.properties.sourceMessageId.const, 'm1');
+  assert.deepEqual(schema.properties.proposedAction.anyOf[0].properties?.durationMinutes, { type: 'integer', minimum: 5, maximum: 60 });
+  const candidate = { content: '25 dakikalık çalışma bloklarını seviyorum', type: 'preference', sourceMessageId: 'm1', sourceQuote: source.message.content, sensitivity: 'ordinary' };
+  const output = validateAgentOutput({ ...good, intent: 'OFFER_FOCUS_DUEL', memoryCandidates: [candidate], proposedAction: { type: 'OFFER_FOCUS_DUEL', durationMinutes: 25 } }, source);
+  assert.equal(output.proposedAction?.durationMinutes, 25);
+  assert.equal(output.memoryCandidates[0].sourceQuote, source.message.content);
+  // Only generation is narrowed; the independent trusted-fact validation contract is unchanged.
+  assert.equal(validateAgentOutput({ ...good, reply: 'Enerji: 60', referencedFactIds: ['energy-60'] }, source).reply, 'Enerji: 60');
+});
+
 export const context: AgentContext = {
   schemaVersion: 1, trustedNow: '2026-10-13T12:00:00Z', generatedAt: '2026-10-13T12:00:00Z',
   message: { id: 'm1', content: 'Merhaba', sentAt: '2026-10-13T11:58:00Z' },

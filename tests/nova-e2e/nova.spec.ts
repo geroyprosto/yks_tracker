@@ -8,6 +8,8 @@ const origin='http://127.0.0.1:3400';const headers={Origin:origin};
 test('login, durable offline queue, scoped fake Bridge, single reply, reload and mobile',async({page,context})=>{
  const login=await context.request.post('/api/demo',{headers,data:{account_id:DEMO_STUDENT_IDS[0]}});await expect(login).toBeOK();
  await page.goto('/nova');await expect(page.getByRole('heading',{name:'Nova',exact:true})).toBeVisible();
+ await expect(page.getByRole('button',{name:'Sohbet',exact:true})).toHaveAttribute('aria-pressed','true');
+ await page.getByRole('button',{name:'Nova Bugün',exact:true}).click();
  await expect(page.getByRole('heading',{name:'Günün akışı'})).toBeVisible();
  await page.screenshot({path:'tmp/nova-today-desktop.png',fullPage:true});
  const challenge=randomBytes(32).toString('hex');
@@ -26,11 +28,23 @@ test('login, durable offline queue, scoped fake Bridge, single reply, reload and
  const generated=await generateAgentReply(new FakeModelAdapter(),agentContext);
  const result=await bridge('complete',{job_id:job.id,claim_token:job.claim_token,result:generated.result,metrics:generated.metrics});await expect(result).toBeOK();
  const duplicate=await bridge('complete',{job_id:job.id,claim_token:job.claim_token,result:generated.result});await expect(duplicate).toBeOK();
- await page.getByRole('button',{name:'Nova durumunu yenile'}).click();await expect(page.getByText(generated.result.reply,{exact:true})).toHaveCount(1);
+ // A persisted response appears through the lightweight pending poll without a manual refresh.
+ await expect(page.getByText(generated.result.reply,{exact:true})).toHaveCount(1,{timeout:6000});
+ await expect(page.getByText('Test bağdaştırıcısı bağlı',{exact:true})).toBeVisible();
+ await page.screenshot({path:'tmp/nova-chat-desktop.png',fullPage:true});
  await page.reload();await page.getByRole('button',{name:'Sohbet',exact:true}).click();await expect(page.getByText(generated.result.reply,{exact:true})).toHaveCount(1);
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
  await page.getByRole('button',{name:'Yarış',exact:true}).click();await expect(page.getByRole('heading',{name:'Bugünün adil yarışı'})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
  await page.screenshot({path:'tmp/nova-mobile.png',fullPage:true});
+ for(const width of [320,768,1440]){
+  await page.setViewportSize({width,height:width===320?568:817});
+  await page.getByRole('button',{name:'Sohbet',exact:true}).click();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+1)).toBe(true);
+  await expect(page.getByRole('textbox',{name:'Nova’ya mesajın'})).toBeVisible();
+  const composerBox=await page.getByRole('textbox',{name:'Nova’ya mesajın'}).boundingBox();
+  expect(composerBox).not.toBeNull();
+  expect(composerBox!.y+composerBox!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+ }
  const memoryText='Sabah kısa çalışma bloklarını seviyorum.';
  const sent=await context.request.post('/api/nova',{headers,data:{operation:'message',requestId:randomUUID(),content:`Bunu hatırla: ${memoryText}`}});await expect(sent).toBeOK();const source=await sent.json();
  const memoryReply={reply:'Bu tercihini hafızaya eklemek için onayını bekleyeceğim.',intent:'NONE',expressedEmotion:'CALM',referencedFactIds:[],memoryCandidates:[{content:memoryText,type:'preference',sourceMessageId:source.message_id,sourceQuote:memoryText,sensitivity:'ordinary'}],proposedAction:null};
@@ -47,6 +61,7 @@ test('login, durable offline queue, scoped fake Bridge, single reply, reload and
 test('ungranted account and forged browser/device operations fail',async({context})=>{
  await context.request.post('/api/demo',{headers,data:{account_id:DEMO_STUDENT_IDS[1]}});
  expect((await context.request.get('/api/nova')).status()).toBe(403);
+ expect((await context.request.get('/api/nova/chat')).status()).toBe(403);
  expect((await context.request.post('/api/nova',{headers,data:{operation:'message',requestId:randomUUID(),content:'Yetkisiz'}})).status()).toBe(403);
  expect((await context.request.post('/api/nova/bridge',{data:{operation:'claim',payload:{}}})).status()).toBe(401);
  expect((await context.request.post('/api/nova/bridge',{data:{operation:'bind_context',payload:{}}})).status()).toBe(400);

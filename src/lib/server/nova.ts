@@ -10,8 +10,10 @@ import {DEMO_STUDENT_IDS} from '../classroom/demo-seed';
 import {adaptWeekly,boundedCalibrationStudyMinutes,buildBaseline,createDay,DEFAULT_PERSONALITY,ENGINE_VERSION,getProactiveOpportunity,localDateAt,projectDay,userMetrics} from '../nova/core';
 import {catchupDates,comparisonScores,deviceAuthorization,nextDate,sha256} from '../nova/presentation';
 import {agentContextSchema,selectAgentContext,validateAgentOutput,type AgentContext} from '../nova/agent';
+import {conversationEventFacts} from '../nova/conversation-facts';
+import {novaMetricsSchema} from '../nova/telemetry';
 import type {NovaBaseline,NovaDay,NovaPersonality,NovaProactiveHistory,NovaState} from '../nova/types';
-import type {NovaDevice,NovaJob,NovaMemory,NovaMessage,NovaSettings,NovaWebState} from '../nova/web-types';
+import type {NovaChatState,NovaDevice,NovaJob,NovaMemory,NovaMessage,NovaSettings,NovaWebState} from '../nova/web-types';
 import type {AppState} from '../domain/types';
 
 type RowMessage=Omit<NovaMessage,'sender'|'duel_decision'>&{sender:'USER'|'NOVA';sequence:number;action_status:string|null};
@@ -24,7 +26,7 @@ type BrowserContext={rpc:Rpc;userId:string;client:SupabaseClient;demo:boolean};
 export function novaEnabled(){return process.env.NOVA_ENABLED==='true';}
 function requireEnabled(){if(!novaEnabled())throw new ApiError(503,'NOVA_DISABLED','Nova henüz etkin değil. Kurulum ve erişim izni tamamlanmalı.');}
 function novaDemo(){return demoEnabled()&&process.env.NOVA_DEMO_ENABLED==='true';}
-const browserFunctions=new Set(['nova_access','nova_state','nova_enqueue','nova_settings_update','nova_memory_update','nova_job_retry','nova_duel_decide','nova_pair_approve','nova_device_revoke','nova_messages_page','nova_message_source']);
+const browserFunctions=new Set(['nova_access','nova_state','nova_chat_state','nova_enqueue','nova_settings_update','nova_memory_update','nova_job_retry','nova_duel_decide','nova_pair_approve','nova_device_revoke','nova_messages_page','nova_message_source']);
 const serverFunctions=new Set(['nova_engine_initialize','nova_engine_day','nova_engine_state','nova_engine_race','nova_pair_begin','nova_pair_exchange','nova_device_call','nova_proactive_enqueue']);
 function storageError(error:{message:string;code?:string}):never{
  const code=error.message;
@@ -112,11 +114,21 @@ async function synchronize(context:BrowserContext){
  return {raw,state,now,current,race,localToday};
 }
 function webMessage(m:RowMessage):NovaMessage{return {...m,sender:m.sender==='USER'?'user':'nova',duel_decision:m.action_status==='ACCEPTED'?'accepted':m.action_status==='REJECTED'?'rejected':null};}
+function webJob(job:NovaJob):NovaJob{
+ const {id,status,kind,source_message_id,attempt_count,error,created_at,started_at,completed_at}=job;
+ const metrics=novaMetricsSchema.safeParse(job.generation_metrics);
+ return {id,status,kind,source_message_id,attempt_count,error,created_at,started_at,completed_at,generation_metrics:metrics.success?metrics.data:null};
+}
+export async function novaChatState():Promise<NovaChatState>{
+ const context=await browserContext();
+ const raw=await context.rpc<{server_now:string;messages:RowMessage[];jobs:NovaJob[];devices:NovaDevice[]}>('nova_chat_state');
+ return {serverNow:raw.server_now,messages:raw.messages.map(webMessage),jobs:raw.jobs.map(webJob),devices:raw.devices};
+}
 export async function novaState():Promise<NovaWebState>{
  const context=await browserContext();const {raw,now,current,race,localToday}=await synchronize(context);
  return {serverNow:now,demo:context.demo,profile:raw.profile!,today:current?projectDay(current.day_snapshot,now):null,dayInfo:current?{seed:current.day_snapshot.seed,engineVersion:current.day_snapshot.engineVersion,localDate:current.local_date,startState:current.day_snapshot.startState}:null,race,
   weekly:raw.days.slice(-7).map(d=>({localDate:d.local_date,userScore:d.finalized?d.user_score?.total??null:d.local_date===localToday?race?.user.total??null:null,novaScore:d.finalized?d.nova_score?.total??null:d.local_date===localToday?race?.nova.total??null:null,finalized:d.finalized})),
-  messages:raw.messages.map(webMessage),jobs:raw.jobs.map(({id,status,kind,source_message_id,attempt_count,error,created_at,completed_at})=>({id,status,kind,source_message_id,attempt_count,error,created_at,completed_at})),memories:raw.memories,devices:raw.devices,settings:raw.settings,relationship:raw.relationship,catchupRemaining:!current,proactiveCount:raw.jobs.filter(j=>j.kind==='PROACTIVE'&&localDateAt(j.created_at,raw.settings.timezone)===localToday&&j.status!=='CANCELLED').length};
+  messages:raw.messages.map(webMessage),jobs:raw.jobs.map(webJob),memories:raw.memories,devices:raw.devices,settings:raw.settings,relationship:raw.relationship,catchupRemaining:!current,proactiveCount:raw.jobs.filter(j=>j.kind==='PROACTIVE'&&localDateAt(j.created_at,raw.settings.timezone)===localToday&&j.status!=='CANCELLED').length};
 }
 const uuid=z.string().uuid();
 const settingsSchema=z.object({timezone:z.string().refine(v=>{try{new Intl.DateTimeFormat('tr',{timeZone:v});return true;}catch{return false;}}).optional(),quiet_start:z.number().int().min(0).max(23).optional(),quiet_end:z.number().int().min(0).max(23).optional(),proactive_enabled:z.boolean().optional(),proactive_daily_limit:z.number().int().min(0).max(4).optional(),duel_weekly_limit:z.number().int().min(0).max(5).optional(),memory_enabled:z.boolean().optional(),notifications_enabled:z.literal(false).optional(),weekly_adaptation_limit:z.number().min(0).max(.05).optional()}).strict();
@@ -149,13 +161,14 @@ function makeAgentContext(raw:DeviceContext):AgentContext{
  const projection=day?projectDay(day.day_snapshot,now):null;
  const facts:AgentContext['facts']=[{id:'profile:nova',text:'Nova yapay zekâ destekli bir dijital çalışma arkadaşıdır. Yaşamı ve çalışmaları simülasyondur.',kind:'profile'}];
  if(projection){facts.push({id:`state:${day!.local_date}`,text:`Nova'nın mevcut modu: ${projection.mood}.`,kind:'state'});
-  for(const event of projection.timeline.filter(e=>e.status==='completed').slice(-12))facts.push({id:event.id,text:`${event.label} etkinliği tamamlandı.`,kind:'event'});
+  facts.push(...conversationEventFacts(projection,raw.source_message?.content??''));
  }
  const source=raw.source_message;
  const race=raw.profile?.race_snapshot?.localDate===localDateAt(now,zone)?raw.profile.race_snapshot:null;
  if(race)facts.push({id:'race:last',kind:'score',text:race.leader==='user'?'Son kayıtlı yarış karşılaştırmasında kullanıcı önde.':race.leader==='nova'?'Son kayıtlı yarış karşılaştırmasında Nova önde.':race.leader==='tie'?'Son kayıtlı yarış karşılaştırmasında puanlar eşit.':'Yarış için yeterli kayıt yok.'});
  const relationship=Object.fromEntries(Object.entries(raw.relationship??{}).filter(([key,value])=>['familiarity','warmth','rivalry'].includes(key)&&typeof value==='number'));
  return selectAgentContext(agentContextSchema.parse({schemaVersion:1,trustedNow:now,generatedAt:now,message:{id:source?.id??raw.job.id,content:source?.content??`Kayıtlı proaktif tetikleyici: ${raw.job.context_hint?.trigger??'kontrol'}. Kısa, baskı kurmayan bir yoklama öner.`,sentAt:source?.created_at??raw.job.created_at},facts,personality:raw.profile?.personality??DEFAULT_PERSONALITY,currentState:projection?{...projection.state,...relationship,mood:projection.mood,...(race?{raceObservedAt:race.observedAt}:{})}:{...relationship},currentEvent:projection?.currentEvent?{id:projection.currentEvent.id,label:projection.currentEvent.label,status:projection.currentEvent.status}:null,score:race?{user:race.user,nova:race.nova}:null,
+  conversationState:{pendingDuel:raw.messages.some(m=>m.sender==='NOVA'&&m.action_status==='PENDING')},
   history:raw.messages.filter(m=>m.id!==source?.id).map(m=>({id:m.id,role:m.sender==='USER'?'user':'assistant',content:m.content,sentAt:m.created_at})),memories:raw.settings.memory_enabled?raw.memories.filter(m=>m.status==='active').map(m=>({id:m.id,content:m.content,sourceMessageId:m.source_message_id,pinned:m.pinned,tags:m.tags,importance:m.importance,updatedAt:m.updated_at})):[],forgottenSourceIds:raw.forgotten_source_ids??[]}));
 }
 const bridgeInput=z.discriminatedUnion('operation',[
@@ -189,7 +202,7 @@ export async function novaBridge(request:Request,input:unknown){
   return {context};
  }
  if(value.operation==='complete'){
-  const payload=z.object({job_id:uuid,claim_token:uuid,result:z.unknown(),metrics:z.object({durationMs:z.number().min(0).max(3600000),inputTokens:z.number().int().min(0).max(1000000),outputTokens:z.number().int().min(0).max(1000000)}).strict().optional()}).strict().safeParse(value.payload);
+  const payload=z.object({job_id:uuid,claim_token:uuid,result:z.unknown(),metrics:novaMetricsSchema.optional()}).strict().safeParse(value.payload);
   if(!payload.success)throw new ApiError(400,'NOVA_INVALID_INPUT','Yanıt kaydı geçerli değil.');
   const raw=await call<DeviceContext>('context',{job_id:payload.data.job_id,claim_token:payload.data.claim_token});const context=raw.bound_context??raw.job.bound_context;
   if(!context)throw new ApiError(409,'NOVA_CONTEXT_REQUIRED','İşin doğrulanmış bağlamı bulunamadı.');

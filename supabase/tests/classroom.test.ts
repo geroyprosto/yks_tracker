@@ -32,6 +32,9 @@ before(async () => {
   for (const name of (await readdir(migrations)).filter(name => name.endsWith(".sql")).sort()) {
     await db.exec(await readFile(new URL(name, migrations), "utf8"));
   }
+  // Keep exercising the retained classroom workflows for a future re-enable.
+  // Default-paused behavior has its own classroom-pause integration suite.
+  await db.exec("create or replace function private.classroom_teacher_features_enabled() returns boolean language sql stable set search_path='' as $$ select true $$");
   for (const id of [OWNER, ...TEACHERS, ...STUDENTS, ...APPLICANTS, UNVERIFIED]) {
     await db.query("insert into auth.users(id,email,email_confirmed_at,raw_user_meta_data) values($1,$2,$3,'{\"role\":\"admin\"}')",
       [id, `${id}@example.test`, id === UNVERIFIED ? null : new Date().toISOString()]);

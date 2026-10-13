@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { expect, test, type BrowserContext } from '@playwright/test';
 import { DEMO_STUDENT_IDS, DEMO_TEACHER_IDS } from '../../src/lib/classroom/demo-seed';
 import type { ClassroomState } from '../../src/lib/classroom/types';
+import { teacherFeaturesEnabled } from '../../src/lib/classroom/availability';
+
+test.skip(!teacherFeaturesEnabled, 'Teacher membership controls and study alerts are temporarily paused.');
 
 const origin = 'http://127.0.0.1:3200';
 const headers = { Origin: origin };

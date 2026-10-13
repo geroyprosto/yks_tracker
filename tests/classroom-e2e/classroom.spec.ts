@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { CLASSROOM_DEMO_ACCOUNTS, DEMO_ADMIN_ID, DEMO_STUDENT_IDS, DEMO_TEACHER_IDS } from '../../src/lib/classroom/demo-seed';
 import type { ClassroomState } from '../../src/lib/classroom/types';
 import type { AppState } from '../../src/lib/domain/types';
+import { teacherFeaturesEnabled } from '../../src/lib/classroom/availability';
 
 const origin = 'http://127.0.0.1:3200';
 const headers = { Origin: origin };
@@ -30,6 +31,7 @@ async function assertNoOverflow(page: Page) {
 }
 
 test('teachers see exactly their own 10/25 students and direct unauthorized requests fail', async ({ browser }) => {
+  test.skip(!teacherFeaturesEnabled, 'Teacher access is temporarily paused.');
   const teacher = await browser.newContext({ baseURL: origin });
   const pending = await browser.newContext({ baseURL: origin });
   try {
@@ -54,6 +56,7 @@ test('teachers see exactly their own 10/25 students and direct unauthorized requ
 });
 
 test('25 student accordion, search, sorting and persistent themes fit phone, tablet and desktop', async ({ page, context }) => {
+  test.skip(!teacherFeaturesEnabled, 'Teacher dashboard is temporarily paused.');
   await login(context, DEMO_TEACHER_IDS[1]);
   await page.goto('/classroom');
   await expect(page.getByText('25 öğrenci', { exact: true })).toBeVisible();
@@ -76,6 +79,7 @@ test('25 student accordion, search, sorting and persistent themes fit phone, tab
 });
 
 test('teacher can expand each student’s TYT and AYT net progress with readable point details', async ({ page, context }) => {
+  test.skip(!teacherFeaturesEnabled, 'Teacher student progress is temporarily paused.');
   await login(context, DEMO_TEACHER_IDS[1]);
   await page.goto('/classroom');
   await openStudent(page, 'Ada Karaca');
@@ -120,6 +124,7 @@ test('teacher can expand each student’s TYT and AYT net progress with readable
 });
 
 test('teacher sees a clear empty AYT progress state when a student has only TYT exams', async ({ page, context }) => {
+  test.skip(!teacherFeaturesEnabled, 'Teacher student progress is temporarily paused.');
   await login(context, DEMO_TEACHER_IDS[0]);
   await page.goto('/classroom');
   await openStudent(page, 'Ecrin Yılmaz');
@@ -132,6 +137,7 @@ test('teacher sees a clear empty AYT progress state when a student has only TYT 
 });
 
 test('live messages, replies and a real timer start persist across student devices', async ({ browser }) => {
+  test.skip(!teacherFeaturesEnabled, 'Teacher messages and alerts are temporarily paused.');
   const teacher = await browser.newContext({ baseURL: origin, viewport: { width: 1440, height: 1000 } });
   const student = await browser.newContext({ baseURL: origin, viewport: { width: 375, height: 812 }, reducedMotion: 'reduce' });
   const teacherPage = await teacher.newPage(); const studentPage = await student.newPage();
@@ -212,6 +218,7 @@ test('live messages, replies and a real timer start persist across student devic
 });
 
 test('invite registration is reviewed by its teacher and revoked links stop working', async ({ browser }) => {
+  test.skip(!teacherFeaturesEnabled, 'Teacher invitations and approvals are temporarily paused.');
   const teacher = await browser.newContext({ baseURL: origin });
   const student = await browser.newContext({ baseURL: origin });
   const admin = await browser.newContext({ baseURL: origin });

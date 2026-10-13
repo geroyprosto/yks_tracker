@@ -126,7 +126,7 @@ export function Dashboard(){
    if(s.settings&&!preferenceDirty.current){setTheme(normalizeTheme(s.settings.theme)??'ocean');setReduced(s.settings.reduced_motion);setSimple(s.settings.simple_view)}
    return s;
  },[]);
- const refresh=useCallback((allowPending=false):Promise<AppState|null>=>{
+ const refresh=useCallback((allowPending=false,onlyVisible=false):Promise<AppState|null>=>{
    const epoch=mutationEpoch.current;
    if(pending.current&&!allowPending)return Promise.resolve(null);
    if(stateRead.current?.epoch===epoch&&stateRead.current.allowPending===allowPending)return stateRead.current.promise;
@@ -136,6 +136,9 @@ export function Dashboard(){
      setReconciling(true);setViewError('');setCanRetryView(false);
      for(let attempt=0;attempt<3;attempt++){
        if(!current())return null;
+       if(onlyVisible&&(!navigator.onLine||document.visibilityState!=='visible')){
+         dirtyRefresh.current=true;setReconciling(false);return null;
+       }
        let retryable=true;
        try{
          const response=await fetch('/api/state',{cache:'no-store'});
@@ -164,7 +167,7 @@ export function Dashboard(){
    void promise.finally(()=>{if(stateRead.current?.promise===promise)stateRead.current=null;});
    return promise;
  },[installState]);
- const reconcileSaved=useCallback((measurement?:SaveMeasurement)=>{
+ const reconcileSaved=useCallback((measurement?:SaveMeasurement,onlyVisible=false)=>{
    cancelQueuedReconciliation();
    const epoch=mutationEpoch.current;
    setReconciling(true);
@@ -174,7 +177,7 @@ export function Dashboard(){
      // so an older queued reconciliation never adopts a newer mutation's state.
      if(pending.current||epoch!==mutationEpoch.current)return;
      const finishRefresh=measurement?.refresh();
-     void refresh().then(latest=>{
+     void refresh(false,onlyVisible).then(latest=>{
        finishRefresh?.(Boolean(latest));publishMetrics();
      });
    };
@@ -189,11 +192,11 @@ export function Dashboard(){
      dirtyRefresh.current=true;
      void read.promise.then(()=>{
        if(pending.current||read.epoch!==mutationEpoch.current||!dirtyRefresh.current)return;
-       dirtyRefresh.current=false;reconcileSaved();
+       dirtyRefresh.current=false;reconcileSaved(undefined,true);
      });
      return;
    }
-   reconcileSaved();
+   reconcileSaved(undefined,true);
  },[reconcileSaved]);
  const realtime=useStudyRealtime({enabled:Boolean(state?.authenticated&&state?.configured),onDirty:requestStateRefresh,onReconnect:requestStateRefresh});
  useEffect(()=>{
@@ -207,11 +210,10 @@ export function Dashboard(){
    setReduced(savedReduced==='true');setSimple(savedSimple==='true'); });
    queueMicrotask(()=>void refresh());
    queueMicrotask(()=>{const query=new URLSearchParams(window.location.search);if(query.get('page')==='friends')setPage('friends');else if(query.get('settings')==='connections'){setSettingsInitialTab('connections');setPage('settings')}});
-   const reconnect=()=>{setOnline(navigator.onLine);if(navigator.onLine&&!pending.current&&reconciliationTimer.current===null)void refresh()};
-   window.addEventListener('online',reconnect);window.addEventListener('offline',reconnect);window.addEventListener('focus',reconnect);
-   const interval=setInterval(()=>{if(navigator.onLine&&!pending.current&&reconciliationTimer.current===null&&document.visibilityState==='visible')void refresh()},30000);
+   const reconnect=()=>setOnline(navigator.onLine);
+   window.addEventListener('online',reconnect);window.addEventListener('offline',reconnect);
    if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js').catch(()=>{});
-   return()=>{window.removeEventListener('online',reconnect);window.removeEventListener('offline',reconnect);window.removeEventListener('focus',reconnect);clearInterval(interval)};
+   return()=>{window.removeEventListener('online',reconnect);window.removeEventListener('offline',reconnect)};
  },[refresh]);
  useEffect(()=>{
    const query=window.matchMedia('(prefers-color-scheme: dark)');

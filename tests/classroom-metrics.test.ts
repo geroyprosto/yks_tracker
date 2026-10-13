@@ -140,6 +140,8 @@ test('isolated demo seed is repeatable, creates exactly 10/25 students and consi
     for (const name of (await readdir(directory)).filter(name => name.endsWith('.sql')).sort()) {
       await db.exec(await readFile(new URL(name, directory), 'utf8'));
     }
+    // This isolated fixture verifies retained teacher metrics, not the paused UI.
+    await db.exec("create or replace function private.classroom_teacher_features_enabled() returns boolean language sql stable set search_path='' as $$ select true $$");
     const date = new Date();
     assert.equal((await seedClassroomDemo(db, date)).seeded, true);
     const liveSeeded=(await db.query<{user_id:string}>('select user_id from public.classroom_presence where expires_at>$1',[date.toISOString()])).rows;

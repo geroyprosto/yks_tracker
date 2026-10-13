@@ -1,9 +1,7 @@
-import {createHash} from 'node:crypto';
-import {Realtime} from '@upstash/realtime';
+import {createHash,randomUUID} from 'node:crypto';
 import {Redis} from '@upstash/redis';
 import type {SupabaseClient} from '@supabase/supabase-js';
 import {after} from 'next/server';
-import {studyRealtimeSchema} from '../realtime-schema';
 
 let cachedRedis:Redis|null=null;
 let cachedCredentials='';
@@ -26,18 +24,27 @@ export function studyRealtimeRedis():Redis|null{
 }
 
 /** Both production origins share this scope; previews and other databases do not. */
-export function studyRealtimeChannel(userId:string):string{
+function studyRealtimeScope(userId:string):string{
   if(!uuid.test(userId))throw new Error('Invalid verified identity');
   const scope=[process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.VERCEL_ENV??'development',userId].join('\n');
-  return 'yksim:study:v1:'+createHash('sha256').update(scope).digest('hex');
+  return createHash('sha256').update(scope).digest('hex');
+}
+
+/** Only retained to recognize and close connections from already-open old tabs. */
+export function studyRealtimeChannel(userId:string):string{
+  return 'yksim:study:v1:'+studyRealtimeScope(userId);
+}
+
+export function studyRealtimeVersionKey(userId:string):string{
+  // Keep version strings separate from the former Redis stream keys.
+  return 'yksim:study:version:v1:'+studyRealtimeScope(userId);
 }
 
 export async function publishStudyDirty(userId:string):Promise<void>{
   const redis=studyRealtimeRedis();
   if(!redis)return;
-  const realtime=new Realtime({redis,schema:studyRealtimeSchema,verbose:false,
-    history:{maxLength:32,expireAfterSecs:60}});
-  await realtime.channel(studyRealtimeChannel(userId)).emit('study.dirty',{});
+  // One expiring opaque value per user; no stream history or PubSub connection.
+  await redis.set(studyRealtimeVersionKey(userId),randomUUID(),{ex:7*24*60*60});
 }
 
 export type StudyDirtyOptions={

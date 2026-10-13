@@ -3,6 +3,7 @@ import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 import { DEMO_ADMIN_ID, DEMO_STUDENT_IDS, DEMO_TEACHER_IDS } from '../../src/lib/classroom/demo-seed';
 import type { ClassroomAccount, ClassroomState } from '../../src/lib/classroom/types';
 import type { AppState } from '../../src/lib/domain/types';
+import { teacherFeaturesEnabled } from '../../src/lib/classroom/availability';
 
 const origin = 'http://127.0.0.1:3200';
 const headers = { Origin: origin };
@@ -34,14 +35,21 @@ async function register(context: BrowserContext, role: 'student' | 'teacher', in
   return account!;
 }
 
-async function approve(reviewer: BrowserContext, context: BrowserContext) {
-  const pending = (await classroom(context)).applications.find(application => application.status === 'pending');
+async function approve(reviewer: BrowserContext, context: BrowserContext, teacherId?: string) {
+  const accountId = (await classroom(context)).account!.id;
+  const pending = (await classroom(reviewer)).applications.find(application => application.user_id === accountId && application.status === 'pending');
   expect(pending).toBeDefined();
-  await expect(await command(reviewer, 'application.review', { id: pending!.id, decision: 'approved' })).toBeOK();
+  await expect(await command(reviewer, 'application.review', { id: pending!.id, decision: 'approved', ...(teacherId ? { teacher_id: teacherId } : {}) })).toBeOK();
   expect((await classroom(context)).account?.status).toBe('approved');
 }
 
-async function inviteStudent(teacher: BrowserContext, student: BrowserContext) {
+async function approveStudentForTeacher(admin: BrowserContext, teacher: BrowserContext, student: BrowserContext) {
+  if (!teacherFeaturesEnabled) {
+    // Account administration remains active while teacher invitations are paused.
+    const account = await register(student, 'student');
+    await approve(admin, student, (await classroom(teacher)).account!.id);
+    return account;
+  }
   const response = await command(teacher, 'invite.create', { expires_in_days: 1 });
   await expect(response).toBeOK();
   const invite = (await response.json()).result as { id: string; token: string };
@@ -87,18 +95,21 @@ test('admin confirmation is keyboard safe, exact, responsive and keeps failed de
   const admin = await browser.newContext({ baseURL: origin });
   const teacher = await browser.newContext({ baseURL: origin });
   const student = await browser.newContext({ baseURL: origin });
+  const otherStudent = await browser.newContext({ baseURL: origin });
   try {
     await login(admin, DEMO_ADMIN_ID);
     await login(teacher, DEMO_TEACHER_IDS[0]);
-    const account = await inviteStudent(teacher, student);
+    const account = await approveStudentForTeacher(admin, teacher, student);
     const marker = `Silinecek çalışma ${randomUUID().slice(0, 8)}`;
     await addStudyRecords(student, marker);
-    const sent = await command(teacher, 'message.send', { student_id: account.id, category: 'praise', body: marker });
-    await expect(sent).toBeOK();
-    const messageId = (await sent.json()).result.id;
-    await expect(await command(student, 'message.reply', { id: messageId, body: `${marker} cevabı` })).toBeOK();
-    const otherStudent = (await classroom(teacher)).students.find(item => item.id === DEMO_STUDENT_IDS[0])!;
-    expect(otherStudent).toBeDefined();
+    if (teacherFeaturesEnabled) {
+      const sent = await command(teacher, 'message.send', { student_id: account.id, category: 'praise', body: marker });
+      await expect(sent).toBeOK();
+      const messageId = (await sent.json()).result.id;
+      await expect(await command(student, 'message.reply', { id: messageId, body: `${marker} cevabı` })).toBeOK();
+    }
+    await login(otherStudent, DEMO_STUDENT_IDS[0]);
+    const otherState = await studyState(otherStudent);
 
     const page = await admin.newPage();
     await page.goto('/classroom');
@@ -160,7 +171,7 @@ test('admin confirmation is keyboard safe, exact, responsive and keeps failed de
     const teacherState = await classroom(teacher);
     expect(teacherState.students.some(item => item.id === account.id)).toBe(false);
     expect(teacherState.messages.some(item => item.student_id === account.id)).toBe(false);
-    expect(teacherState.students.find(item => item.id === otherStudent.id)?.state.sessions.filter(session => session.status === 'finished')).toEqual(otherStudent.state.sessions.filter(session => session.status === 'finished'));
+    expect((await studyState(otherStudent)).sessions.filter(session => session.status === 'finished')).toEqual(otherState.sessions.filter(session => session.status === 'finished'));
     expect((await student.request.get('/api/classroom')).status()).toBe(401);
     expect((await student.request.get('/api/state')).status()).toBe(401);
     expect((await student.request.post('/api/demo', { headers, data: { account_id: account.id } })).ok()).toBe(false);
@@ -170,7 +181,7 @@ test('admin confirmation is keyboard safe, exact, responsive and keeps failed de
     await deletedStudentPage.goto('/classroom');
     await expect(deletedStudentPage).toHaveURL(`${origin}/`);
     await expect(deletedStudentPage.getByRole('heading', { name: 'Yolculuğuna devam et.', exact: true })).toBeVisible();
-  } finally { await admin.close(); await teacher.close(); await student.close(); }
+  } finally { await admin.close(); await teacher.close(); await student.close(); await otherStudent.close(); }
 });
 
 test('only an admin with the exact account confirmation and same origin may delete; admin and self remain protected', async ({ browser }) => {
@@ -186,9 +197,10 @@ test('only an admin with the exact account confirmation and same origin may dele
     const adminAccount = (await classroom(admin)).account!;
     const before = (await classroom(admin)).accounts.map(item => ({ id: item.id, status: item.status })).sort((a, b) => a.id.localeCompare(b.id));
     const payload = { id: account.id, confirmation_email: account.email };
-    expect((await command(teacher, 'account.delete', payload)).status()).toBe(403);
-    expect((await command(student, 'account.delete', payload)).status()).toBe(403);
-    expect((await command(pending, 'account.delete', payload)).status()).toBe(403);
+    const unavailableStatus = teacherFeaturesEnabled ? 403 : 503;
+    expect((await command(teacher, 'account.delete', payload)).status()).toBe(unavailableStatus);
+    expect((await command(student, 'account.delete', payload)).status()).toBe(unavailableStatus);
+    expect((await command(pending, 'account.delete', payload)).status()).toBe(unavailableStatus);
     expect((await command(admin, 'account.delete', { ...payload, confirmation_email: 'wrong@classroom-demo.invalid' })).status()).toBe(400);
     expect((await command(admin, 'account.delete', { id: adminAccount.id, confirmation_email: adminAccount.email })).status()).toBe(403);
     expect((await command(admin, 'account.delete', payload, 'https://attacker.invalid')).status()).toBe(403);
@@ -214,10 +226,10 @@ test('deleting a disposable teacher removes its messages while preserving and de
     await login(admin, DEMO_ADMIN_ID);
     const account = await register(teacher, 'teacher');
     await approve(admin, teacher);
-    const studentAccount = await inviteStudent(teacher, student);
+    const studentAccount = await approveStudentForTeacher(admin, teacher, student);
     const marker = `Korunacak çalışma ${randomUUID().slice(0, 8)}`;
     const before = await addStudyRecords(student, marker);
-    await expect(await command(teacher, 'message.send', { student_id: studentAccount.id, category: 'praise', body: marker })).toBeOK();
+    if (teacherFeaturesEnabled) await expect(await command(teacher, 'message.send', { student_id: studentAccount.id, category: 'praise', body: marker })).toBeOK();
     const page = await admin.newPage();
     await page.goto('/classroom');
     await page.getByRole('button', { name: `${account.name} kişisini sil`, exact: true }).click();

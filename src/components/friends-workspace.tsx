@@ -205,9 +205,16 @@ export function FriendsWorkspace() {
   const [removeError, setRemoveError] = useState('');
   const activeGroup = useRef<string | null>(null);
   const readSequence = useRef(0);
+  const pageController = useRef<AbortController | null>(null);
+  const readController = useRef<AbortController | null>(null);
   const inviteInput = useRef<HTMLInputElement>(null);
 
-  const loadScores = useCallback(async (groupId: string | null, signal?: AbortSignal) => {
+  const loadScores = useCallback(async (groupId: string | null) => {
+    if (!pageController.current || pageController.current.signal.aborted) return false;
+    readController.current?.abort();
+    const controller = new AbortController();
+    readController.current = controller;
+    const { signal } = controller;
     const sequence = ++readSequence.current;
     setLoading(true);
     setError('');
@@ -217,7 +224,7 @@ export function FriendsWorkspace() {
         const query = requestedGroup ? `?group_id=${encodeURIComponent(requestedGroup)}` : '';
         const response = await fetch(`/api/friends${query}`, { cache: 'no-store', signal });
         const body = await responseBody(response);
-        if (signal?.aborted || sequence !== readSequence.current) return false;
+        if (signal.aborted || sequence !== readSequence.current) return false;
         if (!response.ok) {
           if (requestedGroup && errorCode(body) === 'GROUP_NOT_FOUND') {
             setScores(null);
@@ -238,21 +245,21 @@ export function FriendsWorkspace() {
       }
       throw new Error('Arkadaş grubun yüklenemedi.');
     } catch (cause) {
-      if (!signal?.aborted && sequence === readSequence.current) setError(cause instanceof Error ? cause.message : 'Bağlantı kurulamadı.');
+      if (!signal.aborted && sequence === readSequence.current) setError(cause instanceof Error ? cause.message : 'Bağlantı kurulamadı.');
       return false;
     } finally {
-      if (!signal?.aborted && sequence === readSequence.current) setLoading(false);
+      if (!signal.aborted && sequence === readSequence.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     const controller = new AbortController();
+    pageController.current = controller;
     const requested = new URLSearchParams(window.location.search).get('group');
     const initialGroup = requested && /^[0-9a-f-]{36}$/i.test(requested) ? requested : null;
     activeGroup.current = initialGroup;
-    queueMicrotask(() => { if (!controller.signal.aborted) void loadScores(initialGroup, controller.signal); });
-    const interval = window.setInterval(() => { if (document.visibilityState === 'visible') void loadScores(activeGroup.current, controller.signal); }, 60_000);
-    return () => { controller.abort(); window.clearInterval(interval); };
+    queueMicrotask(() => { if (!controller.signal.aborted) void loadScores(initialGroup); });
+    return () => { controller.abort(); readController.current?.abort(); };
   }, [loadScores]);
 
   async function selectGroup(groupId: string) {
@@ -260,27 +267,30 @@ export function FriendsWorkspace() {
     setSwitchingGroup(true);
     const loaded = await loadScores(groupId);
     if (loaded) { setGroupQuery(activeGroup.current); setInvite(null); }
-    setSwitchingGroup(false);
+    if (!pageController.current?.signal.aborted) setSwitchingGroup(false);
   }
 
   async function createInvite() {
     if (inviteBusy || loading || switchingGroup) return;
+    const signal = pageController.current?.signal;
+    if (!signal || signal.aborted) return;
     setInviteBusy(true);
     setInviteError('');
     setShareError('');
     setCopyState('idle');
     try {
       const groupId = scores?.group?.id;
-      const response = await fetch('/api/friends/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groupId ? { group_id: groupId } : {}) });
+      const response = await fetch('/api/friends/invite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(groupId ? { group_id: groupId } : {}), signal });
       const body = await responseBody(response);
+      if (signal.aborted) return;
       if (!response.ok) throw new Error(errorMessage(body, 'Davet bağlantısı oluşturulamadı.'));
       if (!body || typeof body !== 'object' || !('token' in body) || typeof body.token !== 'string' || !('expires_at' in body) || typeof body.expires_at !== 'string' || !('group_id' in body) || typeof body.group_id !== 'string') throw new Error('Davet bağlantısı beklenen biçimde gelmedi.');
       const name = 'group_name' in body && typeof body.group_name === 'string' ? body.group_name : scores?.group?.name || 'arkadaş grubun';
       setInvite({ url: `${window.location.origin}/friend-invite?token=${encodeURIComponent(body.token)}`, expiresAt: body.expires_at, groupName: name });
       if (body.group_id !== groupId && await loadScores(body.group_id)) setGroupQuery(activeGroup.current);
     } catch (cause) {
-      setInviteError(cause instanceof Error ? cause.message : 'Davet bağlantısı oluşturulamadı.');
-    } finally { setInviteBusy(false); }
+      if (!signal.aborted) setInviteError(cause instanceof Error ? cause.message : 'Davet bağlantısı oluşturulamadı.');
+    } finally { if (!signal.aborted) setInviteBusy(false); }
   }
 
   async function copyInvite() {
@@ -300,19 +310,22 @@ export function FriendsWorkspace() {
 
   async function removeMember() {
     if (!removing || !scores?.group || removeBusy) return;
+    const signal = pageController.current?.signal;
+    if (!signal || signal.aborted) return;
     setRemoveBusy(true);
     setRemoveError('');
     try {
-      const response = await fetch('/api/friends', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ friend_id: removing.person.user_id, group_id: scores.group.id }) });
+      const response = await fetch('/api/friends', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ friend_id: removing.person.user_id, group_id: scores.group.id }), signal });
       const body = await responseBody(response);
+      if (signal.aborted) return;
       if (!response.ok) throw new Error(errorMessage(body, 'Üyelik değiştirilemedi.'));
       if (!body || typeof body !== 'object' || !('ok' in body) || body.ok !== true) throw new Error('Üyelik değiştirilemedi.');
       const leaving = removing.kind === 'leave';
       setRemoving(null);
       if (leaving) { setGroupQuery(null); setScores(null); setInvite(null); activeGroup.current = null; void loadScores(null); }
       else void loadScores(scores.group.id);
-    } catch (cause) { setRemoveError(cause instanceof Error ? cause.message : 'Üyelik değiştirilemedi.'); }
-    finally { setRemoveBusy(false); }
+    } catch (cause) { if (!signal.aborted) setRemoveError(cause instanceof Error ? cause.message : 'Üyelik değiştirilemedi.'); }
+    finally { if (!signal.aborted) setRemoveBusy(false); }
   }
 
   const participants = scores ? [scores.me, ...scores.friends].sort((a, b) =>

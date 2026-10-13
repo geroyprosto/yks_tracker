@@ -4,7 +4,7 @@ import {studyRealtimeRedis} from '@/lib/server/study-realtime';
 
 export const dynamic='force-dynamic';
 export const runtime='nodejs';
-export const maxDuration=60;
+export const maxDuration=10;
 
-// Every handshake/reconnection rechecks approved student or the original owner.
+// Every short version check rechecks approved student or the original owner.
 export const GET=createStudyRealtimeGet({authorize:requireAiStudyContext,redis:studyRealtimeRedis});

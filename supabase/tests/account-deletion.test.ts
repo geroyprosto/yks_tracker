@@ -154,6 +154,9 @@ test('hard closure removes the complete study/Auth graph and structured copies w
     await insert(db, 'public.classroom_alerts', { teacher_id: teacher, student_id: target, body: 'Synthetic followup', parent_id: alert, kind: 'followup' });
     await insert(db, 'public.classroom_feedback', { alert_id: alert, teacher_id: teacher, student_id: target, event: 'accepted', body: 'Synthetic feedback' });
     await insert(db, 'public.classroom_presence', { user_id: target, device_id: randomUUID(), expires_at: '2026-10-10T00:00:00Z' });
+    // Historical invalidations still need cascading even while new teacher
+    // notifications are paused and their usual row triggers do not run.
+    await insert(db, 'public.classroom_events', { user_id: target });
     for (const [actor, payload, result] of [[target, {}, {}], [admin, { id: target.toUpperCase() }, {}], [teacher, { id: application }, {}], [teacher, { id: message }, { id: alert }], [teacher, { email: alias.toUpperCase() }, {}]]) {
       await insert(db, 'public.classroom_receipts', { user_id: actor, request_id: randomUUID(), command_type: 'synthetic', payload, result });
     }

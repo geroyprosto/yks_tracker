@@ -6,7 +6,7 @@ import { Bell, BookOpen, Clock3, LogOut, MessageCircle, Users, X } from 'lucide-
 import type { AppState } from '@/lib/domain/types';
 import { useClassroom, type Command, type StudyAlert } from './api';
 import { Conversation } from './conversation';
-import { useStudentPresence } from './presence';
+import { teacherFeaturesEnabled } from '@/lib/classroom/availability';
 import styles from './classroom.module.css';
 
 const motivation = [
@@ -137,14 +137,18 @@ function StudentMembership({ studentId, command, busy, onAttempt, onLeave }: { s
   </section>;
 }
 
-export function StudentClassroom({ state: studentState }: { state?: AppState }) {
+export function StudentClassroom(props: { state?: AppState }) {
+  if (!teacherFeaturesEnabled) return null;
+  return <ActiveStudentClassroom {...props} />;
+}
+
+function ActiveStudentClassroom({ state: studentState }: { state?: AppState }) {
   const [enabled, setEnabled] = useState(false);
   const { state, error, busy, command, refresh } = useClassroom(enabled);
   const [open, setOpen] = useState(false);
   const [hiddenError, setHiddenError] = useState(false);
   const [leftClassroom, setLeftClassroom] = useState(false);
   const account = state?.account;
-  useStudentPresence(account);
   useEffect(() => {
     let active = true;
     if (studentState?.authenticated === false) { queueMicrotask(() => { if (active) setEnabled(false); }); return () => { active = false; }; }

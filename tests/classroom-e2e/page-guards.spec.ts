@@ -1,5 +1,6 @@
 import { expect, test, type BrowserContext } from '@playwright/test';
 import { CLASSROOM_DEMO_ACCOUNTS, DEMO_STUDENT_IDS, DEMO_TEACHER_IDS } from '../../src/lib/classroom/demo-seed';
+import { teacherFeaturesEnabled } from '../../src/lib/classroom/availability';
 
 const origin = 'http://127.0.0.1:3200';
 
@@ -39,7 +40,7 @@ test('approved teacher is redirected from the student page to classroom', async 
 
   await page.goto('/');
   await expect(page).toHaveURL(origin + '/classroom');
-  await expect(page.getByRole('heading', { name: 'Sınıfına bir bakış.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: teacherFeaturesEnabled ? 'Sınıfına bir bakış.' : 'Öğretmen alanı duraklatıldı.' })).toBeVisible();
 });
 
 test('pending account sees its classroom status screen', async ({ page, context }) => {
@@ -49,7 +50,7 @@ test('pending account sees its classroom status screen', async ({ page, context 
 
   await page.goto('/classroom');
   await expect(page).toHaveURL(origin + '/classroom');
-  await expect(page.getByRole('heading', { name: 'Onay bekliyor' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: teacherFeaturesEnabled ? 'Onay bekliyor' : 'Öğretmen alanı duraklatıldı.' })).toBeVisible();
   await expect(page.getByRole('navigation', { name: 'Öğretmen alanları' })).toHaveCount(0);
 });
 

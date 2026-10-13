@@ -54,6 +54,8 @@ async function mockedFriends(page: Page, initialPhotos: Record<string, PhotoResp
 }) {
   const mock = {
     photos: { ...initialPhotos },
+    friendsReads: [] as string[],
+    friends: friendsResponse(),
     photoReads: [] as { userId: string; url: string; method: string }[],
     unexpectedWrites: [] as string[],
     errors: [] as string[],
@@ -68,7 +70,10 @@ async function mockedFriends(page: Page, initialPhotos: Record<string, PhotoResp
     }
     if (url.pathname === '/api/state') return route.fulfill({ json: state() });
     if (url.pathname === '/api/calendar/today') return route.fulfill({ json: { connected: false, events: [], refreshedAt: null } });
-    if (url.pathname === '/api/friends') return route.fulfill({ json: friendsResponse() });
+    if (url.pathname === '/api/friends') {
+      mock.friendsReads.push(request.url());
+      return route.fulfill({ json: mock.friends });
+    }
     const friendPhoto = url.pathname.match(/^\/api\/friends\/([^/]+)\/photo$/);
     if (url.pathname === '/api/profile/photo' || friendPhoto) {
       const userId = friendPhoto ? decodeURIComponent(friendPhoto[1]) : meId;
@@ -149,6 +154,58 @@ test('self and every friend show their own photos in the duel and ranking', asyn
   expect(await pixel(photo(ranking(page), meName))).not.toEqual(await pixel(photo(ranking(page), friendName)));
   expect(mock.unexpectedWrites).toEqual([]);
   expect(mock.errors).toEqual([]);
+});
+
+test('friends refresh on entry and explicit actions without polling or focus refresh', async ({ page }) => {
+  await page.clock.install();
+  const mock = await mockedFriends(page);
+  const initialReads = mock.friendsReads.length;
+  expect(initialReads).toBe(1);
+  await page.clock.fastForward(180_000);
+  await page.evaluate(() => {
+    document.dispatchEvent(new Event('visibilitychange'));
+    window.dispatchEvent(new Event('online'));
+    window.dispatchEvent(new Event('focus'));
+  });
+  await page.clock.fastForward(180_000);
+  expect(mock.friendsReads).toHaveLength(initialReads);
+
+  await page.getByRole('button', { name: 'Skorları yenile', exact: true }).click();
+  await expect.poll(() => mock.friendsReads.length).toBe(initialReads + 1);
+  await expect(page.getByRole('button', { name: 'Skorları yenile', exact: true })).toBeEnabled();
+  await page.getByRole('navigation', { name: 'Ana gezinme', exact: true }).getByRole('button', { name: 'Görevlerim', exact: true }).click();
+  await expect(page.locator('main#main')).toHaveAttribute('data-page', 'tasks');
+  await page.clock.fastForward(180_000);
+  expect(mock.friendsReads).toHaveLength(initialReads + 1);
+
+  mock.friends.me.today_seconds = 10_800;
+  await page.getByRole('navigation', { name: 'Ana gezinme', exact: true }).getByRole('button', { name: 'Arkadaşlar', exact: true }).click();
+  await expect.poll(() => mock.friendsReads.length).toBe(initialReads + 2);
+  await expect(rankingRow(page, meName)).toContainText('3 sa');
+  expect(mock.unexpectedWrites).toEqual([]);
+  expect(mock.errors).toEqual([]);
+});
+
+test('leaving friends aborts an in-flight manual refresh', async ({ page }) => {
+  await mockedFriends(page);
+  let releaseRead: (() => void) | undefined;
+  const heldRead = new Promise<void>(resolve => { releaseRead = resolve; });
+  await page.route('**/api/friends?*', async route => {
+    await heldRead;
+    await route.fulfill({ json: friendsResponse() });
+  });
+  const pendingRead = page.waitForRequest(request => new URL(request.url()).pathname === '/api/friends');
+  await page.getByRole('button', { name: 'Skorları yenile', exact: true }).click();
+  const request = await pendingRead;
+  const aborted = page.waitForEvent('requestfailed', failed => failed === request);
+  await page.getByRole('navigation', { name: 'Ana gezinme', exact: true }).getByRole('button', { name: 'Görevlerim', exact: true }).click();
+  try {
+    const failed = await aborted;
+    expect(failed.failure()?.errorText).toMatch(/ABORTED/);
+    await expect(page.locator('main#main')).toHaveAttribute('data-page', 'tasks');
+  } finally {
+    releaseRead?.();
+  }
 });
 
 for (const status of [404, 403] as const) {

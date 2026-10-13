@@ -4,6 +4,7 @@ import { demoClient, demoEnabled, demoUserId } from './classroom-demo';
 import { ApiError } from './http';
 import { databaseError } from './service';
 import type { AccountIdentity } from './classroom-application';
+import { pausedTeacherState } from './classroom-availability';
 export type { AccountIdentity } from './classroom-application';
 export async function classroomContext({readOnly=false}:{readOnly?:boolean}={}) {
   const demoId = await demoUserId();
@@ -14,7 +15,14 @@ export async function classroomContext({readOnly=false}:{readOnly?:boolean}={}) 
   if (identity.error) databaseError(identity.error);
   return {client, user:data.user, account:identity.data as AccountIdentity|null, demo:Boolean(demoId)};
 }
-export async function classroomState(client:SupabaseClient) {
+export async function classroomState(client:SupabaseClient, account?:AccountIdentity|null) {
+  if(account===undefined){
+    const identity=await client.rpc('classroom_identity');
+    if(identity.error)databaseError(identity.error);
+    account=identity.data as AccountIdentity|null;
+  }
+  const paused=pausedTeacherState(account);
+  if(paused)return paused;
   const {data,error}=await client.rpc('classroom_state');
   if(error)databaseError(error);
   return data;

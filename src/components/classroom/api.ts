@@ -48,12 +48,6 @@ export function useClassroom(enabled = true) {
   useEffect(() => {
     if (!enabled) return;
     queueMicrotask(() => void refresh());
-    const events = new EventSource('/api/classroom/events');
-    const update = () => void refresh();
-    events.addEventListener('message', update); events.addEventListener('dirty', update);
-    const reconnect = () => { if (document.visibilityState === 'visible') void refresh(); };
-    window.addEventListener('online', update); document.addEventListener('visibilitychange', reconnect);
-    return () => { events.close(); window.removeEventListener('online', update); document.removeEventListener('visibilitychange', reconnect); };
   }, [enabled, refresh]);
   const command: Command = useCallback(async (type, payload) => {
     if (pending.current) return false;

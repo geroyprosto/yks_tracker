@@ -1,5 +1,7 @@
 # Nova doğrulama kaydı
 
+> Tarihsel kayıt: Yerel modelle sohbet ve Bridge 14 Ekim 2026'da kaldırıldı. Aşağıdaki sonuçlar eski sürümü belgeler; güncel özellik ve doğrulama akışı [NOVA.md](NOVA.md) içinde açıklanır.
+
 Tarih: 13 Ekim 2026. Yerel testler, GitHub Actions, üretim altyapısı ve gerçek model yanıt kalitesi ayrı doğrulama katmanlarıdır. Sayılar aşağıda belirtilen koşulara aittir; sonraki kaynak değişiklikleri için yeniden çalıştırılmaları gerekir. İlk başlangıç `9638346`, yeniden tabanlama noktası `c934f4a`, ilk üretim birleşimi `7d324406`, gelecekteki dikkat dağılması bilgisini gizleyen takip birleşimi `ea1b15d`.
 
 ## Başlangıç durumu

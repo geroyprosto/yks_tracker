@@ -1,8 +1,0 @@
-{
-  "appUrl": "https://yks-tracker-puce.vercel.app",
-  "model": "qwen3:8b",
-  "ollamaUrl": "http://127.0.0.1:11434",
-  "timeoutMs": 90000,
-  "keepAlive": "15m",
-  "pollMs": 10000
-}

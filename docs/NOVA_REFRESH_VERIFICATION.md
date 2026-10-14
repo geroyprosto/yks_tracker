@@ -1,5 +1,7 @@
 # Nova sohbet yenilemesi: doğrulama ve yayın sırası
 
+> Tarihsel kayıt: Sohbet, model çıkarımı ve Bridge 14 Ekim 2026'da kaldırıldı. Bu belgedeki eski kurulum/yayın adımları güncel kullanım talimatı değildir. Güncel Nova [NOVA.md](NOVA.md) içinde açıklanır.
+
 13 Ekim 2026. Bu belge ilk hazırlık ve karşılaştırma sonuçlarını kaydeder; aşağıdaki ölçümler yerel geliştirme ortamında yapıldı. Sonraki onaylı yayın sırasında sohbet RPC migration'ı üretime uygulandı ve Windows PowerShell 5.1 için Bridge sürüm kontrolü düzeltildi. Yayın sırası ve yerel ölçüm sınırları aşağıdadır.
 
 ## Model ve donanım

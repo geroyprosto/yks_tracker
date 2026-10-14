@@ -51,7 +51,9 @@ Uyku, uyanma, kahvaltı, yürüyüş/ulaşım, günlük rutin, öğünler, konu/
 
 Tüm durumlar 0–100'dür. Önceki günün durumuna göre bir gün boyunca toplam sapma: enerji ±25, stres ±20, odak ±20, özgüven ±12, sosyal enerji ±20, rekabet isteği ±15. Uykunun başlangıç etkisi de bu bütçenin içindedir; her bitmiş olay sonrasında tekrar sınır uygulanır. Neden metinleri sabit `REASON_LABELS` kaynağından gelir. Model neden, çalışma sonucu veya ruh hâli sayısını belirleyemez.
 
-## İlişki ve proaktif mesajlar
+## Eski sohbet sürümünün saf yardımcıları
+
+Yerel modelle sohbet 14 Ekim 2026'da kaldırıldı. Aşağıdaki ilişki ve fırsat kuralları saf motor yardımcıları olarak kalır; güncel uygulama bunları çağırmaz, mesaj veya model işi oluşturmaz.
 
 Yakınlık, sıcaklık ve rekabet üslup ayarlarıdır. Dostça konuşma ve kabul edilen düello sınırlı artış yaratır. Yokluk, cevapsız mesaj veya düelloyu reddetmek **ceza vermez**.
 

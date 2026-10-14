@@ -6,7 +6,7 @@ import {clock, number} from './view-utils';
 import styles from './workspace.module.css';
 
 const reasons: Record<string, string> = {GOOD_SLEEP: 'Simüle uykusu dinlendiriciydi.', SHORT_SLEEP: 'Simüle uykusu kısa sürdü.', RECOVERY: 'Dinlenerek toparlandı.', STUDY_LOAD: 'Çalışma yükü enerjisini etkiledi.', DISTRACTION: 'Dikkati bir süre dağıldı.', TASK_COMPLETED: 'Planındaki bir çalışmayı tamamladı.', TASK_MISSED: 'Planındaki bir çalışma aksadı.', CALIBRATION: 'Başlangıç seviyesi henüz kalibre ediliyor.', PREVIOUS_DAY: 'Önceki günün etkileri sürüyor.'};
-export function NovaToday({data, openChat}: {data: NovaWebState; openChat: () => void}) {
+export function NovaToday({data, openRace}: {data: NovaWebState; openRace: () => void}) {
   const day = data.today;
   if (!day) return <div className={styles.emptyState}>Nova’nın günü hazırlanıyor.</div>;
   return <div className={styles.today}>
@@ -14,7 +14,7 @@ export function NovaToday({data, openChat}: {data: NovaWebState; openChat: () =>
       <div className={styles.dayPortrait}><NovaAvatar large/><span>Nova’nın simüle yaşamı</span></div>
       <div className={styles.dayIntro}><p className={styles.eyebrow}>BUGÜN NOVA</p><h2>{day.mood}</h2><p className={styles.currentActivity}>{day.currentEvent?.label ?? 'Günlük program tamamlandı.'}</p>
         <p className={styles.softText}>Onun da çalışma saatleri, molaları ve kendi temposu var.</p>
-        <button className={styles.quietButton} onClick={openChat}>Biraz sohbet et <ArrowUpRight size={17}/></button>
+        <button className={styles.quietButton} onClick={openRace}>Yarışı gör <ArrowUpRight size={17}/></button>
       </div>
     </section>
     <div className={styles.dayColumns}>
@@ -24,7 +24,7 @@ export function NovaToday({data, openChat}: {data: NovaWebState; openChat: () =>
       <aside className={styles.dayAside}>
         <section><p className={styles.eyebrow}>BUGÜNKÜ RİTMİ</p><div className={styles.tempo}><strong>{number(day.metrics.studyMinutes)}</strong><span>dakika<br/>çalışma tamamlandı</span></div><p className={styles.softText}>Güne yayılan hedefi {number(day.metrics.studyTargetMinutes)} dakika.</p></section>
         <section className={styles.moodDetails}><h3>Nasıl hissediyor?</h3><ul className={styles.vitals}>{([['energy', 'Enerji', Coffee], ['focus', 'Odak', Sparkles], ['stress', 'Stres', Moon]] as const).map(([key, label, Icon]) => <li key={key}><Icon size={17}/><span>{label}</span><strong>{day.state[key] < 35 ? 'Düşük' : day.state[key] < 70 ? 'Dengeli' : 'Yüksek'}</strong></li>)}</ul><details><summary>Ruh hâlinin ayrıntıları</summary><div className={styles.bars}>{([['energy', 'Enerji'], ['focus', 'Odak'], ['stress', 'Stres']] as const).map(([key, label]) => <label key={key}>{label}<span>{number(day.state[key])} / 100</span><progress max={100} value={day.state[key]} aria-label={label}/></label>)}</div><ul>{day.reasonCodes.map(code => <li key={code}>{reasons[code] ?? code}</li>)}</ul><p>Bu değerler Nova’nın simüle durumunu anlatır.</p></details></section>
-        {data.profile.baseline.missingData.length > 0 && <details className={styles.calibration}><summary>Nova seni tanımaya başlıyor</summary><p>İlk yedi gün kontrollü kalibrasyon uygulanır.</p><p>{data.profile.baseline.missingData.join(' ')}</p></details>}
+        {data.profile.baseline.missingData.length > 0 && <details className={styles.calibration}><summary>Başlangıç seviyesi oluşuyor</summary><p>Nova’nın çalışma temposu kayıtlı çalışma verilerinden hazırlanır. Eksik ölçümler yarışta sıfır sayılmaz.</p><p>{data.profile.baseline.missingData.join(' ')}</p></details>}
         <p className={styles.smallNote}>Nova’nın çalışmaları simülasyondur; senin gerçek kayıtlarına eklenmez.</p>
       </aside>
     </div>

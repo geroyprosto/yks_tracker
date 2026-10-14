@@ -5,12 +5,10 @@ on:
     paths:
       - '.github/workflows/nova.yml'
       - 'src/**'
-      - 'scripts/nova-bridge/**'
       - 'tests/nova*'
       - 'tests/nova-e2e/**'
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
-      - 'evals/nova/**'
       - 'docs/NOVA*'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -37,7 +35,6 @@ jobs:
     env:
       CI: 'true'
       NEXT_TELEMETRY_DISABLED: '1'
-      OLLAMA_NO_CLOUD: '1'
     steps:
       - name: Depoyu oku
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -71,7 +68,7 @@ jobs:
       - name: Chromium ve sistem bağımlılıklarını kur
         run: pnpm exec playwright install --with-deps chromium
 
-      - name: Yerel sahte modelle tarayıcı testleri
+      - name: Nova simülasyon ve yarış tarayıcı testleri
         run: pnpm test:nova:e2e
 
       - name: Uygulamayı derle

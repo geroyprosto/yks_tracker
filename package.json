@@ -14,7 +14,6 @@
     "test:e2e": "playwright test",
     "test:db": "tsx --test supabase/tests/*.test.ts",
     "test:all": "tsx --test tests/*.test.ts supabase/tests/*.test.ts",
-    "nova:bridge": "tsx scripts/nova-bridge/cli.ts",
     "test:nova": "tsx --test tests/nova-*.test.ts supabase/tests/nova*.test.ts",
     "test:nova:e2e": "playwright test --config playwright.nova.config.ts"
   },

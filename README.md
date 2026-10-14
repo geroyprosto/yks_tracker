@@ -1,6 +1,6 @@
 # YKSim
 
-**Nova geliştirme dalı:** Yerel Ollama ile konuşan, kalıcı simülasyon ve ayrı yarış puanı bulunan çalışma arkadaşı. Özellik varsayılan kapalıdır; üretime uygulanmamıştır. [Kurulum, mimari ve sınırlar](docs/NOVA.md), [doğrulama kaydı](docs/NOVA_VERIFICATION.md).
+**Nova:** Günlük yaşam simülasyonu ve gerçek çalışma kayıtlarınla karşılaştırılan ayrı yarış puanı bulunan çalışma arkadaşı. Yerel modelle sohbet ve Windows Bridge kaldırıldı; Nova Bugün, Yarış ve Nova Lab model gerektirmeden çalışır. [Mimari ve sınırlar](docs/NOVA.md), [geçmiş doğrulama kaydı](docs/NOVA_VERIFICATION.md).
 
 Sümeyra için Türkçe, kişisel YKS takip uygulaması. Boş klasörden Next.js 16.3.6, React 19.2.8 ve Node.js 24 ile kuruldu. Günlük çalışma, deneme sonuçları, süre raporları ve günlüğü tek alanda izler. Kalıcı kayıt için Supabase kurulumu gerekir. Kurulum yapılmadığında uygulama bunu açıkça gösterir; örnek başarı veya kayıt oluşturmaz.
 

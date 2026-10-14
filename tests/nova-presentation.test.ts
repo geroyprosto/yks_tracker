@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {comparisonScores,catchupDates,deviceAuthorization,sha256} from '../src/lib/nova/presentation';
+import {comparisonScores,catchupDates} from '../src/lib/nova/presentation';
 import {weeklyRaceSummary} from '../src/lib/nova/race-summary';
 import type {NovaMetrics} from '../src/lib/nova/types';
 const metric:NovaMetrics={tasksCompleted:1,taskTotal:2,studyMinutes:60,studyTargetMinutes:120,questions:50,questionTarget:100,accuracyPercent:80,topicProgress:1,topicTarget:2,activeDays:7,observedDays:14};
@@ -32,9 +32,4 @@ test('catch-up preserves calendar order and is bounded',()=>{
  assert.deepEqual(catchupDates('2026-10-01','2026-10-10',3),['2026-10-01','2026-10-02','2026-10-03']);
  assert.deepEqual(catchupDates('2026-10-10','2026-10-01',3),[]);
  assert.deepEqual(catchupDates('2026-12-31','2027-01-01',7),['2026-12-31','2027-01-01']);
-});
-test('device credentials require a full scoped bearer, never device id or user JWT',()=>{
- const id='11111111-1111-4111-8111-111111111111',token='a'.repeat(64);
- assert.deepEqual(deviceAuthorization(`Bearer ${id}.${token}`),{deviceId:id,secretHash:sha256(token)});
- for(const value of [null,id,`Bearer ${id}`,'Bearer eyJhbGc.eyJzdWI.signature',`Bearer ${id}.${token}.extra`])assert.throws(()=>deviceAuthorization(value));
 });

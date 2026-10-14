@@ -16,8 +16,3 @@ export function catchupDates(first:string,last:string,limit=7){
  return result;
 }
 export function sha256(value:string){return createHash('sha256').update(value).digest('hex');}
-export function deviceAuthorization(header:string|null){
- const match=/^Bearer ([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\.([a-f0-9]{64})$/.exec(header??'');
- if(!match)throw new Error('NOVA_DEVICE_REQUIRED');
- return {deviceId:match[1],secretHash:sha256(match[2])};
-}

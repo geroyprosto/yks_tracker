@@ -1,10 +1,7 @@
-import { novaChatState } from '@/lib/server/nova';
-import { errorResponse, json } from '@/lib/server/http';
+import { json } from '@/lib/server/http';
 
 export const dynamic = 'force-dynamic';
 
-/** Bounded, authenticated reads while a response is pending; no engine writes. */
 export async function GET() {
-  try { return json(await novaChatState()); }
-  catch (error) { return errorResponse(error); }
+  return json({ok:false,error:{code:'NOVA_CHAT_REMOVED',message:'Nova’nın yerel model sohbeti kaldırıldı. Nova Bugün, Yarış ve Nova Lab kullanılabilir.'}},410);
 }

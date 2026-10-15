@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { Manrope } from 'next/font/google';
 import './globals.css';
 import './progress-rings.css';
 import './timer-focus.css';
@@ -14,10 +15,11 @@ import './study-stats-charts.css';
 import './study-goal-calendar.css';
 import './journal.css';
 import './product-polish.css';
+const manrope = Manrope({subsets: ['latin', 'latin-ext'], variable: '--font-ui', display: 'swap'});
 export const metadata: Metadata = { title:'YKSim · Kişisel çalışma alanın', description:'YKS, lise ve üniversite için derslerini planla, çalışma süreni kaydet ve sonuçlarını takip et.', applicationName:'YKSim', icons:{icon:'/icon-192.png',apple:'/icon-192.png'}, appleWebApp:{capable:true,statusBarStyle:'default',title:'YKSim'} };
 export const viewport: Viewport = {width:'device-width', initialScale:1,themeColor:'#101b2c'};
 export default function RootLayout({children}:{children:React.ReactNode}) {
- return <html lang="tr" suppressHydrationWarning><body>{children}</body></html>;
+ return <html lang="tr" className={manrope.variable} suppressHydrationWarning><body>{children}</body></html>;
 }
 
 

@@ -1,3 +1,5 @@
+> **Tarihsel kayıt:** Bu belge önceki geliştirme dönemini korur; güncel kurulum, canlı durum veya test sonucu olarak kullanılmaz. [Güncel okuma sırası](../README.md) · [Arşiv açıklaması](README.md).
+
 # Kabul ve yayın durumu
 
 Yerel geliştirme 27 Eylül 2026 tarihinde `codex/student-personalization` dalında yapıldı. Production migration, dağıtım, gerçek kişiye mesaj/e-posta, ücretli sağlayıcı denemesi veya plan yükseltmesi yapılmadı.

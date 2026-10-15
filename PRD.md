@@ -1,6 +1,8 @@
 # YKSim — Ürün gereksinimleri
 
-Güncelleme: 24 Eylül 2026. Tam, yetkili gereksinim metni [docs/USER_REQUIREMENTS.md](docs/USER_REQUIREMENTS.md) dosyasındadır. Bu belge uygulanabilir özettir; hiçbir maddeyi kapsamdan çıkarmaz. Teslim durumu [FEATURE_CHECKLIST.md](FEATURE_CHECKLIST.md), sonraki iş sırası [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) içinde tutulur.
+> **Tarihsel kapsam özeti:** Bu belge ilk geliştirme aşamasına aittir. Güncel ürün kuralları [docs/PRODUCT.md](docs/PRODUCT.md), geliştirici okuma sırası [docs/README.md](docs/README.md) içindedir. Aşağıdaki teslim ve kapsam beyanları güncel sürüm durumu olarak kullanılmaz.
+
+Güncelleme: 24 Eylül 2026. İlk gereksinim metni [USER_REQUIREMENTS.md](docs/archive/USER_REQUIREMENTS.md) dosyasındadır. Bu belge o dönemin uygulanabilir özetidir. Dönemin teslim durumu [FEATURE_CHECKLIST.md](FEATURE_CHECKLIST.md), iş sırası [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) içinde korunur.
 
 ## Amaç ve kullanıcı
 
@@ -88,7 +90,7 @@ PWA manifest/ikon/service worker/kurulum rehberi gerekir. İlk çevrimdışı ka
 
 ## Tamamlama ölçütü
 
-Her aşamada çalışan sonuç, dürüst checklist ve gerçek test raporu bırakılır. Birim, entegrasyon, E2E, lint, typecheck ve production build ayrı kanıtlardır; mock test gerçek sağlayıcı doğrulaması değildir. Tam kabul listesi [orijinal talimatın 20. bölümü](docs/USER_REQUIREMENTS.md) ve [test planı](docs/TESTING.md) ile izlenir.
+Her aşamada çalışan sonuç, dürüst checklist ve gerçek test raporu bırakılır. Birim, entegrasyon, E2E, lint, typecheck ve production build ayrı kanıtlardır; mock test gerçek sağlayıcı doğrulaması değildir. İlk kabul listesi [orijinal talimatta](docs/archive/USER_REQUIREMENTS.md), güncel doğrulama yöntemi [test rehberinde](docs/archive/TESTING_HISTORY.md) bulunur.
 
 Sonraki kapsam: yanlış/takılma arşivi, tekrar önerileri, günlük→haftalık→aylık yol haritası, sürümlü ilişkili JSON ve CSV dışa alma, test edilmiş geri yükleme. Gerçek silme/üzerine yazma, dış hesap değişikliği, satın alma, GitHub push ve yayın için ayrıca açık yetki gerekir.
 

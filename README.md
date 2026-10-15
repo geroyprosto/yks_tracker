@@ -1,112 +1,45 @@
 # YKSim
 
-**Nova:** Günlük yaşam simülasyonu ve gerçek çalışma kayıtlarınla karşılaştırılan ayrı yarış puanı bulunan çalışma arkadaşı. Yerel modelle sohbet ve Windows Bridge kaldırıldı; Nova Bugün, Yarış ve Nova Lab model gerektirmeden çalışır. [Mimari ve sınırlar](docs/NOVA.md), [geçmiş doğrulama kaydı](docs/NOVA_VERIFICATION.md).
+Türkçe çalışma takip uygulaması. Günlük görevler, çalışma sayacı, konu ilerlemesi, deneme ve okul sonuçları, günlük, arkadaş grupları ve isteğe bağlı analiz araçlarını bir araya getirir. YKS, lise ve üniversite çalışma profilleri; ayrıca Kırklareli Tıp ve Nova simülasyon modülleri bulunur.
 
-Sümeyra için Türkçe, kişisel YKS takip uygulaması. Boş klasörden Next.js 16.3.6, React 19.2.8 ve Node.js 24 ile kuruldu. Günlük çalışma, deneme sonuçları, süre raporları ve günlüğü tek alanda izler. Kalıcı kayıt için Supabase kurulumu gerekir. Kurulum yapılmadığında uygulama bunu açıkça gösterir; örnek başarı veya kayıt oluşturmaz.
+**Geliştirici başlangıcı: [dokümantasyon ve okuma sırası](docs/README.md).**
 
-**Durum (26 Eylül 2026):** Aşama 1 ve 2 uygulaması, ücretsiz Supabase projesi, tek sahip hesabı ve salt okunur Google Takvim bağlantısı kuruldu. Aşama 3'ün AI dönem raporları, 14 günlük sunucu zamanlaması, Günlüğüm'de isteğe bağlı AI alan önerisi, tarihli elle çalışma kaydı ve altı okuma/dört yazma aracı içeren özel MCP temeli yerel kodda hazır. Çalışma, deneme ve konu düzeyi yazmaları açık kullanıcı onayı ister; tüm MCP yazmaları tekrar anahtarı kullanır. Yeni `get_analysis_sources` aracı varsayılan son 14 (en çok 31) günün hesaplanmış özet ve kaynaklarını yalnız AI ile paylaşılmış günlük alanlarıyla döndürür; ücretli model çağrısı yapmaz. Deneme aracı PDF dosya yolu aktarmaz, çalışma aracı sahte sayaç saati oluşturmaz. OAuth izin ekranı ve onay/ret yolları kodlandı; Supabase OAuth/OIDC keşif uçları son kontrolde 200 döndü. Önceki sekiz migration ile altı Aşama 3 migration'ı uzak veritabanına uygulandı (canlı toplam **14**); yeni günlük AI önerisi ve tarihli çalışma tablolarında RLS ve RPC yetkileri doğrulandı. Kullanıcının ekran görüntüsünde 5 USD API kredisi görüldü; otomatik yüklemeyi kapattığını ve 2 USD/ay sert sınırı kaydettiğini bildirdi (hesap ayarları bağımsız okunmadı). Yerel anahtarın varlığı ve model erişimi doğrulandı; 19–25 Eylül döneminin ilk ücretli AI raporu buluta kaydedildi (1058 input/1025 output token, tahmini 0,06183 USD). Vercel CLI 60.0.0 ile `geroy` takımının `yks-tracker` projesine üretim yayını yapıldı; yerel `.vercel/project.json` bağlantısı bu projeye düzeltildi. Kullanıcının açık onayıyla 19 ortam değişkeni yalnız Production ortamına aktarıldı; sunucu sırları Secret olarak kaydedildi. [Canlı YKSim](https://yks-tracker-puce.vercel.app) erişilebilir; `/api/state` oturumsuz istekte `configured:true`, `SIGN_IN_REQUIRED` ve HTTP 401 döndürüyor, kişisel veri vermiyor. Codex Vercel eklentisinin boş takım listesi/403 sorunu sürse de CLI erişimi ve yayın çalışıyor. Supabase Site URL değeri `https://yks-tracker-puce.vercel.app` olarak düzeltildi; OAuth Server `/oauth/consent` ile açık ve OAuth/OIDC keşfi HTTP 200. `MCP_ENABLED=true` ile kaynak meta verisi 200, tokensız/geçersiz tokenlı istekler 401 dönüyor. ChatGPT gerçek callback adresiyle public PKCE istemcisi kaydetti; tam istemci–MCP audience eşlemesi ve Custom Access Token hook etkin. DCR kayıt sonrasında yeniden kapatıldı. Kişisel YKSim eklentisinde OAuth bağlantısı, gerçek token değişimi ve ChatGPT “Araçları yenile” akışı tamamlandı. Son üretim loglarında kimliği doğrulanmış MCP POST istekleri 200 döndü. Gerçek araçla veri okuma/yazma, token yenileme/iptal ve doğrudan Data API/Storage reddi kabulü henüz tamamlanmadı. Üretimde `AI_SCHEDULER_ENABLED=true`; `dpl_CdBEKDNxqsviGXB1VpbnpwxaT7TQ` READY ve günlük `0 2 * * *` cron kaydı doğrulandı. Doğru bearer ile `/api/cron/analysis` HTTP 200 ve `{ok:true,completed:0,skipped:0,failed:0}`, kimliksiz istek 401 döndü. `analysis_settings` toplam 0/etkin 0 olduğundan bu kontrol model çağrısı veya rapor üretmedi; kullanıcı iki haftalık zamanlamayı henüz açmadı. Gerçek 14 günlük dönem ve otomatik tetikleme kabulü bekliyor. Audience hook ve MCP owner gateway migration'ları uzak veritabanına uygulandı. Custom Access Token hook etkinleştirildi; gateway policy/RPC uzak SQL denetimi tamamlandı; gerçek Data API/özel PDF Storage red testi bekliyor. Gateway, OAuth tokenıyla doğrudan erişimi restrictive RLS ile reddetmek ve doğrulanmış sahip için dört komuta sınırlı sunucu geçidi sunmak üzere tasarlandı; gerçek OAuth tokenı ile güvenlik kabulü henüz tamamlanmadı. Canlı giriş ekranı izole tarayıcıda hatasız doğrulandı; kullanıcı giriş yaptığını bildirdi. Kullanıcı canlı Denemelerim listesinde ve istatistiklerin tüm dönem görünümünde eski kayıtlarını gördüğünü doğruladı; görünürlük bildirimi ilgili geçmiş bölümlerine gidilerek çözüldü, veri taşıma veya geri yükleme gerekmedi. Günlük AI önerisi, tarihli bulut kaydı ve raporun tarayıcı akışı henüz kabul edilmedi. Kurulum adımları ve sınırlar [Aşama 3 rehberinde](docs/PHASE3_SETUP.md) ve [özellik kontrol listesinde](FEATURE_CHECKLIST.md) açıklanır.
+## Yerelde çalıştır
 
-**1 Ekim koçluk paneli güncellemesi:** Çalışma Analizi, tüm temalarda öncelikli görevler, haftalık konu yönlendirmeleri, doğrulanmış tekrar kayıtları, günlük–çalışma gözlemleri ve ders bazlı TYT/AYT netleri gösterir. Süreler saat/dakikadır. Kişisel aylık plan sunucuda kullanıcıya özel saklanır; modelden bağımsız görev servisi kapasite ve tekrar anahtarı kontrolüyle Görevlerim'e ödev yazar. Analiz başlangıcının kaynakları dondurulur; başarılı rapor ve tekrar kaydı tamamlanmadan karşılaştırma eşiği ilerlemez. Anlatımın ilk tamamlanma olayı için tarihler: o haftanın pazarı, +14 gün, ardından sırayla +1 ay, +2 ay ve +3 ay. Son üç tarih takvim günüdür. Geçmiş aşamalar atlanır, mevcut gecikmiş görevler korunur. `/api/cron/analysis` yalnız başarısız tekrar yazmalarını ücretli model çağrısı yapmadan yeniden dener. Yeni kurulumda `topic_review_series_reconcile` ve `coaching_runs_and_homework` migration'larını uygulayın. Önceki paragraflar tarihli kurulum günlüğüdür.
-
-**1 Ekim 2026 güncellemesi:** Günlük paylaşımı Ayarlar › Hesap bölümündeki varsayılan açık anahtarla yönetilir. Seçilen dönemin eski ve yeni günlüklerindeki kaydedilmiş metin ve doldurulmuş alanlar AI raporuna ve `get_analysis_sources` aracına eklenir; anahtar kapatılınca sonraki analizlerden çıkarılır. Eski paylaşım kutucukları arayüzden kaldırıldı.
-
-## Profil fotoğrafı
-
-Ayarlar → Genel ayarlar → Hesap bölümünden JPG, PNG veya WebP fotoğrafı (en fazla 4 MB) seçip önizleyebilir, kaydedebilir, değiştirebilir veya kaldırabilirsin. Yan menüdeki hesap düğmesi bu bölümü doğrudan açar. Fotoğraf üst çubukta, yan menüde ve Arkadaşlar ekranındaki yarışma ile sıralamada kullanılır. Aynı arkadaş grubundaki onaylı öğrenciler birbirinin fotoğrafını görebilir; ortak grup üyeliği kalmadığında erişim kapanır. Sunucu fotoğrafı 512 × 512 WebP biçimine küçültür, metadata alanlarını çıkarır ve özel `profile-photos` Storage alanına kaydeder. Fotoğraf yüklenmeden önce Storage migration uygulanmalıdır; demo ortamında yükleme kapalıdır.
-
-## Bilgisayarında aç
-
-Gerekenler: Node.js 24.x ve projenin package.json dosyasındaki pnpm 11.19.0. Proje klasöründe bir terminal aç:
+Gerekenler: Node.js 24.x ve pnpm 11.19.0; kesin sürümler [package.json](package.json) içindedir.
 
 ```powershell
 pnpm install --frozen-lockfile
-pnpm dev
+pnpm dev:demo
 ```
 
-Tarayıcıda [localhost:3000](http://localhost:3000) veya [127.0.0.1:3000](http://127.0.0.1:3000) adresini aç. Bu adım arayüzü açar; kişisel kayıtların kaydedilmesi için aşağıdaki kurulumu tamamla. Bu bilgisayar adresi telefondan aynı adresle açılamaz. Telefon ve diğer cihazlarda [canlı YKSim](https://yks-tracker-puce.vercel.app) adresini kullan.
+[Yerel demo](http://127.0.0.1:3300/demo), gerçek hesap veya harici servis anahtarı gerektirmeyen PGlite veritabanıyla çalışır. Demo hesabını bu sayfadan seç. Yerel veriler `tmp/classroom-demo/` altında tutulur; demo üretimde kapalıdır.
 
-## Verilerini kalıcı kaydet
+Gerçek Supabase hesabıyla geliştirmek için [kurulumu](docs/SETUP.md) izle; ardından `pnpm dev` ile [localhost:3000](http://localhost:3000) adresini aç. Ortam değişkenleri olmadan açılan kurulum önizlemesi kalıcı bulut kayıt sağlamaz.
 
-Adım adım tek liste [docs/SETUP.md](docs/SETUP.md) içinde: Supabase projesi, yalnız senin hesabın, migration, sahip UUID'si ve üç ayar. Şifreni ve gizli anahtarlarını sohbet veya repository'ye koyma.
+## Okuma sırası
 
-```powershell
-Copy-Item .env.example .env.local
-```
+1. [Ürün ve güncel sınırlar](docs/PRODUCT.md)
+2. [Geliştirme akışı ve komutlar](docs/DEVELOPMENT.md)
+3. [Mimari, roller ve veri akışı](docs/ARCHITECTURE.md)
+4. [Testleri çalıştırma](docs/TESTING.md)
+5. [Üzerinde çalışacağın modül](docs/README.md#konuya-göre-başvuru)
 
-.env.local içindeki yer tutucuları kendi değerlerinle doldur:
+## Teknoloji
 
-```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://PROJECT.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_REPLACE_ME
-ALLOWED_USER_EMAIL=you@example.com
-```
+Next.js App Router, React, TypeScript, Tailwind/CSS, Supabase Auth/PostgreSQL/Storage; isteğe bağlı Upstash Redis ve sunucu entegrasyonları. Uygulama sürümleri için `package.json` ve `pnpm-lock.yaml`, veri şeması için `supabase/migrations/` esas alınır.
 
-Ardından geliştirme sunucusunu yeniden başlat ve uygulamada e-posta/şifrenle giriş yap. Supabase Auth'taki kullanıcı UUID'sinin veritabanındaki tek sahip kaydı olması gerekir; yalnız e-posta ayarı yeterli değildir. Çekirdek çalışma özellikleri secret anahtar gerektirmez. Google Takvim bağlantısı için sunucuda SUPABASE_SECRET_KEY, Google OAuth bilgileri ve şifreleme anahtarı gerekir; ayrıntılar [Google Takvim kurulumu](docs/GOOGLE_CALENDAR_SETUP.md) içinde. APP_ORIGIN Google bağlantısı ve OAuth izin ekranı için sunucu ortamında doğru origin olarak ayarlanmalıdır; üretimde Supabase Auth Site URL ile eşleşir.
+Öğrenci/öğretmen/yönetici rolleri vardır; öğretmen özellikleri mevcut kodda geçici olarak duraklatılmıştır. AI raporları manuel istek ve bütçe denetimiyle çalışır; otomatik ücretli rapor üretimi kapalıdır. Nova simülasyonu yerel model veya Windows Bridge gerektirmez. Ayrıntılar ve erişim koşulları ilgili modül rehberlerindedir.
 
-İlk giriş yalnız ders/konu başlangıç listesi oluşturur. Geçmiş çalışmalar, deneme sonuçları, hâkimiyet ve günlükler doldurulmaz. Konu listesi düzenlenebilir başlangıç listesidir; 2027'nin eksiksiz resmî müfredatı olduğu iddia edilmez.
-
-## Günlük kullanım
-
-1. Ayarlar'dan hedef yılı/sıralamayı, günlük hedefi ve görünümü düzenle.
-2. Konularım'dan konunun öğrenme düzeyini belirle. Tekrar çalışmak düzeyi kendiliğinden düşürmez.
-3. Görevlerim'den güne bir iş ekle; net dakika, kişisel zorluk ve tamamlanma ölçütünü yaz.
-4. Görev üzerinden veya plansız bir çalışma başlat. Molada duraklat, dönüşte sürdür, bitince kaydet.
-5. Görevi gerçekten tamamlandığında işaretle. Sayaç bitmesi görevi veya konuyu otomatik tamamlamaz.
-
-Görev ilerlemesi planlanan dakika × zorluk ağırlığıyla hesaplanır. Günlük plan ilerlemesi varsayılan olarak %70 görev + %30 süre içerir. Boş plan veya sıfır hedef tanımsız gösterilir; fazla süre eksik görevleri tamamen kapatmaz.
-
-Tamamlanan oturumların hatalı fazla süresini bir neden yazarak azaltabilirsin. Bitmiş sayaç oturumunun süresini artırma henüz desteklenmiyor. Tarih, ders ve net dakikası açıkça doğrulanan ayrı elle çalışma kaydı kimlik doğrulamalı API ve özel MCP kodunda var; migration uygulandı, fakat gerçek sahip hesabında yazma henüz doğrulanmadı; özel MCP bağlantısı OAuth yapılandırması ve canlı kabul bekliyor. Çevrimdışı kayıt kuyruğu henüz yoktur. İnternet kesilince kaydetme hatasını dikkate al; “kaydedildi” bilgisi görmeden değişikliği kaydedilmiş sayma. Tarayıcı/telefon kapalıyken alarmın tam zamanında çalışması garanti edilmez.
-
-## Sonuçlar ve günlük
-
-- **Denemelerim:** TYT, AYT Sayısal veya branş türünü seçip toplam neti kaydet. Tarih bugüne ayarlıdır ve değiştirilebilir; ad isteğe bağlıdır, boşsa sıra numarasıyla otomatik verilir. Not ekleyebilir, tür ve döneme göre net gelişimini tek deneme veya haftalık/aylık ortalamayla görebilirsin.
-- **Çalışma İstatistikleri:** Gün/hafta/ay/yıl/özel dönem için net süreyi, günleri, geçmiş hedefleri ve ders/konu/çalışma türü dağılımını gör. Eksik kayıt, dinlenme ve doğrulanmış sıfır ayrı gösterilir. Kodlanan tarihli elle süre kayıtları da toplam ve geçmişte görünür; ilgili migration canlıya uygulandı; giriş yalnız kimlik doğrulamalı API veya ilerideki özel MCP üzerinden yapılabilir, gerçek hesap yazması henüz doğrulanmadı.
-- **Günlüğüm ve Analiz:** Serbest metin ve isteğe bağlı alanlar kaydet; doldurduğun her bilgi yeni analizlere varsayılan olarak eklenir. Ayarlar › Hesap bölümündeki tek anahtar, eski ve yeni günlüklerin sonraki AI raporları ve YKSim analiz kaynakları aracıyla paylaşılmasını kapatır. Önceden oluşturulmuş raporlar geçmişte kalır. “AI ile öner” düğmesi en fazla 4.000 karakterlik metni yalnız açık isteğinle OpenAI API'ye gönderir; önerileri inceleyip uyguladıktan sonra günlüğü ayrıca kaydetmen gerekir. İlk dönem raporu sunucu akışıyla üretilip kaydedildi; tarayıcı akışı ve 14 günlük gerçek cron için [Aşama 3 kurulumu](docs/PHASE3_SETUP.md) sürüyor.
-- **Bugünün Programı:** Google bağlantısı kurulursa seçtiğin takvimlerin bugünkü etkinlikleri salt okunur görünür. Takvim etkinlikleri çalışma süresine eklenmez.
-## Geliştirme ve kontroller
+## Doğrulama
 
 ```powershell
 pnpm lint
 pnpm typecheck
-pnpm test
-pnpm test:db
 pnpm test:all
-pnpm test:e2e
 pnpm build
-pnpm start
 ```
 
-Son komut production build'den sonra çalışır. Bu Aşama 3 turunda `pnpm test:all` 169/169 (51 yerel PGlite DB testi dahil), lint ve typecheck geçti; günlük AI önerisi için odaklı Playwright testi de 1/1 geçti. Eski sekme seçicisi düzeltildikten sonra tam `pnpm test:e2e` 49/49 geçti. Production build de son gateway/analiz aracı koduyla geçti. Önceki Aşama 2 turunda altı temanın masaüstü ve mobil görünümleri incelendi. Gerçek sahip girişi ve ilk Google Takvim okuması daha sonra doğrulandı. Aşama 3 için altı migration uzak veritabanında; ilk ücretli OpenAI dönem raporu ve bulut kaydı doğrulandı. Vercel cron kaydı ve yetkili boş iş çağrısı doğrulandı; ücretli rapor üretmedi. Yeni günlük ve tarihli çalışma yollarında sahip hesabıyla bulut yazması ve gerçek 14 günlük otomatik rapor henüz canlı test edilmedi. ChatGPT OAuth/araç yenileme canlı geçti; gerçek araç veri okuma/yazması ayrıca kabul edilmeli. MCP gövde okuma düzeltmesi için odaklı 21/21 test ve TypeScript geçti. Kullanıcı üretime girişini ve Denemelerim/istatistik geçmişinde eski kayıtlarının görünmesini doğruladı. Önceki test sayıları ve kalan senaryolar [docs/TESTING.md](docs/TESTING.md) ve [özellik listesinde](FEATURE_CHECKLIST.md) yer alır. Build sonucu gerçek sağlayıcı kabulünün yerini tutmaz.
+İlgili tarayıcı testleri ve gerçek sağlayıcı kabulü için [test rehberini](docs/TESTING.md) kullan. `test:all` tarayıcı testlerini içermez.
 
-- [PRD.md](PRD.md): Ürün kuralları ve kapsam.
-- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md): Dört aşama, açık işler ve sonraki oturum.
-- [FEATURE_CHECKLIST.md](FEATURE_CHECKLIST.md): Çalışıyor / dış kurulum bekliyor / test edilmedi / henüz yapılmadı.
-- [docs/USER_REQUIREMENTS.md](docs/USER_REQUIREMENTS.md): Orijinal talimatın tamamı.
-- [docs/SETUP.md](docs/SETUP.md): Hesap, migration, seed, yayın ve bakım adımları.
-- [docs/GOOGLE_CALENDAR_SETUP.md](docs/GOOGLE_CALENDAR_SETUP.md): Google OAuth, callback, izinler ve sunucu sırları.
-- [docs/PHASE3_SETUP.md](docs/PHASE3_SETUP.md): AI maliyet sınırı, migration, sunucu zamanlaması ve özel OAuth/MCP hazırlığı.
-- [docs/SOURCES.md](docs/SOURCES.md): Resmî doğrulama ve sınırları.
-
-Analysis, schedule RPC yetki daraltma, günlük AI önerisi, tarihli çalışma, MCP audience hook ve owner gateway migration'ları uzak Supabase projesine uygulandı (uzak sürümler `20260925171059`, `20260925171128`); toplam 14 migration var. Custom Access Token hook etkin; gateway policy/RPC uzak SQL denetimi tamamlandı; gerçek OAuth/Data API/Storage kabulü bekliyor. İlk ücretli OpenAI dönem raporu ve Vercel üretim yayını doğrulandı. Son yayın CLI ile yapıldı; bu işlem yeni GitHub push içermedi.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# Öğretmen ve sınıf alanı
-
-Öğretmen/yönetici ekranı: `/classroom`; e-posta iletisi gerektirmeyen, uygulama içinden onaylanan başvuru: `/register`.
-
-35 öğrencili güvenli yerel demo için `pnpm dev:demo` çalıştırıp `http://127.0.0.1:3300/demo` adresini açın. Ayşe Demir'in 10, Mehmet Yıldız'ın 25 öğrencisi bulunur. Aynı sayfadan örnek öğrenci ve yönetici hesaplarına geçilir. Demo gerçek verilerden ayrıdır ve üretimde kapalıdır.
-
-Kurulum, erişim kuralları, e-posta ayarları ve testler: [docs/CLASSROOM.md](docs/CLASSROOM.md).
-
+[Canlı uygulama](https://yks-tracker-puce.vercel.app/) · [İlk ürün talimatı](docs/archive/USER_REQUIREMENTS.md) · [Tarihsel kayıtlar](docs/archive/README.md)

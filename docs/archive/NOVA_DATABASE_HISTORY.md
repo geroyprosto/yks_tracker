@@ -1,3 +1,5 @@
+> **Tarihsel kayıt:** Bu belge önceki geliştirme dönemini korur; güncel kurulum, canlı durum veya test sonucu olarak kullanılmaz. [Güncel okuma sırası](../README.md) · [Arşiv açıklaması](README.md).
+
 # Nova veritabanı ve yetki sözleşmesi
 
 Migration: `supabase/migrations/20261013123222_nova_local_companion.sql`.

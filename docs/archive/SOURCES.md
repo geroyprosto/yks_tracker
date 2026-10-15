@@ -1,3 +1,5 @@
+> **Tarihsel kayıt:** Bu belge önceki geliştirme dönemini korur; güncel kurulum, canlı durum veya test sonucu olarak kullanılmaz. [Güncel okuma sırası](../README.md) · [Arşiv açıklaması](README.md).
+
 # Kaynaklar ve doğrulama sınırları
 
 Kontrol tarihi: 24 Eylül 2026.
@@ -23,4 +25,3 @@ Kurulu sürümün yerel belgeleri değişmez kaynak değildir; paket yükselince
 Son üç bağlantı sonraki kurulum/geliştirme için resmî başvuru noktasıdır; yalnız link verilmesi tüm içeriklerin bu oturumda doğrulandığı anlamına gelmez.
 
 Aşama 2–3 başladığında Google scopes/events, Focus To-Do resmî API varlığı, OpenAI model kataloğu ve hesap erişimi, Structured Outputs/dosya aktarımı ile MCP/OAuth belgeleri yeniden incelenir. Gerçek dış bağlantı veya destek doğrulanmadan “çalışıyor” olarak işaretlenmez.
-

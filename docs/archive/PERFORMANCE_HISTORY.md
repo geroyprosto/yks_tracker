@@ -1,3 +1,5 @@
+> **Tarihsel kayıt:** Bu belge önceki geliştirme dönemini korur; güncel kurulum, canlı durum veya test sonucu olarak kullanılmaz. [Güncel okuma sırası](../README.md) · [Arşiv açıklaması](README.md).
+
 # Kayıt ve analiz gecikmesi
 
 4 Ekim 2026 incelemesi. Aşağıdaki üretim ölçümleri anlık durum ve birikmiş sorgu istatistikleridir; canlı kullanıcı işleminin uçtan uca süresi değildir.
@@ -51,7 +53,7 @@ Veritabanı boyutu için [Supabase belgeleri](https://supabase.com/docs/guides/p
 - Geçici sayaç kimliği, başarılı başlatma cevabının gerçek kimliğiyle değiştirilir; sıradaki geçiş de o kimliği kullanır. Sayaç zamanı ve interval kayıtları sunucunun tam cevabıyla kesinleştirilir. Tıklamada gösterilen zaman geçicidir; kuyruk/ağ süresi kalıcı veritabanı zamanını sıfırlamaz.
 - Her yeni eylemin ayrı istek kimliği vardır. Sonucu belirsiz bir istek aynı kimlik ve aynı gönderilmiş veriyle yeniden denenir; kesinleşmeden sonraki yazmalar gönderilmez. Bilinen bir hata sonrasında güncel durum okunur ve başarısız işe bağlı sonraki işler açık hata ile iptal edilir. Eski bir düzenleme penceresi, dışarıdan değişen kaydın sürümünü sessizce benimseyemez.
 - Bildirim, yenileme ve komut cevapları bekleyen işlemleri eski durumla ezemez. Okumalar sıra ve değişiklik dönemi kontrollerinden geçer; kuyruk boşalınca gerekli tam durum okuması birleştirilir.
-- Upstash Realtime bağlantısı [REALTIME.md](./REALTIME.md) dosyasında açıklanır. Mevcut gerçek Redis üzerinde ayrı test kanalında SDK yayınlama, abonelik ve geçmiş okuması başarılıydı: yayın onayı 303,8 ms, bildirimin test aboneliğine ulaşması 305,8 ms. Bu tek servis bağlantı örneğidir; kullanıcının ekran yenilemesi veya Supabase kayıt süresi değildir. Test kanalı temizlendi.
+- Upstash Realtime bağlantısı [REALTIME.md](REALTIME_HISTORY.md) dosyasında açıklanır. Mevcut gerçek Redis üzerinde ayrı test kanalında SDK yayınlama, abonelik ve geçmiş okuması başarılıydı: yayın onayı 303,8 ms, bildirimin test aboneliğine ulaşması 305,8 ms. Bu tek servis bağlantı örneğidir; kullanıcının ekran yenilemesi veya Supabase kayıt süresi değildir. Test kanalı temizlendi.
 - Bu değişiklik kalıcı Supabase kaydının anlık olduğunu iddia etmez. Ölçülen iyileştirme, ilk sunucu cevabı henüz gelmeden bir sonraki işlemin kabul edilmesidir.
 - Son doğrulama: yeni kuyruk/Realtime ve ilgili istemci-sunucu sözleşmelerinde 58/58 birim testi; görev/sayaç, eski okuma, kayıp yanıt, form tekrarı, oturum sonlanması ve gerçek SDK/native SSE bağlantısında 31/31 tarayıcı testi geçti. Tüm birim grubunda 314/315 başarılı; tek hata daha önce bulunan `mcp-analysis-tool.test.ts` içindeki `priority_summary.high` beklentisidir. Lint, tip denetimi ve üretim derlemesi başarılı. Bu sürüm yeni SQL migration gerektirmez.
 

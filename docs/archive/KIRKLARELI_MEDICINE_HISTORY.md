@@ -1,5 +1,7 @@
 # Kırklareli Tıp çalışma alanı
 
+> **Tarihsel kayıt:** İlk teknik açıklama ve yayın/test notu korunur. [Güncel rehber](../features/KIRKLARELI_MEDICINE.md) · [Arşiv açıklaması](README.md).
+
 University students can opt into the Kırklareli University Faculty of Medicine
 2026–2027 curriculum from **Konularım** or **Ayarlar → Öğrenci alanım**. Select
 an academic year and Dönem 1–4. General university results and YKS topics remain
@@ -108,4 +110,3 @@ education commands with full responses. The pending-save failure was reproduced
 on untouched `origin/main` (7e66f87) before publication. Its expectations were
 not weakened; only the navigation assertion changes because university
 students now have a Konularım entry without needing a YKS goal.
-

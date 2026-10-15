@@ -1,3 +1,5 @@
+> **Tarihsel kayıt:** Bu belge önceki geliştirme dönemini korur; güncel kurulum, canlı durum veya test sonucu olarak kullanılmaz. [Güncel okuma sırası](../README.md) · [Arşiv açıklaması](README.md).
+
 # Nova simülasyon motoru ve puanlama
 
 Nova bir dijital çalışma arkadaşının **simülasyonudur**. Bu belgede geçen ağırlıklar, durumlar ve deneme netleri ürün parametreleridir; psikolojik ölçüm veya sınav başarısı tahmini değildir. Motor gerçek kullanıcı kayıtlarını değiştirmez; Nova puanı gerçek kullanıcı liderlik tablosuna yazılmaz.

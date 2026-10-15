@@ -1,3 +1,5 @@
+> **Tarihsel kayıt:** Bu belge önceki geliştirme dönemini korur; güncel kurulum, canlı durum veya test sonucu olarak kullanılmaz. [Güncel okuma sırası](../README.md) · [Arşiv açıklaması](README.md).
+
 # Google Takvim kurulumu
 
 Bu bağlantı, uygulama girişinden ayrı bir Google iznidir. Yalnızca seçilen takvimlerdeki **bugünün etkinlikleri** okunur. Uygulama takvime yazmaz; etkinlik süresini çalışma istatistiğine dönüştürmez.

@@ -1,3 +1,5 @@
+> **Tarihsel kayıt:** Bu belge önceki geliştirme dönemini korur; güncel kurulum, canlı durum veya test sonucu olarak kullanılmaz. [Güncel okuma sırası](../README.md) · [Arşiv açıklaması](README.md).
+
 # Öğrenci çalışma alanı
 
 Bu değişiklik `793e0ae` üzerine `codex/student-personalization` dalında geliştirilmiştir. Kapsam YKS, lise ve üniversitedir. Eğitim profili yetki rolü değildir. Öğretmen, yönetici, başvuru onayı ve sınıf ilişkileri mevcut kontrolleri kullanır.

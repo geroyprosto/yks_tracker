@@ -12,8 +12,11 @@ input, select, textarea { font-size: 16px; }
 .workspace-label, .page-footer { font-size: 12px; }
 
 /* Quiet supporting surfaces keep the progress rings and focus dial in view. */
-.sidebar { scrollbar-width: none; }
-.sidebar::-webkit-scrollbar { display: none; }
+.sidebar { scrollbar-color: transparent transparent; }
+.sidebar::-webkit-scrollbar,
+.sidebar::-webkit-scrollbar-track,
+.sidebar::-webkit-scrollbar-thumb { background: transparent; }
+.sidebar::-webkit-scrollbar-button { display: none; }
 .sidebar .nav-item.active {
   background: color-mix(in srgb, var(--primary) 12%, var(--sidebar-background));
   color: var(--primary);

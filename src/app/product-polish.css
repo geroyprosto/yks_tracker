@@ -140,18 +140,35 @@ input, select, textarea { font-size: 16px; }
 .tasks-summary-card .check-button { width: 28px; height: 28px; flex: none; }
 .tasks-summary-card .empty { padding: 18px 12px 28px; }
 .tasks-summary-card .empty-icon { display: none; }
-.today-rhythm-card { min-height: 280px; }
+.today-rhythm-card { --rhythm-plot-height: 240px; --rhythm-value-height: 48px; container: study-rhythm / inline-size; min-height: 500px; }
 .today-rhythm-card .card-head { margin-bottom: 14px; }
-.today-rhythm-card .chart-summary strong { color: var(--foreground); font-size: 26px; }
+.today-rhythm-card .chart-summary strong { color: var(--foreground); font-size: 30px; font-weight: 700; }
 .today-rhythm-card .chart-summary { flex-wrap: wrap; gap: 4px 12px; }
 .today-rhythm-card .chart-summary span { color: var(--muted); font-size: 15px; }
-.today-rhythm-card .week-chart { min-height: 132px; gap: 12px; }
-.today-rhythm-card .day-bar { min-width: 0; background: transparent; border: 0; padding: 0 2px; color: var(--muted); font-size: 14px; border-radius: 5px; }
-.today-rhythm-card .bar-track { display: flex; align-items: flex-end; height: 90px; width: 100%; background: color-mix(in srgb, var(--surface-raised) 65%, transparent); border-radius: 5px; overflow: hidden; }
-.today-rhythm-card .bar-track > span { display: block; width: 100%; min-height: 0; background: color-mix(in srgb, var(--primary) 65%, var(--surface-raised)); border-radius: 5px; }
+.rhythm-summary-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px 20px; }
+.rhythm-goal-key { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; color: var(--muted); }
+.rhythm-goal-key i { width: 20px; border-top: 2px dashed var(--primary); }
+.rhythm-goal-key strong { color: var(--foreground); font-weight: 650; }
+.rhythm-chart { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 12px; margin-top: 20px; }
+.rhythm-axis { position: relative; height: var(--rhythm-plot-height); margin-top: var(--rhythm-value-height); color: var(--muted); font-size: 14px; font-variant-numeric: tabular-nums; }
+.rhythm-axis > span { position: absolute; right: 0; transform: translateY(50%); white-space: nowrap; }
+.rhythm-scroll { min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+.rhythm-scroll:focus-visible { outline: 2px solid var(--primary); outline-offset: 4px; border-radius: 6px; }
+.today-rhythm-card .week-chart { position: relative; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); align-items: start; gap: 12px; height: auto; min-height: 0; min-width: 490px; padding: 0 0 8px; margin: 0; }
+.rhythm-levels { position: absolute; top: var(--rhythm-value-height); inset-inline: 0; height: var(--rhythm-plot-height); pointer-events: none; }
+.rhythm-level-line, .rhythm-goal-line { position: absolute; inset-inline: 0; border-top: 1px solid var(--border); }
+.rhythm-goal-line { z-index: 2; border-top: 2px dashed var(--primary); }
+.today-rhythm-card .day-bar { position: relative; display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; background: transparent; border: 0; padding: 0; color: var(--muted); font-size: 15px; border-radius: 6px; }
+.today-rhythm-card .bar-track { display: flex; flex: none; align-items: flex-end; height: var(--rhythm-plot-height); width: 100%; max-width: 52px; background: color-mix(in srgb, var(--surface-raised) 45%, transparent); border-radius: 8px 8px 2px 2px; overflow: hidden; }
+.today-rhythm-card .bar-track > span { display: block; width: 100%; min-height: 0; background: color-mix(in srgb, var(--primary) 68%, var(--surface-raised)); border-radius: 7px 7px 2px 2px; }
 .today-rhythm-card .current .bar-track > span { background: var(--primary); }
-.today-rhythm-card .day-bar[data-tooltip-active] .bar-track { outline: 1px solid var(--primary); }
-.today-rhythm-card .bar-value { color: var(--muted); font-size: 12px; height: auto; min-height: 2.8em; white-space: normal; }
+.today-rhythm-card .day-bar[data-tooltip-active] .bar-track { outline: 2px solid var(--primary); outline-offset: 3px; }
+.today-rhythm-card .bar-value { display: flex; align-items: center; justify-content: center; color: var(--foreground); font-size: 14px; font-weight: 650; line-height: 1.45; height: var(--rhythm-value-height); width: 100%; white-space: normal; font-variant-numeric: tabular-nums; }
+.rhythm-day { display: flex; flex-direction: column; align-items: center; gap: 2px; padding-top: 12px; }
+.rhythm-day b { font-weight: 650; }
+.rhythm-day small { color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; }
+.current .rhythm-day small { color: var(--primary); }
+.rhythm-scroll-hint { display: none; color: var(--muted); font-size: 13px; margin-top: 12px; }
 .today-rhythm-card .footnote { font-size: 14px; line-height: 1.7; padding-top: 14px; }
 .today-practice-card > .card { min-height: 0; }
 .today-practice-card .insight-card {
@@ -236,6 +253,10 @@ input, select, textarea { font-size: 16px; }
 
 @media (max-width: 540px) {
   .daily-card .neon-metrics { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+}
+
+@container study-rhythm (max-width: 541px) {
+  .rhythm-scroll-hint { display: block; }
 }
 
 @media (max-width: 380px) {

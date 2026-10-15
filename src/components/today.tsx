@@ -15,8 +15,6 @@ import {TodayCalendar} from './today-calendar';
 import {YksCountdown} from './yks-countdown';
 import subjectStyles from './subject-color.module.css';
 
-const hourFormatter = new Intl.NumberFormat('tr-TR', {maximumFractionDigits: 2});
-
 export function Today({state, preview, command, busy, offset, go, openTimer, expandTimer, addTask, openExamDateSettings, openPractice}: {
   state: AppState;
   preview: boolean;
@@ -91,6 +89,10 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
     return date.toISOString().slice(0, 10);
   });
   const max = Math.max(target * 60, ...days.map(day => totals[day] ?? 0), 1);
+  const hourStep = Math.max(1, Math.ceil(max / 3600 / 4));
+  const chartHours = hourStep * 4;
+  const chartMax = chartHours * 3600;
+  const hourLevels = Array.from({length: 5}, (_, index) => index * hourStep);
   const weekTotal = days.reduce((sum, day) => sum + (totals[day] ?? 0), 0);
 
   return <>
@@ -139,8 +141,32 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
           <div className="card-bottom"><span>{completed} tamamlandı · {tasks.length - completed} seni bekliyor</span><LinkButton onClick={() => go('tasks')}>Tüm görevler</LinkButton></div>
         </Card>}
         {(modules?.statistics??true)&&<Card className="rhythm-card today-rhythm-card" title="Çalışma ritmin" eyebrow="SON 7 GÜN" action={<LinkButton onClick={() => go('stats')}>İstatistikler</LinkButton>}>
-          <div className="chart-summary"><strong>{duration(weekTotal)}</strong><span>toplam net çalışma</span></div>
-          <div className="week-chart" role="group" aria-label={'Son yedi gün toplam çalışma ' + duration(weekTotal)}>{days.map(day => <button type="button" className={'day-bar ' + (day === today ? 'current' : '')} key={day} {...tooltip.triggerProps(day, {title:formatDay(day, {day:'numeric',month:'long'}),value:totals[day] ? duration(totals[day]) : 'Kayıt yok',context:'Net çalışma süresi',note:day === today ? 'Bugün' : undefined})}><span className="bar-value">{totals[day] ? hourFormatter.format(totals[day] / 3600) + ' sa' : '—'}</span><span className="bar-track"><span style={{height: Math.max(0, 100 * (totals[day] ?? 0) / max) + '%'}}/></span><span>{new Intl.DateTimeFormat('tr-TR', {weekday: 'short', timeZone: 'UTC'}).format(new Date(day + 'T12:00:00Z'))}</span></button>)}</div>
+          <div className="rhythm-summary-row">
+            <div className="chart-summary"><strong>{duration(weekTotal)}</strong><span>toplam net çalışma</span></div>
+            {target > 0 && <span className="rhythm-goal-key"><i aria-hidden="true"/>Bugünün hedefi <strong>{duration(target * 60)}</strong></span>}
+          </div>
+          <div className="rhythm-chart">
+            <div className="rhythm-axis" aria-hidden="true">{hourLevels.map(hours => <span key={hours} data-hours={hours} style={{bottom: 100 * hours / chartHours + '%'}}>{hours} sa</span>)}</div>
+            <div className="rhythm-scroll" role="region" aria-label="Günlük çalışma grafiği; tüm günleri görmek için yatay kaydırabilirsin" tabIndex={0}>
+              <div className="week-chart" role="group" aria-label={'Son yedi gün toplam çalışma ' + duration(weekTotal)}>
+                <div className="rhythm-levels" aria-hidden="true">
+                  {hourLevels.map(hours => <span key={hours} className="rhythm-level-line" style={{bottom: 100 * hours / chartHours + '%'}}/>)}
+                  {target > 0 && <span className="rhythm-goal-line" style={{bottom: 100 * target * 60 / chartMax + '%'}}/>}
+                </div>
+                {days.map(day => <button type="button" className={'day-bar ' + (day === today ? 'current' : '')} key={day} {...tooltip.triggerProps(day, {
+                  title: formatDay(day, {day: 'numeric', month: 'long'}),
+                  value: totals[day] ? duration(totals[day]) : 'Kayıt yok',
+                  context: 'Net çalışma süresi',
+                  note: day === today ? target > 0 ? `Bugün · Günlük hedefinin %${Math.round(100 * (totals[day] ?? 0) / (target * 60))} kadarı` : 'Bugün' : undefined,
+                })}>
+                  <span className="bar-value">{totals[day] ? duration(totals[day]) : '—'}</span>
+                  <span className="bar-track"><span style={{height: Math.max(0, 100 * (totals[day] ?? 0) / chartMax) + '%'}}/></span>
+                  <span className="rhythm-day"><b>{new Intl.DateTimeFormat('tr-TR', {weekday: 'short', timeZone: 'UTC'}).format(new Date(day + 'T12:00:00Z'))}</b><small>{day === today ? 'Bugün' : formatDay(day, {day: 'numeric', month: 'short'})}</small></span>
+                </button>)}
+              </div>
+            </div>
+          </div>
+          <p className="rhythm-scroll-hint">Tüm günleri görmek için grafiği yatay kaydır.</p>
           <p className="footnote">— Kayıt olmayan günler. Henüz çalışma yapılmadığı anlamına gelmez.</p>
         </Card>}
         {yks&&(modules?.statistics??true)&&<div className="today-practice-card"><PracticeOverview state={state} preview={preview} command={command} busy={busy} onOpen={openPractice}/></div>}

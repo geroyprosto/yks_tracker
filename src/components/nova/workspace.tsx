@@ -5,7 +5,8 @@ import Link from 'next/link';
 import type {NovaWebState} from '@/lib/nova/web-types';
 import {NovaAvatar} from './avatar';
 import {NovaLab} from './lab';
-import {NovaRace, NovaToday} from './overview';
+import {NovaToday} from './overview';
+import {NovaRace} from './race';
 import {readNova, type Command} from './view-utils';
 import styles from './workspace.module.css';
 

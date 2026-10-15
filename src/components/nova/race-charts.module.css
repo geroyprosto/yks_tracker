@@ -1,0 +1,52 @@
+.components, .weeklyChart {min-width: 0; --user-color: var(--ring-1, var(--nova-accent)); --opponent-color: var(--ring-3, var(--chart));}
+.chartMeta {display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; color: var(--nova-muted); font-size: 11px; margin-bottom: 24px;}
+.legend {display: flex; gap: 18px; align-items: center;}
+.legend > span {display: inline-flex; align-items: center; gap: 7px; color: var(--nova-text); font-size: 12px;}
+.legend i {display: block; width: 9px; height: 9px; background: var(--series-color); border-radius: 50%;}
+.legend i.nova {border-radius: 2px; transform: rotate(45deg);}
+.user {--series-color: var(--user-color);}
+.nova {--series-color: var(--opponent-color);}
+.componentList {list-style: none; display: grid; gap: 23px; padding: 0; margin: 0;}
+.componentHeading {display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px;}
+.componentHeading strong {font-size: 13px; font-weight: 550; color: var(--nova-text);}
+.componentHeading > span {font-size: 10px; color: var(--nova-muted); white-space: nowrap;}
+.barRow {display: grid; grid-template-columns: 32px minmax(0,1fr) 72px; align-items: center; gap: 10px; margin-top: 7px; font-size: 11px; color: var(--nova-muted);}
+.barRow > strong {text-align: right; font-size: 11px; font-weight: 500; color: var(--nova-text); font-variant-numeric: tabular-nums;}
+.barTrack {height: 7px; border-radius: 6px; overflow: hidden; background: var(--nova-raised);}
+.barTrack > i {display: block; height: 100%; border-radius: inherit; background: var(--series-color);}
+.nova .barTrack > i {background: repeating-linear-gradient(110deg, var(--series-color) 0 6px, color-mix(in srgb, var(--series-color) 60%, transparent) 6px 9px);}
+.note {font-size: 11px; line-height: 1.65; color: var(--nova-muted); margin-top: 20px !important;}
+.chartFrame {height: 235px; position: relative; margin: 8px 0 12px; padding: 8px 0 38px 31px;}
+.yAxis {position: absolute; top: 8px; bottom: 38px; width: 24px; left: 0; color: var(--nova-muted); font-size: 10px; font-variant-numeric: tabular-nums;}
+.yAxis > span {position: absolute; right: 4px; transform: translateY(-50%);}
+.plot {position: relative; width: 100%; height: 100%; --feature-glow: var(--nova-accent);}
+.plot > svg {position: absolute; width: 100%; height: 100%; overflow: visible;}
+.gridLine {stroke: var(--nova-line); stroke-width: 1; stroke-dasharray: 3 5; vector-effect: non-scaling-stroke;}
+.seriesLine {stroke: var(--series-color); stroke-width: 2.5; vector-effect: non-scaling-stroke; stroke-linecap: round;}
+.nova .seriesLine {stroke-dasharray: 6 5;}
+.seriesLine[data-provisional=true] {opacity: .65;}
+.user .seriesLine[data-provisional=true] {stroke-dasharray: 2 4;}
+.marker {position: absolute; width: 9px; height: 9px; border-radius: 50%; border: 2px solid var(--series-color); background: var(--series-color); transform: translate(-50%, -50%); pointer-events: none;}
+.marker.nova {border-radius: 1px; transform: translate(-50%, -50%) rotate(45deg);}
+.marker[data-provisional=true] {background: var(--nova-surface);}
+.xAxis {position: absolute; left: 31px; right: 0; bottom: 7px; height: 20px; color: var(--nova-muted); font-size: 10px;}
+.xAxis > span {position: absolute; display: flex; align-items: center; gap: 3px; white-space: nowrap; transform: translateX(-50%);}
+.xAxis b {color: var(--nova-accent); font-size: 14px; line-height: 1;}
+.empty {display: grid; align-content: center; gap: 8px; min-height: 235px; padding: 28px 16px; text-align: center; border: 1px dashed var(--nova-line); border-radius: 12px; background: var(--nova-bg);}
+.empty strong {font-size: 14px; font-weight: 550; color: var(--nova-text);}
+.empty p {font-size: 12px; color: var(--nova-muted);}
+:global([data-appearance=light]) .components,
+:global([data-appearance=light]) .weeklyChart,
+:global([data-theme=white]) .components,
+:global([data-theme=white]) .weeklyChart {--user-color: color-mix(in srgb, var(--ring-1) 50%, var(--foreground)); --opponent-color: color-mix(in srgb, var(--ring-3) 50%, var(--foreground));}
+@media (max-width: 560px) {
+  .chartMeta {margin-bottom: 20px; font-size: 10px;}
+  .componentHeading {gap: 6px; flex-wrap: wrap;}
+  .componentHeading strong {font-size: 12px;}
+  .barRow {grid-template-columns: 28px minmax(0,1fr) 65px; gap: 7px;}
+  .barRow, .barRow > strong {font-size: 10px;}
+  .chartFrame {height: 225px; padding-left: 25px; padding-bottom: 52px;}
+  .yAxis {bottom: 52px; width: 21px; font-size: 9px;}
+  .xAxis {left: 25px; bottom: 5px; height: 34px; font-size: 9px;}
+  .xAxis > span {transform: translateX(-50%) rotate(-45deg); transform-origin: center;}
+}

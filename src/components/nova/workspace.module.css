@@ -1,21 +1,20 @@
 .workspace {
-  --nova-bg: #232127;
-  --nova-surface: #2c2931;
-  --nova-raised: #35313c;
+  --nova-bg: var(--background);
+  --nova-surface: var(--surface);
+  --nova-raised: var(--surface-raised);
   --nova-text: var(--foreground, #f6f4f8);
-  --nova-muted: #bdb7c5;
-  --nova-faint: #aaa2b4;
-  --nova-accent: #c1b2ed;
-  --nova-line: #44404b;
+  --nova-muted: var(--muted);
+  --nova-faint: var(--muted);
+  --nova-accent: var(--primary);
+  --nova-line: var(--border);
   color: var(--nova-text);
   background: var(--nova-bg);
   border: 1px solid var(--nova-line);
-  border-radius: 24px;
-  padding: 28px;
+  border-radius: 16px;
+  padding: 24px;
   min-width: 0;
-  font-size: 16px;
+  font-size: 14px;
   line-height: 1.6;
-  color-scheme: dark;
 }
 .standalone {max-width: 1140px; margin: 24px auto; width: calc(100% - 48px);}
 .workspace *, .workspace *::before, .workspace *::after {box-sizing: border-box;}
@@ -57,7 +56,7 @@
 .tabs button[aria-pressed=true] {color: var(--nova-accent);}
 .tabs button[aria-pressed=true]::after {position: absolute; content: ''; height: 3px; background: var(--nova-accent); bottom: -1px; left: 0; right: 0; border-radius: 3px 3px 0 0;}
 .tabs button:hover {color: var(--nova-text);}
-.errorBanner {display: flex; align-items: center; gap: 16px; justify-content: space-between; background: #493038; border: 1px solid #865f68; padding: 12px 16px; border-radius: 12px; margin-top: 16px; font-size: 14px;}
+.errorBanner {display: flex; align-items: center; gap: 16px; justify-content: space-between; background: color-mix(in srgb, var(--danger) 10%, var(--nova-surface)); border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--nova-line)); padding: 12px 16px; border-radius: 12px; margin-top: 16px; font-size: 14px;}
 .errorBanner button {border: 0; color: var(--nova-text); background: none; text-decoration: underline; white-space: nowrap; min-height: 44px;}
 .demoNote {color: var(--nova-muted); font-size: 12px; padding-top: 12px;}
 .loading, .emptyState {display: flex; min-height: 350px; align-items: center; justify-content: center; flex-direction: column; gap: 18px; color: var(--nova-muted);}
@@ -68,7 +67,7 @@
 .dayPortrait .avatarLarge {width: 176px; height: 195px;}
 .dayPortrait > span:last-child {font-size: 11px; color: var(--nova-faint);}
 .dayIntro h2 {font-size: clamp(26px, 3vw, 38px); margin: 12px 0; font-weight: 550;}
-.currentActivity {font-size: 20px; color: #e2d9ed; margin-bottom: 10px !important;}
+.currentActivity {font-size: 20px; color: var(--nova-text); margin-bottom: 10px !important;}
 .dayIntro > .softText {font-size: 15px; max-width: 380px;}
 .quietButton {display: inline-flex; align-items: center; gap: 8px; color: var(--nova-accent); background: transparent; border: 0; padding: 10px 0; margin-top: 12px; font-size: 15px; min-height: 44px;}
 .dayColumns {display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(240px, 1fr); gap: 40px; padding: 34px 16px 0;}
@@ -96,7 +95,7 @@
 .moodDetails h3 {font-size: 17px; font-weight: 550;}
 .vitals {list-style: none; padding: 0; margin: 18px 0 8px;}
 .vitals li {display: flex; align-items: center; gap: 10px; margin: 12px 0; font-size: 13px; color: var(--nova-muted);}
-.vitals strong {margin-left: auto; color: #e1d9e9; font-size: 12px; font-weight: 500;}
+.vitals strong {margin-left: auto; color: var(--nova-text); font-size: 12px; font-weight: 500;}
 .vitals svg {color: var(--nova-accent);}
 .bars {display: grid; gap: 12px; margin: 14px 0;}
 .bars label {font-size: 12px; display: flex; flex-wrap: wrap; gap: 4px;}
@@ -104,33 +103,6 @@
 .bars progress {width: 100%; height: 5px; accent-color: var(--nova-accent); border-radius: 3px; overflow: hidden;}
 .calibration {border-top: 1px solid var(--nova-line); padding-top: 15px; margin-top: 20px;}
 .smallNote {font-size: 11px; color: var(--nova-faint); margin-top: 24px !important;}
-.race {max-width: 850px; margin: 20px auto 10px;}
-.raceHeading {text-align: center; padding: 16px 0 26px;}
-.raceHeading h2 {font-size: 32px; font-weight: 550; margin: 12px 0 14px;}
-.raceHeading > p:last-child {font-size: 16px; color: var(--nova-muted);}
-.scores {display: grid; grid-template-columns: 1fr 1fr; gap: 18px;}
-.scores article {border: 1px solid var(--nova-line); border-radius: 18px; padding: 25px 28px; background: var(--nova-surface);}
-.scores .novaScore {border-color: #655773; background: #342e3e;}
-.scoreIdentity {display: flex; align-items: center; gap: 8px; font-size: 17px; min-height: 36px; font-weight: 550;}
-.scoreIdentity > span:last-child:not(.avatar) {color: var(--nova-muted); font-weight: 400; font-size: 11px; margin-left: auto;}
-.scoreIdentity .avatar {width: 30px; height: 34px;}
-.scores article > strong {display: flex; gap: 8px; align-items: baseline; font-size: 48px; font-weight: 500; letter-spacing: -.05em; line-height: 1.2; margin: 20px 0 14px;}
-.scores small {font-size: 15px; font-weight: 400; color: var(--nova-faint); letter-spacing: 0;}
-.scores p {font-size: 12px; color: var(--nova-muted);}
-.raceNote {color: var(--nova-muted); font-size: 13px; text-align: center; margin: 22px 0 !important;}
-.scoreDetails {border-bottom: 1px solid var(--nova-line); padding: 6px 0 14px;}
-.tableWrap {overflow: auto; margin-top: 12px; border: 1px solid var(--nova-line); border-radius: 12px;}
-.tableWrap table {width: 100%; border-collapse: collapse; font-size: 13px; text-align: left; white-space: nowrap;}
-.tableWrap caption {padding: 12px; color: var(--nova-muted); text-align: left; font-size: 12px;}
-.tableWrap th, .tableWrap td {padding: 12px; border-top: 1px solid var(--nova-line);}
-.tableWrap th {font-weight: 500;}
-.tableWrap td {color: var(--nova-muted);}
-.weekly {display: flex; align-items: center; justify-content: space-between; gap: 28px; padding: 30px 0 24px;}
-.weekly h3 {font-size: 23px; font-weight: 550; margin: 8px 0;}
-.weekly p:last-child {font-size: 12px; color: var(--nova-muted);}
-.weeklyScores {display: flex; gap: 30px;}
-.weeklyScores > span {display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--nova-muted);}
-.weeklyScores strong {font-weight: 500; font-size: 25px; color: var(--nova-text);}
 .lab {display: grid; gap: 20px; padding-top: 8px; max-width: 880px; margin-inline: auto;}
 .lab h2 {font-size: 21px; margin-bottom: 12px; font-weight: 550;}
 .lab h3 {font-size: 16px;}
@@ -150,7 +122,6 @@
   .dayHero {padding-inline: 12px; gap: 24px;}
   .dayColumns {gap: 28px; padding-inline: 4px; grid-template-columns: minmax(0, 1.3fr) minmax(210px,1fr);}
   .dayAside {padding-left: 24px;}
-  .scores article {padding: 22px;}
 }
 @media (max-width: 760px) {
   .workspace {padding: 18px; border-radius: 19px;}
@@ -174,16 +145,6 @@
   .dayIntro > .softText {font-size: 13px;}
   .dayColumns {grid-template-columns: 1fr; padding-top: 28px;}
   .dayAside {border-left: 0; border-top: 1px solid var(--nova-line); padding: 25px 0 0;}
-  .raceHeading {padding-top: 8px;}
-  .raceHeading h2 {font-size: 27px;}
-  .scores {gap: 12px;}
-  .scores article {padding: 18px;}
-  .scoreIdentity {flex-wrap: wrap; gap: 4px 7px; font-size: 16px;}
-  .scoreIdentity > span:last-child:not(.avatar) {margin-left: 0; width: 100%;}
-  .scores article > strong {font-size: 38px; flex-wrap: wrap;}
-  .scores p {font-size: 11px;}
-  .weekly {gap: 20px; align-items: flex-start;}
-  .weeklyScores {gap: 20px;}
   .lab :global(.card) {padding: 20px;}
   .errorBanner {flex-wrap: wrap; gap: 4px;}
 }
@@ -204,12 +165,6 @@
   .dayPortrait > span:last-child {display: none;}
   .dayIntro h2 {font-size: 28px;}
   .dayIntro > .softText {max-width: 280px;}
-  .scores article {padding: 16px 13px;}
-  .scores article > strong {font-size: 33px;}
-  .scores small {font-size: 12px;}
-  .scoreIdentity .avatar {width: 23px; height: 30px;}
-  .weekly {flex-direction: column;}
-  .weeklyScores {gap: 40px;}
   .lab :global(.card) {padding: 16px;}
   .diagnostics {grid-template-columns: 1fr; gap: 3px;}
   .diagnostics dd {margin-bottom: 10px;}

@@ -13,6 +13,7 @@ Hesap rolü `student`, `teacher` veya `admin`; erişim durumu ayrıca saklanır.
 ## Temel çalışma kuralları
 
 - Görev, çalışma oturumu ve konu öğrenme düzeyi farklı kayıtlardır. Sayaç bitmesi görevi veya konuyu kendiliğinden tamamlamaz.
+- Görevlerim → Bekleyenler'deki görevi tutamacından Bugünün görevleri alanına veya Bugün sekmesine sürüklemek bugünkü planın sonuna taşır. Bugüne taşı düğmesi aynı işlemi klavye ve dokunmayla yapar; ilerleme ve alt adımlar korunur. Escape veya alan dışına bırakmak taşımayı iptal eder.
 - Görev ilerlemesi varsayılan olarak planlanan dakika × zorluk ağırlığı kullanır; kolay/orta/zor katsayıları 1 / 1,25 / 1,5'tir. Alt adımlar varsa tamamlanma oranı adımlardan hesaplanır.
 - Günlük birleşik ilerlemede varsayılan pay %70 görev ve %30 süredir. Mevcut bileşenlerin ağırlıkları normalize edilir; eksik veri sıfır kabul edilmez. Süre hedefini aşmak tamamlanmayan görevlerin payını kapatmaz.
 - Süre saniye, zaman damgası UTC olarak tutulur; gün sınırı ilgili saat dilimiyle hesaplanır. Yalnız tarih olan sınav günleri timestamp gibi kaydırılmaz.

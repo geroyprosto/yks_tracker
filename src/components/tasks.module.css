@@ -28,6 +28,14 @@
 .toolbar { flex-wrap: wrap; }
 .panel :global(.task-description) h3, .panel :global(.task-description) p { overflow-wrap: anywhere; }
 .context { color: var(--muted); font-size: 13px; }
+.todayDrop { position: sticky; top: 12px; z-index: 4; display: flex; align-items: center; gap: 12px; padding: 16px; margin-bottom: 16px; border: 1px dashed var(--border); border-radius: 11px; background: var(--surface); }
+.todayDrop > svg { color: var(--primary); }
+.todayDrop > div { min-width: 0; }
+.todayDrop h2 { font-size: 14px; }
+.todayDrop p { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.todayDrop[data-drop-active=true], .tabs button[data-drop-active=true] { outline: 2px solid var(--primary); outline-offset: 2px; background: color-mix(in srgb, var(--primary) 12%, var(--surface)); }
+.transferButton { min-height: 44px; margin-inline: 6px; }
+.pending :global(.task-actions) { flex-wrap: wrap; gap: 8px; }
 .reorderControls { display: flex; align-items: center; gap: 2px; }
 .reorderControls > button { min-width: 44px; min-height: 44px; }
 .dragHandle { touch-action: none; cursor: grab; user-select: none; }

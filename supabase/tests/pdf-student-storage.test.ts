@@ -61,13 +61,13 @@ async function asBrowser(id: string, oauth = false) {
   await db.query("select set_config('request.jwt.claim.client_id',$1,false)", [oauth ? "mcp-client" : ""]);
 }
 
-test("approved students and owner can only access their own exam PDF folder", async () => {
+test("approved students and owner retain their own PDFs but cannot upload into the retired bucket", async () => {
   for (const id of [OWNER, STUDENT, OTHER_STUDENT]) {
     await asBrowser(id);
     const own = await db.query<{name: string}>("select name from storage.objects where bucket_id='exam-documents'");
     assert.deepEqual(own.rows.map(row => row.name), [`${id}/${SHA}.pdf`]);
-    await db.query("insert into storage.objects(bucket_id,name) values('exam-documents',$1)",
-      [`${id}/${"b".repeat(64)}.pdf`]);
+    await assert.rejects(() => db.query("insert into storage.objects(bucket_id,name) values('exam-documents',$1)",
+      [`${id}/${"b".repeat(64)}.pdf`]), /row-level security policy/);
     await assert.rejects(() => db.query(
       "insert into storage.objects(bucket_id,name) values('exam-documents',$1)",
       [`${TEACHER}/${"c".repeat(64)}.pdf`]), /row-level security policy/);

@@ -81,6 +81,10 @@ API dosyaları [`src/app/api`](../src/app/api) altındadır:
 
 Tarayıcı oturumuyla yazan API'ler `sameOrigin()` kullanır. JSON boyutu ve şeması sınırlandırılır; API yanıtları `private, no-store` döner. MCP cookie yerine doğrulanmış OAuth bearer, doğru issuer/audience/client ve sahip izni kullanır; sunucu anahtarıyla yalnız dar `mcp_owner_*` RPC'lerini çağırır.
 
+Giriş ve kayıt denemeleri sunucu anahtarıyla çağrılan ortak veritabanı sayaçlarıyla sınırlandırılır. Girişte bir dakikada e-posta başına 10, IP başına 50; kayıtta 15 dakikada e-posta başına 3, IP başına 5 deneme kabul edilir. Yalnız Vercel'in doğrulanabilir proxy başlığı IP kaynağıdır; diğer ortamlarda sabit ortak IP sayacı kullanılır. E-posta/IP değerleri HMAC ile özetlenir. Her akış en fazla 5.000 sayaç ayırır; her istekte en çok 128 süresi dolmuş sayaç temizlenir. Kısıtlanan IP yeni e-posta satırı oluşturmaz; giriş güvenlik deposu yanıt vermezse Auth çağrısına geçilmez.
+
+HTML ve API yanıtları `frame-ancestors 'none'`, `X-Frame-Options: DENY` ve `nosniff` başlıklarını taşır. Uygulama başka bir sayfanın iframe'i içinde gösterilmez; OAuth yönlendirmeleri ve normal gezinme korunur.
+
 ## Okuma, yazma ve eşzamanlılık
 
 `Dashboard` `/api/state` ile `AppState` yükler. `getState()` güncel `yks_dashboard_state` izdüşümünü okur; yalnız RPC migration'ı eksikse eski `yks_state` yoluna düşer. İsteğe bağlı Redis durum cache'i, veritabanındaki kullanıcı/sürüm denetimi başarılı olmadan veri döndürmez; Redis hatasında doğrudan veritabanı okunur.

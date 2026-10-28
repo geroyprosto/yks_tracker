@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { buildStudyReport, studyReportRange } from "../study-report";
 import { localDate } from "../ui";
-import { getMcpOwnerState, executeMcpOwnerCommand } from "./mcp-gateway";
+import { getMcpOwnerState, getMcpOwnerRead, executeMcpOwnerCommand } from "./mcp-gateway";
 import { registerAnalysisSourcesTool } from "./mcp-analysis-tool";
 import {loadCoachingContext} from './coaching';
 import { ApiError } from "./http";
@@ -141,15 +141,7 @@ export function createStudyMcpServer(client: SupabaseClient, userId: string, app
     _meta: authenticatedToolMeta,
   }, async ({ from_date, to_date, status, limit }) => safely(async () => {
     if (from_date && to_date && from_date > to_date) throw new ApiError(400, "INVALID_INPUT", "Bitiş tarihi başlangıçtan önce olamaz.");
-    const state = await getMcpOwnerState(client, userId);
-    const tasks = state.tasks
-      .filter(task => (!from_date || task.plan_date >= from_date) && (!to_date || task.plan_date <= to_date))
-      .filter(task => status === "all" || (status === "done" ? task.progress >= 1 : task.progress < 1))
-      .sort((a, b) => b.updated_at.localeCompare(a.updated_at) || a.id.localeCompare(b.id))
-      .slice(0, limit)
-      .map(task => ({ id: task.id, title: task.title, plan_date: task.plan_date, exam: task.exam,
-        subject: task.subject, progress: task.progress, planned_minutes: task.planned_minutes, priority: task.priority }));
-    return { tasks, count: tasks.length };
+    return getMcpOwnerRead(client,userId,'tasks',{...(from_date?{from_date}:{}),...(to_date?{to_date}:{}),status,limit});
   }));
 
   server.registerTool("list_topics", {
@@ -159,14 +151,7 @@ export function createStudyMcpServer(client: SupabaseClient, userId: string, app
     annotations: readAnnotations,
     _meta: authenticatedToolMeta,
   }, async ({ exam, subject, limit }) => safely(async () => {
-    const state = await getMcpOwnerState(client, userId);
-    const topics = state.topics
-      .filter(topic => (!exam || topic.exam === exam) && (!subject || topic.subject.toLocaleLowerCase("tr") === subject.toLocaleLowerCase("tr")))
-      .sort((a, b) => a.exam.localeCompare(b.exam) || a.subject.localeCompare(b.subject, "tr") || a.name.localeCompare(b.name, "tr"))
-      .slice(0, limit)
-      .map(topic => ({ id: topic.id, exam: topic.exam, subject: topic.subject, name: topic.name,
-        parent_id: topic.parent_id, mastery: topic.mastery, revision: topic.revision, review_requested: topic.review_requested }));
-    return { topics, count: topics.length };
+    return getMcpOwnerRead(client,userId,'topics',{...(exam?{exam}:{}),...(subject?{subject}:{}),limit});
   }));
 
   server.registerTool("list_study_sessions", {
@@ -177,20 +162,7 @@ export function createStudyMcpServer(client: SupabaseClient, userId: string, app
     _meta: authenticatedToolMeta,
   }, async ({ from_date, to_date, limit }) => safely(async () => {
     if (from_date && to_date && from_date > to_date) throw new ApiError(400, "INVALID_INPUT", "Bitiş tarihi başlangıçtan önce olamaz.");
-    const state = await getMcpOwnerState(client, userId);
-    const timezone = state.settings?.timezone ?? "Europe/Istanbul";
-    const timerRecords = state.sessions.filter(session => session.status === "finished")
-      .map(session => ({ kind: "timer" as const, id: session.id,
-        study_date: localDate(Date.parse(session.started_at), timezone), subject: session.subject,
-        duration_seconds: session.accumulated_seconds }));
-    const manualRecords = (state.manual_study_entries ?? []).map(entry => ({ kind: "manual" as const,
-      id: entry.id, study_date: entry.study_date, subject: entry.subject,
-      duration_seconds: entry.duration_seconds }));
-    const sessions = [...timerRecords, ...manualRecords]
-      .filter(entry => (!from_date || entry.study_date >= from_date) && (!to_date || entry.study_date <= to_date))
-      .sort((a, b) => b.study_date.localeCompare(a.study_date) || a.id.localeCompare(b.id))
-      .slice(0, limit);
-    return { sessions, count: sessions.length };
+    return getMcpOwnerRead(client,userId,'sessions',{...(from_date?{from_date}:{}),...(to_date?{to_date}:{}),limit});
   }));
   server.registerTool("list_exams", {
     title: "Denemeleri listele",
@@ -199,15 +171,7 @@ export function createStudyMcpServer(client: SupabaseClient, userId: string, app
     annotations: readAnnotations,
     _meta: authenticatedToolMeta,
   }, async ({ limit }) => safely(async () => {
-    const state = await getMcpOwnerState(client, userId);
-    const exams = state.exams
-      .sort((a, b) => b.exam_date.localeCompare(a.exam_date) || b.updated_at.localeCompare(a.updated_at))
-      .slice(0, limit)
-      .map(exam => ({ id: exam.id, name: exam.name, exam_date: exam.exam_date, format_code: exam.format_code,
-        total_net: exam.total_net, score: exam.score, rank: exam.rank,
-        results: exam.results.map(section => ({ section_key: section.section_key, correct: section.correct,
-          wrong: section.wrong, blank: section.blank, net: section.net })) }));
-    return { exams, count: exams.length };
+    return getMcpOwnerRead(client,userId,'exams',{limit});
   }));
 
   server.registerTool("create_task", {

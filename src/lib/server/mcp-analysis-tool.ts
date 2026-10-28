@@ -5,6 +5,7 @@ import { buildAnalysisSnapshot, buildSixInsightSnapshot } from "../analysis-snap
 import { buildCoachingReportMetrics } from '../coaching-report';
 import type {CoachingContext} from './coaching';
 import { localDate } from "../ui";
+import {ApiError} from './http';
 
 export const analysisSourcesInput = z.object({
   lookback_days: z.number().int().min(1).max(31).default(14),
@@ -40,9 +41,9 @@ export function registerAnalysisSourcesTool(server: McpServer, loadState: () => 
         metrics,
         timing_guidance: coaching.timing_guidance,
       } }) }] };
-    } catch {
+    } catch (error) {
       return { isError: true, content: [{ type: "text" as const,
-        text: "Analiz kaynakları getirilemedi. Hesap verilerini ve tarih aralığını kontrol edin." }] };
+        text: error instanceof ApiError ? error.message : "Analiz kaynakları getirilemedi. Hesap verilerini ve tarih aralığını kontrol edin." }] };
     }
   });
 }

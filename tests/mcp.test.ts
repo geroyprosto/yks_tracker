@@ -253,22 +253,23 @@ test("MCP manual study creation uses the owner command path and returns only a d
   assert.equal(first.content[0].text.includes("private_journal_text"), false);
 });
 
-test("MCP study listing excludes running timers and filters date-only records", async () => {
+test("MCP study listing returns the narrow database projection with its local dates", async () => {
   const [{createMcpHandler}, {createStudyMcpServer}] = await Promise.all([
     import("@modelcontextprotocol/server"), import("../src/lib/server/mcp-tools"),
   ]);
-  const state = {
-    settings: {timezone: "Europe/Istanbul"},
+  const records = {
     sessions: [
-      {id: "finished", status: "finished", started_at: "2026-09-24T21:30:00Z",
-        subject: "AYT Fizik", accumulated_seconds: 1800},
-      {id: "running", status: "running", started_at: "2026-09-25T09:00:00Z",
-        subject: "TYT Matematik", accumulated_seconds: 600},
+      {kind: "timer", id: "finished", study_date: "2026-09-25", subject: "AYT Fizik", duration_seconds: 1800},
+      {kind: "manual", id: "manual", study_date: "2026-09-25", subject: "TYT Fizik", duration_seconds: 3000},
     ],
-    manual_study_entries: [{id: "manual", study_date: "2026-09-25",
-      subject: "TYT Fizik", duration_seconds: 3000}],
+    count: 2,
   };
-  const handler = createMcpHandler(() => createStudyMcpServer({rpc: async () => ({data: state, error: null})} as never,
+  const handler = createMcpHandler(() => createStudyMcpServer({rpc: async (name: string, args: Record<string, unknown>) => {
+    assert.equal(name, "mcp_owner_read");
+    assert.deepEqual(args, {p_user_id: ownerId, p_resource: "sessions",
+      p_filters: {from_date: "2026-09-25", to_date: "2026-09-25", limit: 25}});
+    return {data: records, error: null};
+  }} as never,
     ownerId, "https://study.example.com/"), {responseMode: "json"});
   const response = await handler.fetch(new Request("https://study.example.com/api/mcp", {
     method: "POST", headers: {"Content-Type": "application/json", Accept: "application/json, text/event-stream"},
@@ -281,10 +282,7 @@ test("MCP study listing excludes running timers and filters date-only records", 
   assert.ok(payload);
   const body = JSON.parse(payload);
   const result = JSON.parse(body.result.content[0].text);
-  assert.deepEqual(result, {sessions: [
-    {kind: "timer", id: "finished", study_date: "2026-09-25", subject: "AYT Fizik", duration_seconds: 1800},
-    {kind: "manual", id: "manual", study_date: "2026-09-25", subject: "TYT Fizik", duration_seconds: 3000},
-  ], count: 2});
+  assert.deepEqual(result, records);
 });
 
 

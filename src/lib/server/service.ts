@@ -5,7 +5,10 @@ import { ApiError } from "./http";
 import { after } from 'next/server';
 import { readStateWithCache } from './state-cache';
 import {scheduleStudyDirty,type StudyDirtyOptions} from './study-realtime';
-export function databaseError(error:{message:string;code?:string}):never{
+const databaseOperations = ['yks_dashboard_state','yks_state','classroom_identity','yks_student_command',
+ 'yks_command','mcp_owner_state','mcp_owner_read','mcp_owner_command'] as const;
+export type DatabaseOperation = typeof databaseOperations[number];
+export function databaseError(error:{message:string;code?:string;status?:number},operation?:DatabaseOperation):never{
  const known:Record<string,[number,string]>={
   ACCESS_DENIED:[403,"Bu işlem için yetkiniz bulunmuyor."],
   ACCOUNT_REQUIRED:[403,"Önce başvurunuzu tamamlayın."],
@@ -47,18 +50,43 @@ export function databaseError(error:{message:string;code?:string}):never{
  };
  const key=Object.keys(known).find(key=>error.message===key);
  if(key)throw new ApiError(known[key][0],key,known[key][1]);
- if(error.code?.startsWith("22")||error.code?.startsWith("23"))throw new ApiError(400,"INVALID_INPUT","Alanlar veya ilişkili kayıtlar geçerli değil.");
- if(error.code==="PGRST202"||error.code==="42P01")throw new ApiError(503,"DATABASE_SETUP_REQUIRED","Veritabanı migration kurulumu gerekli.");
- throw new ApiError(503,"DATABASE_UNAVAILABLE","Veritabanı işlemi tamamlanamadı. Bağlantıyı ve kurulumu kontrol edin.");
+ const code = /^(?:[A-Z0-9]{5}|PGRST\d{3}|504|ECONNRESET|ECONNREFUSED|ENOTFOUND|ETIMEDOUT)$/.test(error.code??'') ? error.code! : 'UNKNOWN';
+ if(code.startsWith('22')||code.startsWith('23'))throw new ApiError(400,'INVALID_INPUT','Alanlar veya ilişkili kayıtlar geçerli değil.');
+ let category='unavailable',apiCode='DATABASE_UNAVAILABLE';
+ let message='Veritabanı işlemi şu anda tamamlanamadı. Biraz sonra yeniden deneyin.';
+ if(code==='57014'){
+  category='timeout';apiCode='DATABASE_TIMEOUT';
+  message='İşlem beklenenden uzun sürdü. Kısa bir süre sonra yeniden deneyin.';
+ }else if(code==='55P03'||code==='40P01'){
+  category='busy';apiCode='DATABASE_BUSY';
+  message='Başka bir işlem sürüyor. Kısa bir süre sonra yeniden deneyin.';
+ }else if(code.startsWith('08')||/^PGRST00[0-3]$/.test(code)||
+   ['504','ECONNRESET','ECONNREFUSED','ENOTFOUND','ETIMEDOUT'].includes(code)||error.status===504||
+   (code==='UNKNOWN'&&/\b(fetch failed|failed to fetch|networkerror|network request failed|load failed|connection (refused|reset|closed)|socket hang up)\b/i.test(error.message))){
+  category='connection';apiCode='DATABASE_CONNECTION_FAILED';
+  message='Veritabanı bağlantısı geçici olarak kurulamadı. Biraz sonra yeniden deneyin.';
+ }else if(code==='PGRST202'||code==='42P01'){
+  category='setup';apiCode='DATABASE_SETUP_REQUIRED';
+  message='Uygulamanın veritabanı kurulumu güncellenmeli.';
+ }
+ // Database messages, SQL details and request values may contain private data.
+ // Log only a bounded diagnostic code and a static, known operation label.
+ console.error('database_operation_failed',{category,code,
+  operation:operation&&databaseOperations.includes(operation)?operation:'unknown'});
+ throw new ApiError(503,apiCode,message);
 }
 export async function getState(client:SupabaseClient,verifiedUserId?:string):Promise<AppState>{
  return readStateWithCache(client,async()=>{
   // The dashboard needs the current plan for each day; the legacy RPC keeps
   // every historical snapshot for audit callers. Only a missing migration may
   // use that older projection during a rolling deployment.
-  let {data,error}=await client.rpc("yks_dashboard_state");
-  if(error?.code==='PGRST202')({data,error}=await client.rpc("yks_state"));
-  if(error)databaseError(error);
+  let operation:DatabaseOperation='yks_dashboard_state';
+  let {data,error}=await client.rpc(operation);
+  if(error?.code==='PGRST202'){
+   operation='yks_state';
+   ({data,error}=await client.rpc(operation));
+  }
+  if(error)databaseError(error,operation);
   return {...emptyState(true),...data,configured:true,authenticated:true} as AppState;
  },{verifiedUserId,defer:work=>{try{after(work);}catch{void work();}}});
 }
@@ -69,7 +97,7 @@ export async function authorizeStudyCommand(client:SupabaseClient):Promise<Supab
   // preserves the existing sign-in error when the token cannot be refreshed.
   const verified=await client.auth.getUser();
   if(verified.error||!verified.data.user)throw new ApiError(401,'SIGN_IN_REQUIRED','Devam etmek için giriş yapın.');
-  databaseError(error);
+  databaseError(error,'classroom_identity');
  }
  const account=data as {status:string;role:string}|null;
  if(!account||account.status!=='approved'||account.role!=='student')throw new ApiError(403,'STUDENT_REQUIRED','Çalışma verilerine erişmek için onaylı öğrenci hesabı gerekir.');
@@ -89,7 +117,7 @@ export async function executeStudentCommand(client:SupabaseClient,input:unknown,
    const verified=await client.auth.getUser();
    if(verified.error||!verified.data.user)throw new ApiError(401,'SIGN_IN_REQUIRED','Devam etmek için giriş yapın.');
   }
-  databaseError(error);
+  databaseError(error,'yks_student_command');
  }
  scheduleStudyDirty(client,notification);
  return {...data as {id:string;request_id:string;replayed:boolean},ok:true};
@@ -101,7 +129,7 @@ export async function executeCommand(client:SupabaseClient,input:unknown,options
  const parsed=commandSchema.safeParse(input);
  if(!parsed.success)throw new ApiError(400,"INVALID_INPUT",parsed.error.issues[0]?.message??"Alanları kontrol edin.");
  const {data,error}=await client.rpc("yks_command",{request_id:parsed.data.request_id,command_type:parsed.data.type,payload:parsed.data.payload});
- if(error)databaseError(error);
+ if(error)databaseError(error,'yks_command');
  scheduleStudyDirty(client,options.notification);
  const result=data as {id:string;request_id:string;replayed:boolean};
  const receipt:CommandReceipt={...result,ok:true};

@@ -3,6 +3,7 @@ import test from "node:test";
 import { createMcpHandler, McpServer } from "@modelcontextprotocol/server";
 import { emptyState } from "../src/lib/domain/types";
 import { analysisSourcesInput, registerAnalysisSourcesTool } from "../src/lib/server/mcp-analysis-tool";
+import {ApiError} from '../src/lib/server/http';
 
 test("analysis source tool defaults to 14 days and includes complete saved journal data", async () => {
   assert.equal(analysisSourcesInput.parse({}).lookback_days, 14);
@@ -65,4 +66,35 @@ test("analysis source tool defaults to 14 days and includes complete saved journ
   const disabledResult = JSON.parse(JSON.parse(disabledPayload!).result.content[0].text);
   assert.ok(disabledResult.days.every((day: { journal: unknown }) => day.journal === null));
   assert.equal(JSON.stringify(disabledResult).includes("PRIVATE-NOTES-DO-NOT-SEND"), false);
+});
+
+async function callFailingAnalysis(error:Error){
+  const handler=createMcpHandler(()=>{
+    const server=new McpServer({name:'analysis-error-test',version:'0.1.0'});
+    registerAnalysisSourcesTool(server,async()=>{throw error;});
+    return server;
+  },{responseMode:'json'});
+  const response=await handler.fetch(new Request('https://study.example.com/api/mcp',{
+    method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json, text/event-stream'},
+    body:JSON.stringify({jsonrpc:'2.0',id:1,method:'tools/call',params:{name:'get_analysis_sources',arguments:{}}}),
+  }));
+  assert.equal(response.status,200);
+  const raw=await response.text();
+  const payload=raw.startsWith('event:')?raw.split(/\r?\n/).find(line=>line.startsWith('data: '))?.slice(6):raw;
+  assert.ok(payload);
+  return JSON.parse(payload).result as {isError?:boolean;content:Array<{text:string}>};
+}
+
+test('analysis source timeouts retain the safe retry message instead of blaming account setup',async()=>{
+  const message='İşlem beklenenden uzun sürdü. Kısa bir süre sonra yeniden deneyin.';
+  const result=await callFailingAnalysis(new ApiError(503,'DATABASE_TIMEOUT',message));
+  assert.equal(result.isError,true);
+  assert.equal(result.content[0].text,message);
+});
+
+test('analysis source errors keep unexpected database details private',async()=>{
+  const result=await callFailingAnalysis(new Error('PRIVATE_DB_DETAIL token=synthetic-secret SELECT private_table'));
+  assert.equal(result.isError,true);
+  assert.equal(result.content[0].text,'Analiz kaynakları getirilemedi. Hesap verilerini ve tarih aralığını kontrol edin.');
+  assert.doesNotMatch(JSON.stringify(result),/PRIVATE_DB_DETAIL|synthetic-secret|private_table/);
 });

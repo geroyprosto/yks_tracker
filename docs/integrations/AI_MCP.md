@@ -49,4 +49,12 @@ Yazmalar görev, tarihli elle çalışma, yapılandırılmış deneme ve konu du
 
 Kabulde OAuth onay/ret, araç listeleme, izinli okuma, onaylı yazma, tekrar anahtarı, token yenileme/iptal ve yetkisiz kullanıcı reddini dene. Gerçek OAuth tokenıyla doğrudan Data API ve özel Storage erişiminin reddedildiğini ayrıca doğrula; keşif yanıtı veya `tools/list` başarısı bu sınırı kanıtlamaz. Güvenlik kabulü başarısızsa `MCP_ENABLED=false` ile bağlantıyı kapat.
 
+## Okuma maliyeti ve geçici veritabanı hataları
+
+`mcp_owner_state`, paneldeki `yks_dashboard_state` gibi her tarihin son planını getirir. Eski `yks_state` geçmiş plan sürümlerini isteyen denetim çağrıları için korunur; MCP okuması bu geçmişi tekrar tekrar birleştirmez. Görev, konu, çalışma kaydı ve deneme listeleri `mcp_owner_read` üzerinden yalnız istenen filtre ve sınırdaki alanları okur. Bu liste sorguları sayaç durumunu değiştirmez ve kullanıcı yazma kilidini almaz. Her iki MCP RPC'si de yalnız sunucu `service_role` çağrılarına açıktır ve sahip allowlist'ini denetler.
+
+Gateway aynı istemci ve kullanıcı için eşzamanlı tam durum okumalarının yalnız sürmekte olan isteğini paylaşır; tamamlanan sonuç saklanmaz. Başarılı yazmadan sonraki okuma eski isteğe katılmaz. Liste araçları görev/konu/deneme notlarını veya günlük metnini döndürmez; analiz kaynağının mevcut günlük paylaşım tercihi korunur.
+
+`DATABASE_TIMEOUT` sorgu süresi aşıldığını, `DATABASE_BUSY` kilit beklemesi veya deadlock'u, `DATABASE_CONNECTION_FAILED` geçici bağlantı sorununu, `DATABASE_SETUP_REQUIRED` eksik veritabanı kurulumunu ayırır. Sunucu kaydı yalnız hata kategorisi, sınırlı SQL/PostgREST kodu ve bilinen RPC adını içerir; SQL metni, mesaj ayrıntısı ve kişisel değerler loglanmaz. Yazma zaman aşımında otomatik yeni işlem başlatılmaz; yeniden denemede mevcut `request_id` korunur.
+
 Eski model, ücretli çağrı, deployment ve OAuth deneme kayıtları [Aşama 3 geçmişinde](../archive/PHASE3_SETUP_HISTORY.md) saklanır. Yeniden kontrol edilmeden yeni ortamın veya güncel üretimin durumu olarak kullanılamaz.

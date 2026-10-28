@@ -16,7 +16,7 @@ Mevcut `.env.local` dosyasının üzerine yazma. Yer tutucuları kendi geliştir
 | --- | --- | --- |
 | Temel bağlantı | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `ALLOWED_USER_EMAIL` | Gerçek Supabase ile çalışan uygulamada. Mevcut `getConfiguration()` üçüne de ihtiyaç duyar. E-posta sahip hesabını tanımlar; öğrenci rolü vermez. |
 | Uygulama adresi | `APP_ORIGIN` | Kullanılan şema ve host; ör. `http://localhost:3000`. Yol, query veya fragment ekleme. OAuth ve origin denetimlerinde kullanılan adresle tarayıcı adresi aynı olmalı. |
-| Sunucu erişimi | `SUPABASE_SECRET_KEY` | Uygulama içi hesap oluşturma, Google Takvim, AI ve özel MCP gibi ayrıcalıklı sunucu işlemlerinde. |
+| Sunucu erişimi | `SUPABASE_SECRET_KEY` | Giriş/kayıt için ortak istek sınırında zorunlu; ayrıca hesap oluşturma, Google Takvim, AI ve özel MCP gibi ayrıcalıklı sunucu işlemlerinde. |
 | Google Takvim | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_TOKEN_ENCRYPTION_KEY` | İsteğe bağlı; [Google kurulumu](integrations/GOOGLE_CALENDAR.md). |
 | AI | `AI_ENABLED`, `OPENAI_API_KEY`, `OPENAI_MODEL`, fiyat ve bütçe değişkenleri | İsteğe bağlı; ayrıca veritabanı bütçe politikası gerekir. [AI ve MCP](integrations/AI_MCP.md). |
 | MCP | `MCP_ENABLED`, `MCP_PUBLIC_URL` | İsteğe bağlı sahip bağlantısı; OAuth/hook kurulumu da gerekir. [AI ve MCP](integrations/AI_MCP.md). |

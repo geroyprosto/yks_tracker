@@ -24,6 +24,8 @@ Env tek başına AI'yi açmaz. [ai_student_reports migration'ındaki](../../supa
 
 Hesap başına İstanbul ayı için **4 kullanım** sınırı sunucu ve SQL'de sabittir; env ile artırılmaz. Dönem raporları ve günlük AI önerileri ortak kullanım/bütçe mekanizmasını paylaşır. Sağlayıcıya gönderilmeden önceki hata rezervasyonu bırakabilir; gönderimden sonraki belirsiz sonuç kota ve maliyeti korur. Yeni `request_id` ile körlemesine ücretli tekrar yapma. `AI_ENABLED=false` sunucu kapatma anahtarıdır; DB politikası da ayrıca kapatılabilir.
 
+`ai_usage_status()` yalnız uygun tarayıcı oturumlarının kendi kullanım bilgisini okumasına izin verir. Her iki JWT claim biçimindeki OAuth `client_id` kontrol edilir; bir OAuth tokenına sahip olmak Data API üzerinden AI kullanımını okuma izni vermez.
+
 Rapor API'si onaylı öğrenciye veya allowlist sahibi yöneticiye açıktır; `/api/journal/suggest` günlük önerisi yalnız ilk sahip hesabını kabul eder. İlk kabulü izole geliştirme ortamında gerçek bir dönem için yap; `/api/analysis` yalnız 7, 14 veya 30 günlük aralık kabul eder. Kaynak günler, eksik günlerin sıfır sayılmaması, günlük paylaşım tercihi, token/maliyet, aynı `request_id` davranışı ve raporun ekranda görünmesi birlikte kontrol edilir. Ücretli model çağrısını yalnız bu işlem için yetki varsa başlat.
 
 Kaynaklar: [AI snapshot](../../src/lib/analysis-snapshot.ts), [koçluk şeması](../../src/lib/coaching-analysis.ts), [rapor şemaları](../../src/lib/ai-report.ts), [journal-ai.ts](../../src/lib/server/journal-ai.ts). Şema sürümleri farklı rapor nesnelerine aittir; tek bir sürüm numarasıyla hepsini eşitleme.

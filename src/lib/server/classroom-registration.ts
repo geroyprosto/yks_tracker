@@ -1,7 +1,7 @@
-import { createHmac } from 'node:crypto';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { getConfiguration } from './auth';
 import { ApiError } from './http';
+import { authAttemptDigests } from './auth-rate-limit';
 
 type ClassroomRegistration = {
   email: string;
@@ -20,13 +20,7 @@ export async function registerWithoutEmail(client: SupabaseClient, request: Requ
   if (!config || !secret) throw new ApiError(503, 'SETUP_REQUIRED', 'Kayıt henüz yapılandırılmamış.');
   const service = createClient(config.url, secret, { auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false } });
 
-  const digest = (value: string) => createHmac('sha256', secret).update(value).digest('hex');
-  const forwarded = request.headers.get('x-vercel-forwarded-for') ?? request.headers.get('x-forwarded-for');
-  const ip = forwarded?.split(',')[0]?.trim();
-  const limit = await service.rpc('classroom_registration_allowed', {
-    ip_digest: ip && ip.length <= 100 ? digest(`ip:${ip}`) : null,
-    email_digest: digest(`email:${input.email}`),
-  });
+  const limit = await service.rpc('classroom_registration_allowed', authAttemptDigests(request,input.email,secret));
   if (limit.error) throw new ApiError(503, 'REGISTRATION_UNAVAILABLE', 'Başvuru şu anda alınamıyor. Biraz sonra yeniden dene.');
   if (!limit.data) throw new ApiError(429, 'RATE_LIMITED', 'Çok sayıda kayıt denemesi yapıldı. 15 dakika sonra yeniden dene.');
 

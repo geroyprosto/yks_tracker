@@ -99,12 +99,18 @@ test('correction removes only untouched delayed reviews and refreshes their day 
       )`, [owner, removedIds],
     )).rows.map(row => row.id);
     assert.ok(obsoleteVersions.length >= 3);
-    await db.exec('set role service_role');
-    await db.query("select set_config('request.jwt.claim.sub','',false)");
-    await db.query("select set_config('request.jwt.claims',$1,false)", [JSON.stringify({ role: 'service_role', aud: 'service_role' })]);
-    const stateBefore = (await db.query<{ value: { day_plans: unknown[] } }>(
-      'select public.mcp_owner_state($1::uuid) as value', [owner],
-    )).rows[0].value;
+    // This assertion audits removed historical snapshots. MCP now intentionally
+    // returns only the latest plan, so inspect the unchanged history RPC instead.
+    const historicalState = async () => {
+      await db.exec('set role authenticated');
+      await db.query("select set_config('request.jwt.claim.sub',$1,false)", [owner]);
+      await db.query("select set_config('request.jwt.claims',$1,false)",
+        [JSON.stringify({ sub: owner, role: 'authenticated', aud: 'authenticated' })]);
+      return (await db.query<{ value: { day_plans: unknown[] } }>(
+        'select public.yks_state() as value',
+      )).rows[0].value;
+    };
+    const stateBefore = await historicalState();
     await db.exec('reset role');
     await db.exec(await readFile(new URL(snapshotCleanup, migrations), 'utf8'));
     const latestAfterCleanup = (await db.query<{ id: string; plan_date: string }>(
@@ -113,10 +119,7 @@ test('correction removes only untouched delayed reviews and refreshes their day 
     )).rows;
     assert.deepEqual(latestAfterCleanup, latestBeforeCleanup);
     assert.equal((await db.query('select id from public.daily_plan_versions where id=any($1::uuid[])', [obsoleteVersions])).rows.length, 0);
-    await db.exec('set role service_role');
-    const stateAfter = (await db.query<{ value: { day_plans: unknown[] } }>(
-      'select public.mcp_owner_state($1::uuid) as value', [owner],
-    )).rows[0].value;
+    const stateAfter = await historicalState();
     assert.ok(stateAfter.day_plans.length < stateBefore.day_plans.length);
     assert.ok(JSON.stringify(stateAfter).length < JSON.stringify(stateBefore).length);
     await db.exec('reset role');

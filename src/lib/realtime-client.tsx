@@ -62,6 +62,7 @@ export function useStudyRealtime({enabled,onDirty,onReconnect}:{enabled:boolean;
     window.addEventListener('offline',suspend);
     window.addEventListener('pagehide',suspend);
     window.addEventListener('pageshow',resume);
+    window.addEventListener('focus',resume);
     return()=>{
       stopped=true;suspend();
       document.removeEventListener('visibilitychange',resume);
@@ -69,6 +70,7 @@ export function useStudyRealtime({enabled,onDirty,onReconnect}:{enabled:boolean;
       window.removeEventListener('offline',suspend);
       window.removeEventListener('pagehide',suspend);
       window.removeEventListener('pageshow',resume);
+      window.removeEventListener('focus',resume);
     };
   },[enabled]);
   return {status:enabled?status:'disabled'} as const;

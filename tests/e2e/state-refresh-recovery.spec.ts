@@ -1,5 +1,3 @@
-import {createServer, type ServerResponse} from 'node:http';
-import type {AddressInfo} from 'node:net';
 import {expect, test, type Page} from '@playwright/test';
 import {emptyState, type AppState, type Task} from '../../src/lib/domain/types';
 import {localDate} from '../../src/lib/ui';
@@ -20,6 +18,13 @@ async function openTasks(page: Page, realtime = false) {
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Görevlerim', exact: true}).click();
   await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+}
+
+async function visibility(page: Page, value: 'hidden'|'visible') {
+  await page.evaluate(value => {
+    Object.defineProperty(document, 'visibilityState', {configurable: true, value});
+    document.dispatchEvent(new Event('visibilitychange'));
+  }, value);
 }
 
 test('a confirmed task save recovers a transient state failure without reload or duplicate writes', async ({page}) => {
@@ -63,7 +68,7 @@ test('a confirmed task save recovers a transient state failure without reload or
   } finally {release();}
 });
 
-test('an exhausted timer poll offers a read-only retry while its running focus view stays open', async ({page}) => {
+test('an exhausted resume read offers a read-only retry while its running focus view stays open', async ({page}) => {
   const now = new Date().toISOString();
   const sessionId = '44444444-4444-4444-8444-444444444444';
   const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()],
@@ -88,7 +93,8 @@ test('an exhausted timer poll offers a read-only retry while its running focus v
   await expect(focus.getByRole('button', {name: 'Sayacı duraklat', exact: true})).toBeEnabled();
   await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
   failReads = true;
-  await page.clock.runFor(30000);
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await page.clock.runFor(1000);
   await page.clock.resume();
   await expect.poll(() => failedReads, {timeout: 5000}).toBe(3);
   const retry = page.getByRole('button', {name: 'Görünümü yeniden dene', exact: true});
@@ -296,28 +302,19 @@ test('a later full command response repairs an exhausted display notice without 
   expect(failedReads).toBe(3);
 });
 
-test('realtime hints during a held snapshot produce one trailing read with the newer external state', async ({page}) => {
+test('version changes during a held snapshot produce one trailing read with the newer external state', async ({page}) => {
   const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
-  const channel = 'yksim:study:v1:' + 'a'.repeat(64);
-  const streams = new Set<ServerResponse>();
+  let version = 'initial';
+  let checks = 0;
   let reads = 0;
   let holdNextRead = false;
   let heldRead = false;
   let release!: () => void;
   const held = new Promise<void>(resolve => {release = resolve;});
-  const server = createServer((request, response) => {
-    response.writeHead(200, {'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive',
-      'Access-Control-Allow-Origin': request.headers.origin ?? 'http://127.0.0.1:3100', 'Access-Control-Allow-Credentials': 'true'});
-    streams.add(response);
-    response.on('close', () => streams.delete(response));
-    response.write(`data: ${JSON.stringify({type: 'connected', channel})}\n\n`);
-  });
-  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
-  const port = (server.address() as AddressInfo).port;
   await page.route('**/api/realtime?*', route => {
-    const url = new URL(route.request().url());
-    return url.searchParams.get('session') === '1' ? route.fulfill({json: {enabled: true, channel}})
-      : route.fulfill({status: 307, headers: {Location: `http://127.0.0.1:${port}/events?${url.searchParams}`}});
+    checks++;
+    expect(new URL(route.request().url()).searchParams.get('session')).toBe('1');
+    return route.fulfill({json: {enabled: true, version}});
   });
   await page.route('**/api/state', async route => {
     reads++;
@@ -327,18 +324,17 @@ test('realtime hints during a held snapshot produce one trailing read with the n
   });
   try {
     await openTasks(page, true);
-    await expect.poll(() => streams.size).toBe(1);
     await expect.poll(() => reads).toBeGreaterThanOrEqual(2);
     await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
     const before = reads;
     holdNextRead = true;
-    await page.evaluate(() => window.dispatchEvent(new Event('focus')));
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
     await expect.poll(() => heldRead).toBe(true);
     state.tasks[0] = {...state.tasks[0], title: 'Son dış değişiklik', revision: 2};
-    for (let sequence = 1; sequence <= 2; sequence++) {
-      const frame = JSON.stringify({id: `${Date.now()}-${sequence}`, event: 'study.dirty', channel, data: {}});
-      for (const stream of streams) stream.write(`data: ${frame}\n\n`);
-    }
+    version = 'changed';
+    const beforeChecks = checks;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(() => checks).toBe(beforeChecks + 1);
     await page.waitForTimeout(700);
     expect(reads).toBe(before + 1);
     release();
@@ -347,8 +343,151 @@ test('realtime hints during a held snapshot produce one trailing read with the n
     expect(reads).toBe(before + 2);
   } finally {
     release();
-    for (const stream of streams) stream.end();
-    server.closeAllConnections();
-    await new Promise<void>(resolve => server.close(() => resolve()));
   }
+});
+
+for (const interruption of ['hidden', 'offline'] as const) {
+test(`a read interrupted while ${interruption} is deferred and resumes without a stale error notice`, async ({page, context}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let failedReads = 0;
+  let failReads = false;
+  let heldRead = false;
+  let writes = 0;
+  let documentLoads = 0;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => {release = resolve;});
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.clock.install();
+  await page.route('**/api/state', async route => {
+    if (failReads) {
+      failedReads++;
+      if (failedReads < 3) return route.fulfill({status: 503, json: {error: {message: 'Geçici bağlantı hatası.'}}});
+      heldRead = true;
+      await held;
+      await route.abort('failed').catch(() => {});
+      return;
+    }
+    return route.fulfill({json: state});
+  });
+  await page.route('**/api/command', route => {writes++; return route.fulfill({status: 500, json: {}});});
+  await openTasks(page);
+  try {
+    failReads = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await expect.poll(() => heldRead, {timeout: 6000}).toBe(true);
+    if (interruption === 'hidden') await visibility(page, 'hidden');
+    else await context.setOffline(true);
+    release();
+    await page.clock.runFor(60000);
+    await expect(page.locator('.notice.error[role="alert"]')).toHaveCount(0);
+    expect(failedReads).toBe(3);
+    failReads = false;
+    state.tasks[0] = {...state.tasks[0], title: 'Dönüşte güncellendi', revision: 2};
+    if (interruption === 'hidden') await visibility(page, 'visible');
+    else await context.setOffline(false);
+    await expect(page.getByRole('button', {name: 'Dönüşte güncellendi düzenle', exact: true})).toBeEnabled();
+    await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+    expect(writes).toBe(0);
+    expect(documentLoads).toBe(1);
+  } finally {release();}
+});
+}
+
+test('an initial load in a hidden tab waits and loads when the tab becomes visible', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let reads = 0;
+  let documentLoads = 0;
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.addInitScript(() => Object.defineProperty(document, 'visibilityState', {configurable: true, value: 'hidden'}));
+  await page.route('**/api/state', route => {reads++; return route.fulfill({json: state});});
+  await page.route('**/api/realtime?*', route => route.fulfill({json: {enabled: false}}));
+  await page.goto('/');
+  await expect(page.getByRole('status')).toContainText('Çalışma alanı yükleniyor');
+  expect(reads).toBe(0);
+  await expect(page.locator('.notice.error[role="alert"]')).toHaveCount(0);
+  await visibility(page, 'visible');
+  await expect(page.getByRole('navigation', {name: 'Ana gezinme'})).toBeVisible();
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  expect(reads).toBe(1);
+  expect(documentLoads).toBe(1);
+});
+
+test('an exhausted resume read automatically recovers while its version remains unchanged', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let reads = 0;
+  let failedReads = 0;
+  let failReads = false;
+  let writes = 0;
+  let documentLoads = 0;
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.clock.install();
+  await page.route('**/api/realtime?*', route => route.fulfill({json: {enabled: true, version: 'unchanged'}}));
+  await page.route('**/api/state', route => {
+    reads++;
+    if (failReads) {failedReads++; return route.fulfill({status: 503, json: {error: {message: 'Bağlantı uyanıyor.'}}});}
+    return route.fulfill({json: state});
+  });
+  await page.route('**/api/command', route => {writes++; return route.fulfill({status: 500, json: {}});});
+  await openTasks(page, true);
+  await expect.poll(() => reads).toBeGreaterThanOrEqual(2);
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  failReads = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  await expect(page.getByRole('button', {name: 'Görünümü yeniden dene', exact: true})).toBeVisible({timeout: 6000});
+  expect(failedReads).toBe(3);
+  failReads = false;
+  state.tasks[0] = {...state.tasks[0], title: 'Kendiliğinden kurtarıldı', revision: 2};
+  await page.clock.runFor(16000);
+  await expect(page.getByRole('button', {name: 'Kendiliğinden kurtarıldı düzenle', exact: true})).toBeEnabled();
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(page.locator('.notice.error[role="alert"]')).toHaveCount(0);
+  expect(writes).toBe(0);
+  expect(documentLoads).toBe(1);
+});
+
+test('a hung resume read times out and recovers without blocking later state reads', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let reads = 0;
+  let holdNextRead = false;
+  let heldRead = false;
+  let writes = 0;
+  let documentLoads = 0;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => {release = resolve;});
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.clock.install();
+  await page.route('**/api/state', async route => {
+    reads++;
+    const snapshot = structuredClone(state);
+    if (holdNextRead) {
+      holdNextRead = false;
+      heldRead = true;
+      await held;
+      await route.fulfill({json: snapshot}).catch(() => {});
+      return;
+    }
+    return route.fulfill({json: snapshot});
+  });
+  await page.route('**/api/command', route => {writes++; return route.fulfill({status: 500, json: {}});});
+  await openTasks(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  const before = reads;
+  try {
+    holdNextRead = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    await page.clock.runFor(1000);
+    await expect.poll(() => heldRead).toBe(true);
+    state.tasks[0] = {...state.tasks[0], title: 'Takılan istekten sonra güncel', revision: 2};
+    await page.clock.runFor(15000);
+    // The deadline abort rejects the fetch before its normal retry delay begins.
+    await page.clock.runFor(1500);
+    await expect.poll(() => reads).toBe(before + 2);
+    await expect(page.getByRole('button', {name: 'Takılan istekten sonra güncel düzenle', exact: true})).toBeEnabled();
+    await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+    await expect(page.locator('.notice.error[role="alert"]')).toHaveCount(0);
+    release();
+    await expect(page.getByRole('button', {name: 'Takılan istekten sonra güncel düzenle', exact: true})).toBeEnabled();
+    expect(writes).toBe(0);
+    expect(documentLoads).toBe(1);
+  } finally {release();}
 });

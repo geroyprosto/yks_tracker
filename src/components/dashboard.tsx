@@ -97,7 +97,18 @@ export function Dashboard(){
  },[queuedJobs]);
  const mutationEpoch=useRef(0);
  const readSequence=useRef(0);
- const stateRead=useRef<{epoch:number;allowPending:boolean;promise:Promise<AppState|null>}|null>(null);
+ const stateRead=useRef<{epoch:number;allowPending:boolean;controller:AbortController;promise:Promise<AppState|null>}|null>(null);
+ const stateRetryTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
+ const stateRetryDelay=useRef(15_000);
+ const cancelStateRetry=useCallback(()=>{
+   if(stateRetryTimer.current!==null)clearTimeout(stateRetryTimer.current);
+   stateRetryTimer.current=null;
+ },[]);
+ const cancelStateRead=useCallback(()=>{
+   const read=stateRead.current;
+   stateRead.current=null;readSequence.current++;
+   read?.controller.abort();
+ },[]);
  const reconciliationTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const cancelQueuedReconciliation=useCallback(()=>{
    if(reconciliationTimer.current!==null)clearTimeout(reconciliationTimer.current);
@@ -105,12 +116,11 @@ export function Dashboard(){
  },[]);
  const expireSession=useCallback(()=>{
    commandQueue.current?.dispose();commandQueue.current=null;pendingForms.current.clear();
-   cancelQueuedReconciliation();mutationEpoch.current++;readSequence.current++;
+   cancelQueuedReconciliation();cancelStateRetry();cancelStateRead();mutationEpoch.current++;
    pending.current=false;dirtyRefresh.current=false;queueError.current=false;
    setBusy(false);setQueuedJobs(0);setQueuePaused(false);setQueuedEducation(false);setReconciling(false);setError('');setViewError('');setCanRetryView(false);
    setState(emptyState(true));setOnboardingActive(false);
- },[cancelQueuedReconciliation]);
- useEffect(()=>cancelQueuedReconciliation,[cancelQueuedReconciliation]);
+ },[cancelQueuedReconciliation,cancelStateRetry,cancelStateRead]);
  const preferenceDirty=useRef(false);
  const saveMetrics=useRef(createSaveMetrics());
  const metricsRoot=useRef<HTMLDivElement|null>(null);
@@ -128,30 +138,38 @@ export function Dashboard(){
    publishMetrics();
  },[state,publishMetrics]);
  const installState=useCallback((incoming:AppState)=>{
+   cancelStateRetry();stateRetryDelay.current=15_000;
    const s={...emptyState(incoming.configured),...incoming};
    if(s.education?.needs_onboarding)setOnboardingActive(true);
    setOffset(new Date(s.server_now).getTime()-Date.now());
    setState(commandQueue.current?commandQueue.current.install(s):s);
    if(s.settings&&!preferenceDirty.current){setTheme(normalizeTheme(s.settings.theme)??'ocean');setReduced(s.settings.reduced_motion);setSimple(s.settings.simple_view)}
    return s;
- },[]);
- const refresh=useCallback((allowPending=false,onlyVisible=false):Promise<AppState|null>=>{
+ },[cancelStateRetry]);
+ const refresh=useCallback(function refresh(allowPending=false):Promise<AppState|null>{
    const epoch=mutationEpoch.current;
    if(pending.current&&!allowPending)return Promise.resolve(null);
    if(stateRead.current?.epoch===epoch&&stateRead.current.allowPending===allowPending)return stateRead.current.promise;
+   cancelStateRetry();cancelStateRead();
+   const controller=new AbortController();
    const sequence=++readSequence.current;
-   const current=()=>epoch===mutationEpoch.current&&sequence===readSequence.current&&(!pending.current||allowPending);
+   const current=()=>!controller.signal.aborted&&epoch===mutationEpoch.current&&sequence===readSequence.current&&(!pending.current||allowPending);
    const promise=(async()=>{
      setReconciling(true);setViewError('');setCanRetryView(false);
      for(let attempt=0;attempt<3;attempt++){
        if(!current())return null;
-       if(onlyVisible&&(!navigator.onLine||document.visibilityState!=='visible')){
+       if(!navigator.onLine||document.visibilityState!=='visible'){
          dirtyRefresh.current=true;setReconciling(false);return null;
        }
        let retryable=true;
+       const attemptController=new AbortController();
+       const abort=()=>attemptController.abort();
+       controller.signal.addEventListener('abort',abort,{once:true});
+       const timeout=setTimeout(abort,15_000);
        try{
-         const response=await fetch('/api/state',{cache:'no-store'});
-         retryable=response.status>=500;
+         const response=await fetch('/api/state',{cache:'no-store',signal:attemptController.signal});
+         // A successful response can still have a truncated body after waking.
+         retryable=response.ok||response.status>=500||response.status===408||response.status===429;
          const body=await response.json();
          if(!current())return null;
          if(body.redirect){window.location.assign(body.redirect);return null;}
@@ -162,21 +180,42 @@ export function Dashboard(){
          return latest;
        }catch(e){
          if(!current())return null;
+         if(!navigator.onLine||document.visibilityState!=='visible'){
+           dirtyRefresh.current=true;setReconciling(false);return null;
+         }
          // Retry only this read. A confirmed write must never be sent again to
          // repair its display, and a newer mutation invalidates the whole read.
-         if(retryable&&attempt<2){await new Promise(resolve=>setTimeout(resolve,1000*(attempt+1)));continue;}
+         if(retryable&&attempt<2){
+           await new Promise<void>(resolve=>{
+             const finish=()=>{clearTimeout(timer);controller.signal.removeEventListener('abort',finish);resolve();};
+             const timer=setTimeout(finish,1000*(attempt+1));
+             controller.signal.addEventListener('abort',finish,{once:true});
+           });
+           continue;
+         }
          setReconciling(false);setCanRetryView(retryable);
          setViewError(retryable?'Görünüm güncellenemedi. Yeniden deneyebilirsin.':e instanceof Error?e.message:'Veriler yüklenemedi.');
+         if(retryable){
+           const delay=stateRetryDelay.current;stateRetryDelay.current=Math.min(delay*2,60_000);
+           stateRetryTimer.current=setTimeout(()=>{
+             stateRetryTimer.current=null;
+             if(!current())return;
+             if(pending.current||!navigator.onLine||document.visibilityState!=='visible'){dirtyRefresh.current=true;return;}
+             void refresh();
+           },delay);
+         }
          return null;
+       }finally{
+         clearTimeout(timeout);controller.signal.removeEventListener('abort',abort);
        }
      }
      return null;
    })();
-   stateRead.current={epoch,allowPending,promise};
+   stateRead.current={epoch,allowPending,controller,promise};
    void promise.finally(()=>{if(stateRead.current?.promise===promise)stateRead.current=null;});
    return promise;
- },[installState]);
- const reconcileSaved=useCallback((measurement?:SaveMeasurement,onlyVisible=false)=>{
+ },[installState,cancelStateRetry,cancelStateRead]);
+ const reconcileSaved=useCallback((measurement?:SaveMeasurement)=>{
    cancelQueuedReconciliation();
    const epoch=mutationEpoch.current;
    setReconciling(true);
@@ -186,7 +225,7 @@ export function Dashboard(){
      // so an older queued reconciliation never adopts a newer mutation's state.
      if(pending.current||epoch!==mutationEpoch.current)return;
      const finishRefresh=measurement?.refresh();
-     void refresh(false,onlyVisible).then(latest=>{
+     void refresh().then(latest=>{
        finishRefresh?.(Boolean(latest));publishMetrics();
      });
    };
@@ -201,12 +240,34 @@ export function Dashboard(){
      dirtyRefresh.current=true;
      void read.promise.then(()=>{
        if(pending.current||read.epoch!==mutationEpoch.current||!dirtyRefresh.current)return;
-       dirtyRefresh.current=false;reconcileSaved(undefined,true);
+       dirtyRefresh.current=false;reconcileSaved();
      });
      return;
    }
-   reconcileSaved(undefined,true);
+   reconcileSaved();
  },[reconcileSaved]);
+ useEffect(()=>{
+   const suspend=()=>{
+     if(stateRead.current||reconciliationTimer.current!==null||stateRetryTimer.current!==null)dirtyRefresh.current=true;
+     cancelQueuedReconciliation();cancelStateRetry();cancelStateRead();setReconciling(false);
+   };
+   const resume=()=>{
+     if(!navigator.onLine||document.visibilityState!=='visible')return;
+     if(dirtyRefresh.current){dirtyRefresh.current=false;requestStateRefresh();}
+   };
+   const visibility=()=>{if(document.visibilityState==='visible')resume();else suspend();};
+   document.addEventListener('visibilitychange',visibility);
+   window.addEventListener('offline',suspend);window.addEventListener('online',resume);
+   window.addEventListener('pagehide',suspend);window.addEventListener('pageshow',resume);
+   window.addEventListener('focus',resume);
+   return()=>{
+     document.removeEventListener('visibilitychange',visibility);
+     window.removeEventListener('offline',suspend);window.removeEventListener('online',resume);
+     window.removeEventListener('pagehide',suspend);window.removeEventListener('pageshow',resume);
+     window.removeEventListener('focus',resume);
+     cancelQueuedReconciliation();cancelStateRetry();cancelStateRead();
+   };
+ },[requestStateRefresh,cancelQueuedReconciliation,cancelStateRetry,cancelStateRead]);
  const realtime=useStudyRealtime({enabled:Boolean(state?.authenticated&&state?.configured),onDirty:requestStateRefresh,onReconnect:requestStateRefresh});
  useEffect(()=>{
    queueMicrotask(()=>setToday(localDate()));
@@ -266,7 +327,7 @@ export function Dashboard(){
          pending.current=count>0;setBusy(count>0);setQueuedJobs(count);setQueuePaused(paused);setQueuedEducation(commandQueue.current?.hasPendingEducation??false);setState(visible);publishMetrics();
        },
        error:message=>{queueError.current=true;setError(message);publishMetrics();},
-       committed:(latest,partial)=>{mutationEpoch.current++;if(!partial){setOffset(Date.parse(latest.server_now)-Date.now());setViewError('');setCanRetryView(false);}
+       committed:(latest,partial)=>{mutationEpoch.current++;if(!partial){cancelStateRetry();stateRetryDelay.current=15_000;setOffset(Date.parse(latest.server_now)-Date.now());setViewError('');setCanRetryView(false);}
          if(latest.settings&&!preferenceDirty.current){setTheme(normalizeTheme(latest.settings.theme)??'ocean');setReduced(latest.settings.reduced_motion);setSimple(latest.settings.simple_view);}
        },
        settled:(measurement,needsRefresh)=>{
@@ -275,7 +336,7 @@ export function Dashboard(){
          else setReconciling(false);
        },
      });
-     cancelQueuedReconciliation();mutationEpoch.current++;queueError.current=false;setError('');setReconciling(false);
+     cancelQueuedReconciliation();cancelStateRetry();cancelStateRead();mutationEpoch.current++;queueError.current=false;setError('');setReconciling(false);
      const previous=commandQueue.current.state;
      const measurement=saveMetrics.current.start(type,enteredAt);
      const done=commandQueue.current.enqueue({request_id:requestId,type,payload},now,measurement);

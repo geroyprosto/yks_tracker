@@ -77,10 +77,12 @@ test('a denied or revoked live account cannot create even a Redis client',async(
   assert.equal((await get(response('?session=1'))).status,403);
   assert.equal((await get(response('?channel='+studyRealtimeChannel(userId)))).status,403);
   assert.equal(redisCalls,1);
-  for(const [code,status] of [['SIGN_IN_REQUIRED',401],['STUDENT_REQUIRED',403],['DEMO_INTEGRATION_DISABLED',403]] as const){
+  for(const [code,status] of [['SIGN_IN_REQUIRED',401],['STUDENT_REQUIRED',403],['DEMO_INTEGRATION_DISABLED',403],['DATABASE_TIMEOUT',503]] as const){
     const denied=createStudyRealtimeGet({authorize:async()=>{throw new ApiError(status,code,'Denied');},
       redis:()=>{throw new Error('Forbidden route touched Redis');}});
-    assert.equal((await denied(response('?session=1'))).status,status);
+    const result=await denied(response('?session=1'));
+    assert.equal(result.status,status);
+    assert.deepEqual(await result.json(),{ok:false,error:{code,message:'Denied'}});
   }
 });
 
@@ -102,12 +104,18 @@ test('same-origin metadata respects the actual host when Next canonicalizes a lo
   }finally{if(previous!==undefined)process.env.APP_ORIGIN=previous;}
 });
 
-test('Redis errors and invalid stored versions trigger a redacted fallback response',async()=>{
+test('Redis errors and invalid stored versions disable optional version checks with a private redacted fallback',async()=>{
   const unavailable={get:async()=>{throw new Error('Bearer secret https://private-redis.example');}} as unknown as Pick<Redis,'get'>;
-  for(const redis of [unavailable,versionRedis({journal:'private text'}).redis,versionRedis('Bearer secret').redis]){
-    const get=createStudyRealtimeGet({authorize:async()=>({userId}),redis:()=>redis});
+  const factories=[()=>unavailable,()=>versionRedis({journal:'private text'}).redis,()=>versionRedis('Bearer secret').redis,
+    ()=>{throw new Error('Bearer secret https://private-redis.example');}];
+  for(const redis of factories){
+    const get=createStudyRealtimeGet({authorize:async()=>({userId}),redis});
     const result=await get(response('?session=1'));const body=await result.text();
-    assert.equal(result.status,503);assert.equal(JSON.parse(body).error.code,'REALTIME_UNAVAILABLE');
+    assert.equal(result.status,200);
+    assert.deepEqual(JSON.parse(body),{enabled:false,reason:'unavailable'});
+    assert.match(result.headers.get('cache-control')??'',/private, no-store/);
+    assert.equal(result.headers.get('vary'),'Cookie');
+    assert.equal(result.headers.get('access-control-allow-origin'),null);
     assert.ok(!body.includes('secret'));assert.ok(!body.includes('private-redis'));assert.ok(!body.includes('journal'));
   }
 });

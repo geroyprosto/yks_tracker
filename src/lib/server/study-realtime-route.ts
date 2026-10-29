@@ -37,7 +37,9 @@ export function createStudyRealtimeGet(dependencies:StudyRealtimeRouteDependenci
           throw new Error('Invalid study version');
         return json({enabled:true,version});
       }catch{
-        throw new ApiError(503,'REALTIME_UNAVAILABLE','Güncelleme kontrolü geçici olarak kullanılamıyor.');
+        // Versions are an optional optimization; durable state polling remains
+        // available when Redis is suspended, unavailable, or returns bad data.
+        return json({enabled:false,reason:'unavailable'});
       }
     }catch(error){return errorResponse(error);}
   };

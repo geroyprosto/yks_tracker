@@ -189,6 +189,7 @@ test('read permission failures are reported without automatic retries', async ({
   failReads = true;
   await page.evaluate(() => window.dispatchEvent(new Event('focus')));
   await expect(page.locator('.notice.error')).toContainText('Bu görünüm için yetkin yok.');
+  await expect(page.locator('[data-state-recovery="network"]')).toHaveCount(0);
   await page.waitForTimeout(1200);
   expect(failedReads).toBe(1);
   await expect(page.getByRole('button', {name: 'Görünümü yeniden dene', exact: true})).toHaveCount(0);
@@ -246,6 +247,7 @@ test('manual recovery of a confirmed save retries only state after the bounded a
   await expect(undo).toBeEnabled();
   const retry = page.getByRole('button', {name: 'Görünümü yeniden dene', exact: true});
   await expect(retry).toBeVisible({timeout: 6000});
+  await expect(page.locator('[data-state-recovery="network"]')).toHaveCount(0);
   expect(failedReads).toBe(3);
   expect(writes).toBe(1);
   await page.screenshot({path: test.info().outputPath('saved-task-view-retry.png')});
@@ -487,6 +489,164 @@ test('a hung resume read times out and recovers without blocking later state rea
     await expect(page.locator('.notice.error[role="alert"]')).toHaveCount(0);
     release();
     await expect(page.getByRole('button', {name: 'Takılan istekten sonra güncel düzenle', exact: true})).toBeEnabled();
+    expect(writes).toBe(0);
+    expect(documentLoads).toBe(1);
+  } finally {release();}
+});
+
+for (const activity of ['pointerdown', 'keydown'] as const) {
+test(`a transport outage preserves the running workspace and recovers on ${activity} without a visibility event`, async ({page}) => {
+  const now = new Date().toISOString();
+  const sessionId = '44444444-4444-4444-8444-444444444444';
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()],
+    sessions: [{id: sessionId, title: 'Ağ kesintisinde süren çalışma', task_id: null, topic_id: null, subject: 'Matematik',
+      study_type: 'Tekrar', mode: 'stopwatch', target_seconds: null, status: 'running', started_at: now,
+      active_since: now, accumulated_seconds: 0, finished_at: null, revision: 1}],
+    intervals: [{id: 'interval', session_id: sessionId, started_at: now, ended_at: null}]};
+  let failReads = false;
+  let failedReads = 0;
+  let writes = 0;
+  let documentLoads = 0;
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.route('**/api/state', route => {
+    if (failReads) {failedReads++; return route.abort('failed');}
+    return route.fulfill({json: state});
+  });
+  await page.route('**/api/command', route => {writes++; return route.fulfill({status: 500, json: {}});});
+  await openTasks(page);
+  await page.getByRole('button', {name: 'Odak ekranını aç', exact: true}).click();
+  const focus = page.getByRole('dialog', {name: 'Odak ekranı', exact: true});
+  await expect(focus.getByRole('button', {name: 'Sayacı duraklat', exact: true})).toBeEnabled();
+  failReads = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  const waiting = page.locator('[role="status"][data-state-recovery="network"]');
+  await expect(waiting).toBeVisible({timeout: 6000});
+  expect(failedReads).toBe(3);
+  await expect(page.locator('.notice.error')).toHaveCount(0);
+  await expect(page.locator('.task-item h3')).toHaveText(['Korunan görev']);
+  await expect(focus).toBeVisible();
+  await expect(focus.getByRole('button', {name: 'Sayacı duraklat', exact: true})).toBeEnabled();
+  failReads = false;
+  state.tasks[0] = {...state.tasks[0], title: 'Etkinlikle bağlantı kurtarıldı', revision: 2};
+  // Keep the document visible and online throughout: returning to an idle
+  // window does not necessarily generate visibilitychange, focus, or online.
+  expect(await page.evaluate(() => document.visibilityState)).toBe('visible');
+  if (activity === 'pointerdown') await focus.getByRole('button', {name: 'Sayacı küçült', exact: true}).click();
+  else await page.keyboard.press('Tab');
+  await expect(page.locator('.task-item h3')).toHaveText(['Etkinlikle bağlantı kurtarıldı'], {timeout: 4000});
+  await expect(waiting).toHaveCount(0);
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(page.locator('.notice.error')).toHaveCount(0);
+  if (activity === 'pointerdown') await page.getByRole('button', {name: 'Odak ekranını aç', exact: true}).click();
+  await expect(focus.getByRole('button', {name: 'Sayacı duraklat', exact: true})).toBeEnabled();
+  expect(writes).toBe(0);
+  expect(documentLoads).toBe(1);
+});
+}
+
+test('an initial transport outage offers a connection retry and then loads the workspace', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let failReads = true;
+  let failedReads = 0;
+  let writes = 0;
+  let documentLoads = 0;
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.route('**/api/state', route => {
+    if (failReads) {failedReads++; return route.abort('failed');}
+    return route.fulfill({json: state});
+  });
+  await page.route('**/api/realtime?*', route => route.fulfill({json: {enabled: false}}));
+  await page.route('**/api/command', route => {writes++; return route.fulfill({status: 500, json: {}});});
+  await page.goto('/');
+  const waiting = page.locator('[role="status"][data-state-recovery="network"]');
+  await expect(waiting).toBeVisible({timeout: 6000});
+  expect(failedReads).toBe(3);
+  const retry = page.getByRole('button', {name: 'Tekrar dene', exact: true});
+  await expect(retry).toBeEnabled();
+  await expect(page.locator('.notice.error')).toHaveCount(0);
+  failReads = false;
+  await retry.click();
+  await expect(page.getByRole('navigation', {name: 'Ana gezinme'})).toBeVisible();
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(waiting).toHaveCount(0);
+  expect(writes).toBe(0);
+  expect(documentLoads).toBe(1);
+});
+
+test('a transport outage recovers automatically without user activity or a version change', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let failReads = false;
+  let failedReads = 0;
+  let writes = 0;
+  let documentLoads = 0;
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.clock.install();
+  await page.route('**/api/state', route => {
+    if (failReads) {failedReads++; return route.abort('failed');}
+    return route.fulfill({json: state});
+  });
+  await page.route('**/api/command', route => {writes++; return route.fulfill({status: 500, json: {}});});
+  await openTasks(page);
+  failReads = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  const waiting = page.locator('[role="status"][data-state-recovery="network"]');
+  await expect(waiting).toBeVisible({timeout: 6000});
+  expect(failedReads).toBe(3);
+  failReads = false;
+  state.tasks[0] = {...state.tasks[0], title: 'Ağ kendiliğinden kurtarıldı', revision: 2};
+  await page.clock.runFor(16000);
+  await expect(page.locator('.task-item h3')).toHaveText(['Ağ kendiliğinden kurtarıldı']);
+  await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+  await expect(waiting).toHaveCount(0);
+  await expect(page.locator('.notice.error')).toHaveCount(0);
+  expect(writes).toBe(0);
+  expect(documentLoads).toBe(1);
+});
+
+test('bursts of return activity share one pending network recovery without replaying writes', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
+  let failReads = false;
+  let holdRecovery = false;
+  let recoveryReads = 0;
+  let failedReads = 0;
+  let writes = 0;
+  let documentLoads = 0;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => {release = resolve;});
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.route('**/api/state', async route => {
+    if (failReads) {failedReads++; return route.abort('failed');}
+    if (holdRecovery) {recoveryReads++; await held;}
+    return route.fulfill({json: state});
+  });
+  await page.route('**/api/command', route => {writes++; return route.fulfill({status: 500, json: {}});});
+  await openTasks(page);
+  try {
+    failReads = true;
+    await page.evaluate(() => window.dispatchEvent(new Event('online')));
+    const waiting = page.locator('[role="status"][data-state-recovery="network"]');
+    await expect(waiting).toBeVisible({timeout: 6000});
+    expect(failedReads).toBe(3);
+    failReads = false;
+    holdRecovery = true;
+    state.tasks[0] = {...state.tasks[0], title: 'Tek kurtarma isteği', revision: 2};
+    const burst = () => page.evaluate(() => {
+      for (let index = 0; index < 20; index++) {
+        window.dispatchEvent(new PointerEvent('pointerdown'));
+        window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab'}));
+      }
+    });
+    await burst();
+    await expect.poll(() => recoveryReads).toBe(1);
+    await burst();
+    await page.waitForTimeout(800);
+    expect(recoveryReads).toBe(1);
+    expect(writes).toBe(0);
+    release();
+    await expect(page.locator('.task-item h3')).toHaveText(['Tek kurtarma isteği']);
+    await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+    await expect(waiting).toHaveCount(0);
+    expect(recoveryReads).toBe(1);
     expect(writes).toBe(0);
     expect(documentLoads).toBe(1);
   } finally {release();}

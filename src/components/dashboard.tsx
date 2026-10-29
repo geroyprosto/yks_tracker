@@ -68,6 +68,8 @@ export function Dashboard(){
  const [reconciling,setReconciling]=useState(false);
  const [error,setError]=useState('');
  const [viewError,setViewError]=useState('');
+ const [networkRecovery,setNetworkRecovery]=useState(false);
+ const lastRecoveryActivity=useRef(-Infinity);
  const [canRetryView,setCanRetryView]=useState(false);
  const [online,setOnline]=useState(true);
  const [mobileMenu,setMobileMenu]=useState(false);
@@ -118,7 +120,7 @@ export function Dashboard(){
    commandQueue.current?.dispose();commandQueue.current=null;pendingForms.current.clear();
    cancelQueuedReconciliation();cancelStateRetry();cancelStateRead();mutationEpoch.current++;
    pending.current=false;dirtyRefresh.current=false;queueError.current=false;
-   setBusy(false);setQueuedJobs(0);setQueuePaused(false);setQueuedEducation(false);setReconciling(false);setError('');setViewError('');setCanRetryView(false);
+   setBusy(false);setQueuedJobs(0);setQueuePaused(false);setQueuedEducation(false);setReconciling(false);setError('');setViewError('');setNetworkRecovery(false);setCanRetryView(false);
    setState(emptyState(true));setOnboardingActive(false);
  },[cancelQueuedReconciliation,cancelStateRetry,cancelStateRead]);
  const preferenceDirty=useRef(false);
@@ -155,19 +157,21 @@ export function Dashboard(){
    const sequence=++readSequence.current;
    const current=()=>!controller.signal.aborted&&epoch===mutationEpoch.current&&sequence===readSequence.current&&(!pending.current||allowPending);
    const promise=(async()=>{
-     setReconciling(true);setViewError('');setCanRetryView(false);
+     setReconciling(true);setViewError('');setNetworkRecovery(false);setCanRetryView(false);
      for(let attempt=0;attempt<3;attempt++){
        if(!current())return null;
        if(!navigator.onLine||document.visibilityState!=='visible'){
          dirtyRefresh.current=true;setReconciling(false);return null;
        }
        let retryable=true;
+       let receivedResponse=false;
        const attemptController=new AbortController();
        const abort=()=>attemptController.abort();
        controller.signal.addEventListener('abort',abort,{once:true});
        const timeout=setTimeout(abort,15_000);
        try{
          const response=await fetch('/api/state',{cache:'no-store',signal:attemptController.signal});
+         receivedResponse=true;
          // A successful response can still have a truncated body after waking.
          retryable=response.ok||response.status>=500||response.status===408||response.status===429;
          const body=await response.json();
@@ -194,7 +198,12 @@ export function Dashboard(){
            continue;
          }
          setReconciling(false);setCanRetryView(retryable);
-         setViewError(retryable?'Görünüm güncellenemedi. Yeniden deneyebilirsin.':e instanceof Error?e.message:'Veriler yüklenemedi.');
+         // Fetch rejects before an HTTP response when the connection resets.
+         // Keep the last good view, distinguish this from an actual API failure,
+         // and retain automatic retries even when navigator.onLine stays true.
+         const disconnected=!receivedResponse&&!attemptController.signal.aborted&&e instanceof TypeError;
+         setNetworkRecovery(disconnected);
+         setViewError(disconnected?'':retryable?'Görünüm güncellenemedi. Yeniden deneyebilirsin.':e instanceof Error?e.message:'Veriler yüklenemedi.');
          if(retryable){
            const delay=stateRetryDelay.current;stateRetryDelay.current=Math.min(delay*2,60_000);
            stateRetryTimer.current=setTimeout(()=>{
@@ -268,6 +277,24 @@ export function Dashboard(){
      cancelQueuedReconciliation();cancelStateRetry();cancelStateRead();
    };
  },[requestStateRefresh,cancelQueuedReconciliation,cancelStateRetry,cancelStateRead]);
+ useEffect(()=>{
+   if(!networkRecovery)return;
+   const recoverOnActivity=(event:Event)=>{
+     if(!navigator.onLine||document.visibilityState!=='visible'||(event instanceof KeyboardEvent&&event.repeat))return;
+     // Returning to an idle computer need not emit focus or visibilitychange.
+     // Retry on the first interaction, but don't flood a broken connection.
+     const now=performance.now();
+     if(now-lastRecoveryActivity.current<15_000)return;
+     lastRecoveryActivity.current=now;
+     requestStateRefresh();
+   };
+   window.addEventListener('pointerdown',recoverOnActivity,{passive:true});
+   window.addEventListener('keydown',recoverOnActivity);
+   return()=>{
+     window.removeEventListener('pointerdown',recoverOnActivity);
+     window.removeEventListener('keydown',recoverOnActivity);
+   };
+ },[networkRecovery,requestStateRefresh]);
  const realtime=useStudyRealtime({enabled:Boolean(state?.authenticated&&state?.configured),onDirty:requestStateRefresh,onReconnect:requestStateRefresh});
  useEffect(()=>{
    queueMicrotask(()=>setToday(localDate()));
@@ -327,7 +354,7 @@ export function Dashboard(){
          pending.current=count>0;setBusy(count>0);setQueuedJobs(count);setQueuePaused(paused);setQueuedEducation(commandQueue.current?.hasPendingEducation??false);setState(visible);publishMetrics();
        },
        error:message=>{queueError.current=true;setError(message);publishMetrics();},
-       committed:(latest,partial)=>{mutationEpoch.current++;if(!partial){cancelStateRetry();stateRetryDelay.current=15_000;setOffset(Date.parse(latest.server_now)-Date.now());setViewError('');setCanRetryView(false);}
+       committed:(latest,partial)=>{mutationEpoch.current++;if(!partial){cancelStateRetry();stateRetryDelay.current=15_000;setOffset(Date.parse(latest.server_now)-Date.now());setViewError('');setNetworkRecovery(false);setCanRetryView(false);}
          if(latest.settings&&!preferenceDirty.current){setTheme(normalizeTheme(latest.settings.theme)??'ocean');setReduced(latest.settings.reduced_motion);setSimple(latest.settings.simple_view);}
        },
        settled:(measurement,needsRefresh)=>{
@@ -384,8 +411,9 @@ export function Dashboard(){
  const yksEnabled=profile?.yks_goal??true;
  const schoolEnabled=Boolean(profile&&(profile.education_level!=='graduate'||state?.education?.courses.some(course=>course.context==='school')||state?.education?.results.length));
  const visibleNavigation=navigation.filter(item=>item.id==='topics'?yksEnabled||profile?.education_level==='university':item.id==='tasks'?profile?.modules.tasks??true:item.id==='exams'?profile?.modules.results??true:item.id==='stats'?profile?.modules.statistics??true:item.id==='journal'?profile?.modules.journal??true:true);
- const viewNotice=viewError&&<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError}</span>{canRetryView&&<button className="button secondary" disabled={reconciling||busy} onClick={()=>void refresh()}>Görünümü yeniden dene</button>}</div>;
- if(!state)return <main className="login-page">{viewError||error?<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError||error}</span><button className="button secondary" disabled={reconciling} onClick={()=>void refresh()}>Tekrar dene</button></div>:<p className="loading" role="status">Çalışma alanı yükleniyor…</p>}</main>;
+ const connectionNotice=networkRecovery&&<div role="status" className="notice" data-state-recovery="network"><WifiOff size={18}/><span>{state?'Bağlantı bekleniyor. Son verilerin korunuyor; bağlantı gelince görünüm otomatik güncellenecek.':'Sunucuya bağlantı kurulamadı. Otomatik yeniden deneniyor.'}</span><button className="button secondary" disabled={reconciling||busy} onClick={()=>void refresh()}>{state?'Şimdi yeniden dene':'Tekrar dene'}</button></div>;
+ const viewNotice=connectionNotice||(viewError&&<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError}</span>{canRetryView&&<button className="button secondary" disabled={reconciling||busy} onClick={()=>void refresh()}>Görünümü yeniden dene</button>}</div>);
+ if(!state)return <main className="login-page">{connectionNotice||(viewError||error?<div role="alert" className="notice error"><AlertCircle size={18}/><span>{viewError||error}</span><button className="button secondary" disabled={reconciling} onClick={()=>void refresh()}>Tekrar dene</button></div>:<p className="loading" role="status">Çalışma alanı yükleniyor…</p>)}</main>;
  if(state.configured&&!state.authenticated)return <Login/>;
  if(state.education&&(state.education.needs_onboarding||onboardingActive))return <EducationCommandContext value={educationCommand}><main style={{maxWidth:1200,margin:'auto',padding:'24px'}}><StudentClassroom state={state}/>{error&&<div role="alert" className="notice error">{error}{queuePaused&&<button className="button secondary" onClick={retryQueue}>Bekleyen kayıtları yeniden dene</button>}</div>}{viewNotice}<EducationSetup education={state.education} command={educationCommand} busy={busy} onDone={()=>{setOnboardingActive(false);setPage('today');setWelcome(true);}}/></main></EducationCommandContext>;
  return <MedicineProvider enabled={profile?.education_level==='university'} refreshRevision={medicineRefreshRevision}><EducationCommandContext value={educationCommand}><ModalErrorContext value={error}><ModalRetryContext value={queuePaused?retryQueue:null}><div className="app-shell" ref={metricsRoot} data-save-metrics="[]" data-realtime-status={realtime.status}>
@@ -398,7 +426,7 @@ export function Dashboard(){
    </aside>
    {mobileMenu&&<button className="menu-scrim" aria-label="Menüyü kapat" onClick={()=>setMobileMenu(false)}/>}
    <div className="main-shell">
-     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online?'warning':'')} aria-live="polite" data-pending-commands={queuedJobs}>{!online?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':queuePaused?'Kayıtlar bekliyor':reconciling?'Görünüm güncelleniyor…':busy?queuedJobs?`Kaydediliyor… ${queuedJobs} işlem`:'Kaydediliyor…':viewError?'Görünüm güncel değil':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><ProfileAvatar url={profilePhoto.url} initials={initials} small/></div></header>
+     <header className="topbar"><div className="breadcrumbs"><button className="mobile-only icon-button" aria-label="Menüyü aç" onClick={()=>setMobileMenu(true)}><Menu size={22}/></button><span>Çalışma alanım</span><ChevronRight size={14}/><strong>{navigation.find(n=>n.id===page)?.label}</strong></div><div className="topbar-right"><span className={'sync-status '+(!online||networkRecovery?'warning':'')} aria-live="polite" data-pending-commands={queuedJobs}>{!online||networkRecovery?<WifiOff size={15}/>:<CloudCheck size={15}/>}<span>{!online?'Çevrimdışı':queuePaused?'Kayıtlar bekliyor':reconciling?'Görünüm güncelleniyor…':busy?queuedJobs?`Kaydediliyor… ${queuedJobs} işlem`:'Kaydediliyor…':networkRecovery?'Bağlantı bekleniyor…':viewError?'Görünüm güncel değil':state?.authenticated?'Hesabın güncel':'Kurulum bekliyor'}</span></span><ProfileAvatar url={profilePhoto.url} initials={initials} small/></div></header>
      <main id="main" data-page={page}>
        {state?.authenticated&&<StudentClassroom state={state}/>}
        <div className="page-heading"><div><p className="eyebrow">{page==='today'?(today?formatDay(today):'Bugün'):'YKSim / '+navigation.find(n=>n.id===page)?.label}</p><h1>{title}</h1><p>{descriptions[page]}</p></div>{page==='today'&&(profile?.modules.tasks??true)&&<button className="button secondary" onClick={()=>{setPage('tasks');setNewTask(true)}}><ListTodo size={17}/>Günü planla<ArrowUpRight size={16}/></button>}</div>

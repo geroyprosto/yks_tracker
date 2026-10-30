@@ -51,6 +51,7 @@ export function createStudyCommandQueue(initial: AppState, options: Options) {
   const jobs: Job[] = [];
   const aliases = new Map<string, string>();
   let active = false, paused = false, recovering = false, disposed = false, needsRefresh = false;
+  let retryable = false;
   let lastMeasurement: SaveMeasurement | undefined;
   const resolvePayload = (payload: Record<string, unknown>) => Object.fromEntries(Object.entries(payload)
     .map(([key, value]) => [key, typeof value === 'string' && ['id', 'task_id', 'topic_id', 'parent_id', 'course_id', 'term_id'].includes(key)
@@ -123,9 +124,13 @@ export function createStudyCommandQueue(initial: AppState, options: Options) {
       } catch (error) {
         if (disposed) return;
         const status = error instanceof CommandRequestError ? error.status : null;
-        if (status === null || status >= 500) {
+        if (status === null || status === 408 || status === 429 || status >= 500) {
           paused = true;
-          options.error((error instanceof Error ? error.message : 'Kayıt doğrulanamadı.') + ' Bekleyen işlemler duraklatıldı; yeniden dene.');
+          const networkError = error instanceof TypeError || (error instanceof Error && ['AbortError', 'TimeoutError'].includes(error.name));
+          retryable = networkError || status === 408 || status === 429 || (status !== null && status >= 500);
+          options.error(retryable
+            ? 'Sunucuya ulaşılamadı. Bekleyen kayıtlar korunuyor; bağlantı gelince otomatik yeniden denenecek.'
+            : (error instanceof Error ? error.message : 'Kayıt doğrulanamadı.') + ' Bekleyen işlemler duraklatıldı; yeniden dene.');
           publish(); break;
         }
         recovering = true;
@@ -159,6 +164,7 @@ export function createStudyCommandQueue(initial: AppState, options: Options) {
     get count() {return jobs.length;},
     get hasPendingEducation() {return jobs.some(job => job.type.startsWith('education.'));},
     get paused() {return paused;},
+    get retryable() {return paused && retryable;},
     install(state: AppState) {if (!jobs.length) {confirmed = state; needsRefresh = false; publish();} return visible();},
     enqueue(command: QueuedCommand, at: string, measurement?: SaveMeasurement) {
       if (paused || disposed) return null;
@@ -193,13 +199,15 @@ export function createStudyCommandQueue(initial: AppState, options: Options) {
     async retry() {
       if (!paused || active || disposed) return;
       if (recovering) {
+        active = true;
         const latest = await options.recover().catch(() => null);
+        active = false;
         if (disposed) return;
         if (!latest) {options.error('Güncel durum doğrulanamadı. Bekleyen işlemler duraklatıldı; yeniden dene.');publish();return;}
         confirmed = latest; recovering = false; options.committed(latest);
       }
       if (jobs[0]?.sent) jobs[0].retrying = true;
-      paused = false; publish(); void pump();
+      paused = false; retryable = false; publish(); await pump();
     },
     dispose() {disposed = true; jobs.forEach(job => job.resolve(false));},
   };

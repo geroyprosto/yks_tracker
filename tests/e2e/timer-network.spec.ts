@@ -98,7 +98,9 @@ test('hidden polling and returning version changes preserve queued timer pause r
     const pausedSeconds = await displayedSeconds(page);
     const reads = fixture.reads, checks = fixture.checks;
     await visibility(page, 'hidden');
-    await page.clock.fastForward(120_000);
+    // Keep this response in flight below the transport timeout. The recovery
+    // tests below cover longer suspensions after an uncertain response.
+    await page.clock.fastForward(5000);
     expect(await displayedSeconds(page)).toBe(pausedSeconds);
     expect(fixture.reads).toBe(reads);
     expect(fixture.checks).toBe(checks);
@@ -129,4 +131,127 @@ test('hidden polling and returning version changes preserve queued timer pause r
     expect(fixture.state.sessions[0]).toMatchObject({status: 'finished', revision: 4});
     await expect(page.locator('.floating-timer')).toHaveCount(0);
   } finally {releasePause();}
+});
+
+test('a lost timer response recovers automatically with the same request and no duplicate pause', async ({page}) => {
+  const fixture = await runningTimer(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  const commands: TimerCommand[] = [];
+  await page.route('**/api/command', async route => {
+    const command = route.request().postDataJSON() as TimerCommand;
+    commands.push(command);
+    if (commands.length === 1) {
+      fixture.state.sessions[0] = {...fixture.state.sessions[0], status: 'paused', active_since: null, revision: 2};
+      fixture.state.intervals[0] = {...fixture.state.intervals[0], ended_at: fixture.state.server_now};
+      return route.abort('connectionreset');
+    }
+    expect(command).toEqual(commands[0]);
+    expect(route.request().headers()['prefer']).not.toBe('return=minimal');
+    await route.fulfill({json: {ok: true, id: sessionId, request_id: command.request_id, replayed: true, state: fixture.state}});
+  });
+
+  await focus(page).getByRole('button', {name: 'Sayacı duraklat', exact: true}).click();
+  await expect(focus(page).getByRole('alert')).toContainText('otomatik');
+  await expect(focus(page).getByRole('alert')).not.toContainText('Failed to fetch');
+  await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '1');
+  expect(commands).toHaveLength(1);
+
+  await page.clock.fastForward(1000);
+  await expect.poll(() => commands.length).toBe(2);
+  await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '0');
+  await expect(focus(page).getByRole('alert')).toHaveCount(0);
+  await expect(focus(page).getByRole('button', {name: 'Sayacı sürdür', exact: true})).toBeEnabled();
+  expect(fixture.state.sessions).toHaveLength(1);
+  expect(fixture.state.sessions[0]).toMatchObject({id: sessionId, status: 'paused', revision: 2});
+});
+
+test('a stalled timer response times out and safely replays the committed pause', async ({page}) => {
+  const fixture = await runningTimer(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  const commands: TimerCommand[] = [];
+  let release!: () => void;
+  const stalled = new Promise<void>(resolve => {release = resolve;});
+  await page.route('**/api/command', async route => {
+    const command = route.request().postDataJSON() as TimerCommand;
+    commands.push(command);
+    if (commands.length === 1) {
+      fixture.state.sessions[0] = {...fixture.state.sessions[0], status: 'paused', active_since: null, revision: 2};
+      fixture.state.intervals[0] = {...fixture.state.intervals[0], ended_at: fixture.state.server_now};
+      await stalled;
+    } else {
+      expect(command).toEqual(commands[0]);
+    }
+    await route.fulfill({json: {ok: true, id: sessionId, request_id: command.request_id,
+      replayed: commands.length > 1, state: fixture.state}});
+  });
+
+  try {
+    await focus(page).getByRole('button', {name: 'Sayacı duraklat', exact: true}).click();
+    await expect.poll(() => commands.length).toBe(1);
+    await page.clock.fastForward(15_000);
+    await expect(focus(page).getByRole('alert')).toContainText('otomatik');
+    await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '1');
+    await page.clock.fastForward(1000);
+    await expect.poll(() => commands.length).toBe(2);
+    await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '0');
+    await expect(focus(page).getByRole('alert')).toHaveCount(0);
+    await expect(focus(page).getByRole('button', {name: 'Sayacı sürdür', exact: true})).toBeEnabled();
+    expect(fixture.state.sessions[0]).toMatchObject({status: 'paused', revision: 2});
+  } finally {release();}
+});
+
+for (const wakeup of ['online', 'visibility'] as const) test(`pending timer retries resume on ${wakeup} after waiting offline`, async ({page, context}) => {
+  const fixture = await runningTimer(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  const commands: TimerCommand[] = [];
+  await page.route('**/api/command', async route => {
+    const command = route.request().postDataJSON() as TimerCommand;
+    commands.push(command);
+    if (commands.length === 1) return route.abort('connectionreset');
+    expect(command).toEqual(commands[0]);
+    fixture.state.sessions[0] = {...fixture.state.sessions[0], status: 'paused', active_since: null, revision: 2};
+    fixture.state.intervals[0] = {...fixture.state.intervals[0], ended_at: fixture.state.server_now};
+    await route.fulfill({json: {ok: true, id: sessionId, request_id: command.request_id, replayed: false, state: fixture.state}});
+  });
+
+  await focus(page).getByRole('button', {name: 'Sayacı duraklat', exact: true}).click();
+  await expect(focus(page).getByRole('alert')).toContainText('otomatik');
+  await context.setOffline(true);
+  await page.clock.fastForward(60_000);
+  expect(commands).toHaveLength(1);
+  await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '1');
+
+  if (wakeup === 'visibility') await visibility(page, 'hidden');
+  await context.setOffline(false);
+  if (wakeup === 'visibility') {
+    await page.clock.fastForward(60_000);
+    expect(commands).toHaveLength(1);
+    await visibility(page, 'visible');
+  }
+  await expect.poll(() => commands.length).toBe(2);
+  await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '0');
+  await expect(focus(page).getByRole('alert')).toHaveCount(0);
+  await expect(focus(page).getByRole('button', {name: 'Sayacı sürdür', exact: true})).toBeEnabled();
+});
+
+test('a sustained timer outage backs off without dropping the pending command', async ({page}) => {
+  await runningTimer(page);
+  await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  const commands: TimerCommand[] = [];
+  await page.route('**/api/command', async route => {
+    commands.push(route.request().postDataJSON() as TimerCommand);
+    await route.abort('connectionreset');
+  });
+  await focus(page).getByRole('button', {name: 'Sayacı duraklat', exact: true}).click();
+  await expect(focus(page).getByRole('alert')).toContainText('otomatik');
+  for (const [index, delay] of [1000, 2000, 4000, 8000, 16000, 30000, 30000].entries()) {
+    await page.clock.fastForward(delay - 1);
+    expect(commands).toHaveLength(index + 1);
+    await page.clock.fastForward(1);
+    await expect.poll(() => commands.length).toBe(index + 2);
+    await expect(focus(page).getByRole('alert')).toContainText('otomatik');
+  }
+  expect(commands.every(command => JSON.stringify(command) === JSON.stringify(commands[0]))).toBe(true);
+  await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '1');
+  await expect(page.locator('.notice.error').getByRole('button', {name: 'Bekleyen kayıtları yeniden dene', exact: true, includeHidden: true})).toBeEnabled();
 });

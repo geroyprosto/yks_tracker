@@ -242,7 +242,9 @@ test('failed state refresh preserves an accepted task save and allows another ac
   });
   await openTasks(page);
   await page.getByRole('button', {name: 'Ardışık kayıt görevini tamamla'}).click();
-  await expect(page.getByRole('alert').filter({hasText: 'Kayıt tamamlandı'})).toBeVisible();
+  await expect(page.getByRole('alert').filter({hasText: 'Görünüm güncellenemedi'})).toBeVisible();
+  await expect(page.locator('[data-pending-commands]')).toHaveAttribute('data-pending-commands', '0');
+  expect(writes).toBe(1);
   const undo = page.getByRole('button', {name: 'Ardışık kayıt tamamlamasını geri al'});
   await expect(undo).toBeEnabled();
   await undo.click();

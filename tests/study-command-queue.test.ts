@@ -178,3 +178,109 @@ test('a repeated failed recovery keeps the paused queue and visible retry error'
   queue.enqueue({request_id: 'independent', type: 'task.update', payload: {id: other, expected_revision: 1, progress: 1}}, stamp);
   await flush();await queue.retry();assert.equal(queue.paused, true);assert.equal(queue.count, 1);assert.match(errors.at(-1)!, /yeniden dene/);
 });
+
+for (const [label, error] of [
+  ['network failure', new TypeError('Failed to fetch')],
+  ['request timeout', new DOMException('The operation timed out.', 'TimeoutError')],
+  ['aborted transport', new DOMException('The operation was aborted.', 'AbortError')],
+  ['HTTP timeout', new CommandRequestError('Request timed out', 408)],
+  ['rate limit', new CommandRequestError('Too many requests', 429)],
+  ['server failure', new CommandRequestError('Unavailable', 503)],
+] as const) test(`${label} preserves pending timer work for automatic recovery`, async () => {
+  let sends = 0;
+  const {queue, errors} = harness(state(), async () => {sends++;throw error;});
+  const start = queue.enqueue({request_id: 'start', type: 'timer.start', payload: {title: 'A', mode: 'stopwatch'}}, stamp)!;
+  const finish = queue.enqueue({request_id: 'finish', type: 'timer.finish', payload: {id: 'start', expected_revision: 1}}, stamp)!;
+  try {
+    await flush();
+    assert.equal(queue.paused, true);
+    assert.equal(queue.retryable, true);
+    assert.equal(queue.count, 2);
+    assert.equal(sends, 1);
+    assert.equal(queue.state.sessions[0].status, 'finished');
+    if (error instanceof TypeError) {
+      assert.match(errors[0], /bağlantı/i);
+      assert.doesNotMatch(errors[0], /Failed to fetch/);
+    }
+  } finally {queue.dispose();await Promise.all([start, finish]);}
+});
+
+test('unverified receipts remain manually recoverable without automatic mutation retries', async () => {
+  const {queue} = harness(state(), async command => ({...receipt(command), request_id: 'different-request'}));
+  const done = queue.enqueue({request_id: 'update', type: 'task.update', payload: {id, expected_revision: 1, progress: 1}}, stamp)!;
+  try {
+    await flush();
+    assert.equal(queue.paused, true);
+    assert.equal(queue.retryable, false);
+    assert.equal(queue.count, 1);
+  } finally {queue.dispose();await done;}
+});
+
+test('definite validation and conflict errors are not eligible for automatic retries', async () => {
+  for (const status of [400, 401, 403, 409]) {
+    let sends = 0;
+    const {queue} = harness(state(), async () => {sends++;throw new CommandRequestError('Rejected', status);});
+    assert.equal(await queue.enqueue({request_id: `update-${status}`, type: 'task.update', payload: {id, expected_revision: 1, progress: 1}}, stamp), false);
+    assert.equal(queue.retryable, false);
+    assert.equal(queue.count, 0);
+    await queue.retry();
+    assert.equal(sends, 1);
+    queue.dispose();
+  }
+});
+
+test('network recovery replays the frozen request with full state and clears retry eligibility', async () => {
+  const sent: {command: QueuedCommand; minimal: boolean}[] = [];
+  const canonical = state();canonical.tasks[0] = {...canonical.tasks[0], progress: 1, revision: 2};
+  const {queue} = harness(state(), async (command, minimal) => {
+    sent.push({command: structuredClone(command), minimal});
+    if (sent.length < 3) throw new TypeError('Failed to fetch');
+    return {...receipt(command, canonical), replayed: true};
+  });
+  const command = {request_id: 'update', type: 'task.update', payload: {id, expected_revision: 1, progress: 1}};
+  const done = queue.enqueue(command, stamp)!;
+  try {
+    await flush();
+    command.payload.progress = 0;
+    command.payload.expected_revision = 99;
+    queue.install(state());
+    await queue.retry();await flush();
+    assert.equal(queue.retryable, true);
+    await queue.retry();
+    assert.equal(await done, true);
+    assert.deepEqual(sent.map(item => item.minimal), [true, false, false]);
+    assert.deepEqual(sent[1].command, sent[0].command);
+    assert.deepEqual(sent[2].command, sent[0].command);
+    assert.equal(queue.paused, false);
+    assert.equal(queue.retryable, false);
+    assert.equal(queue.count, 0);
+    assert.equal(queue.confirmed.tasks[0].progress, 1);
+    assert.equal(queue.confirmed.tasks[0].revision, 2);
+  } finally {queue.dispose();await done;}
+});
+
+test('simultaneous recovery triggers share one state check before continuing queued writes', async () => {
+  const recovery = deferred<AppState | null>();
+  const sent: QueuedCommand[] = [];
+  let reads = 0;
+  const {queue, commits} = harness(state(), async command => {
+    sent.push(command);
+    if (sent.length === 1) throw new CommandRequestError('Rejected', 409);
+    return receipt(command);
+  }, async () => ++reads === 1 ? null : recovery.promise);
+  const failed = queue.enqueue({request_id: 'bad', type: 'task.update', payload: {id, expected_revision: 1, progress: 1}}, stamp)!;
+  const next = queue.enqueue({request_id: 'next', type: 'task.update', payload: {id: other, expected_revision: 1, progress: 1}}, stamp)!;
+  try {
+    await flush();
+    assert.equal(queue.paused, true);
+    const first = queue.retry(), second = queue.retry();
+    const concurrentReads = reads;
+    recovery.resolve(state());
+    await Promise.all([first, second]);
+    assert.equal(await failed, false);
+    assert.equal(await next, true);
+    assert.equal(concurrentReads, 2);
+    assert.equal(commits.length, 1);
+    assert.deepEqual(sent.map(command => command.request_id), ['bad', 'next']);
+  } finally {recovery.resolve(state());queue.dispose();await Promise.all([failed, next]);}
+});

@@ -87,10 +87,43 @@ export function Dashboard(){
  const [today,setToday]=useState('');
  const pending=useRef(false);
  const commandQueue=useRef<ReturnType<typeof createStudyCommandQueue>|null>(null);
+ const commandRetryDelay=useRef(1000);
+ const retryQueue=useCallback(async()=>{
+   if(!navigator.onLine||document.visibilityState!=='visible')return;
+   queueError.current=false;setError('');await commandQueue.current?.retry();
+ },[]);
  const pendingForms=useRef(new Map<HTMLFormElement|string,Promise<boolean>>());
  const queueError=useRef(false);
  const dirtyRefresh=useRef(false);
  useEffect(()=>()=>commandQueue.current?.dispose(),[]);
+ useEffect(()=>{
+   if(!queuedJobs){commandRetryDelay.current=1000;return;}
+   if(!queuePaused||!commandQueue.current?.retryable)return;
+   let timer:ReturnType<typeof setTimeout>|null=null;
+   let canceled=false,attempting=false;
+   const suspend=()=>{if(timer!==null)clearTimeout(timer);timer=null;};
+   const schedule=()=>{
+     if(canceled||!commandQueue.current?.retryable||!navigator.onLine||document.visibilityState!=='visible')return;
+     timer=setTimeout(()=>void resume(),commandRetryDelay.current);
+   };
+   const resume=async()=>{
+     if(canceled||attempting||!commandQueue.current?.retryable||!navigator.onLine||document.visibilityState!=='visible')return;
+     suspend();attempting=true;
+     commandRetryDelay.current=Math.min(commandRetryDelay.current*2,30_000);
+     try{await retryQueue();}finally{attempting=false;schedule();}
+   };
+   const visibility=()=>{if(document.visibilityState==='visible')void resume();else suspend();};
+   schedule();
+   window.addEventListener('online',resume);window.addEventListener('focus',resume);window.addEventListener('pageshow',resume);
+   window.addEventListener('offline',suspend);window.addEventListener('pagehide',suspend);
+   document.addEventListener('visibilitychange',visibility);
+   return()=>{
+     canceled=true;suspend();
+     window.removeEventListener('online',resume);window.removeEventListener('focus',resume);window.removeEventListener('pageshow',resume);
+     window.removeEventListener('offline',suspend);window.removeEventListener('pagehide',suspend);
+     document.removeEventListener('visibilitychange',visibility);
+   };
+ },[queuePaused,queuedJobs,retryQueue]);
  useEffect(()=>{
    if(!queuedJobs)return;
    const warn=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue='';};
@@ -335,18 +368,22 @@ export function Dashboard(){
      if(!commandQueue.current)commandQueue.current=createStudyCommandQueue(state,{
        send:async(command,minimal,measurement)=>{
          const education=command.type.startsWith('education.');
-         const response=await fetch(education?'/api/education':'/api/command',{method:'POST',headers:{'Content-Type':'application/json',...(minimal?{Prefer:'return=minimal'}:{})},
+         const response=await fetch(education?'/api/education':'/api/command',{method:'POST',signal:AbortSignal.timeout(15_000),headers:{'Content-Type':'application/json',...(minimal?{Prefer:'return=minimal'}:{})},
            body:JSON.stringify(education?{...command,type:command.type.slice(10)}:command),...(command.type==='timer.finish'?{keepalive:true}:{})});
          measurement?.response(response.status,response.headers.get('server-timing'));
-         const data=await response.json();const receivedAt=performance.now();
          if(response.status===401)expireSession();
+         const data=await response.json().catch(error=>{
+           if(!response.ok)throw new CommandRequestError('İşlem kaydedilemedi.',response.status);
+           throw error;
+         });const receivedAt=performance.now();
          if(!response.ok)throw new CommandRequestError(data.error?.message??'İşlem kaydedilemedi.',response.status);
          return education?{...data.result,state:data.state?{...commandQueue.current!.confirmed,education:data.state}:undefined,partialState:true,receivedAt}:{...data,receivedAt};
        },
        recover:async()=>{
-         try{const response=await fetch('/api/state',{cache:'no-store'});const latest=await response.json();
-           if(latest.redirect){window.location.assign(latest.redirect);return null;}
+         try{const response=await fetch('/api/state',{cache:'no-store',signal:AbortSignal.timeout(15_000)});
            if(response.status===401){expireSession();return null;}
+           const latest=await response.json();
+           if(latest.redirect){window.location.assign(latest.redirect);return null;}
            return response.ok?{...emptyState(true),...latest}:null;
          }catch{return null;}
        },
@@ -381,7 +418,6 @@ export function Dashboard(){
    return false;
  };
  const educationCommand:EducationCommand=(type,payload)=>command('education.'+type,payload);
- const retryQueue=()=>{queueError.current=false;setError('');void commandQueue.current?.retry();};
  const go=(p:PageId,settingsTab?:'plan'|'connections'|'account')=>{if(p==='stats')setStatisticsView('study');if(p==='settings'){setSettingsInitialTab(settingsTab??'appearance');setSettingsVisit(value=>value+1);}setLinkedDate(null);setPage(p);setMobileMenu(false);const url=new URL(window.location.href);if(p==='friends')url.searchParams.set('page','friends');else url.searchParams.delete('page');if(p==='settings'&&settingsTab==='connections')url.searchParams.set('settings','connections');else url.searchParams.delete('settings');window.history.replaceState(window.history.state,'',url)};
  const goFromReport=(p:PageId,date?:string)=>{go(p);if(date&&(p==='journal'||p==='exams'||p==='stats'))setLinkedDate(date)};
  const openPractice=()=>{go('stats');setStatisticsView('practice')};

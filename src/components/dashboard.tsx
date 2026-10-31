@@ -342,7 +342,7 @@ export function Dashboard(){
    queueMicrotask(()=>{const query=new URLSearchParams(window.location.search);if(query.get('page')==='friends')setPage('friends');else if(query.get('settings')==='connections'){setSettingsInitialTab('connections');setPage('settings')}});
    const reconnect=()=>setOnline(navigator.onLine);
    window.addEventListener('online',reconnect);window.addEventListener('offline',reconnect);
-   if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js').catch(()=>{});
+   if('serviceWorker' in navigator)void navigator.serviceWorker.register('/sw.js',{updateViaCache:'none'}).catch(()=>{});
    return()=>{window.removeEventListener('online',reconnect);window.removeEventListener('offline',reconnect)};
  },[refresh]);
  useEffect(()=>{

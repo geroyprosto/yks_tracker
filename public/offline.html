@@ -1,1 +1,76 @@
-<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>YKSim · Çevrimdışı</title><style>body{font:17px/1.7 system-ui;background:#101b2c;color:#e4edf6;max-width:540px;margin:18vh auto;padding:24px}h1{font-size:32px}a{color:#8ecaf1}</style><h1>Şu an çevrimdışısın.</h1><p>Görevleri yüklemek ve değişiklik kaydetmek için internet bağlantısı gerekiyor. Sunucuya kaydedilen sayaç, tekrar bağlandığında zaman damgalarından hesaplanır.</p><p>Çevrimdışı kayıt kuyruğu henüz etkin değil.</p><a href="/">Yeniden dene</a></html>
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>YKSim · Bağlantı bekleniyor</title>
+  <style>body{font:17px/1.7 system-ui;background:#101b2c;color:#e4edf6;max-width:540px;margin:18vh auto;padding:24px}h1{font-size:32px}a{color:#8ecaf1}</style>
+</head>
+<body>
+  <h1 id="heading">Siteye şu an ulaşılamıyor.</h1>
+  <p id="status" role="status">Bağlantı yeniden deneniyor. Bağlantı kurulduğunda sayfa otomatik açılacak.</p>
+  <p>Sunucuya kaydedilen çalışmaların korunur. Çalışan sayaç, tekrar bağlandığında zaman damgalarından hesaplanır.</p>
+  <a id="retry" href="/">Yeniden dene</a>
+  <script>
+    (() => {
+      // The fallback is served at the attempted URL; preserve its path and query.
+      const target = location.pathname === '/offline.html' ? '/' : location.href;
+      const heading = document.getElementById('heading');
+      const status = document.getElementById('status');
+      const retry = document.getElementById('retry');
+      retry.href = target;
+      function openPage() {
+        // Replacing the same URL with a fragment can be a same-document visit.
+        if (location.pathname === '/offline.html') location.replace(target);
+        else location.reload();
+      }
+      retry.addEventListener('click', event => {event.preventDefault(); openPage();});
+      let timer;
+      let checking = false;
+      let delay = 1000;
+
+      function showConnection() {
+        heading.textContent = navigator.onLine ? 'Siteye şu an ulaşılamıyor.' : 'Şu an çevrimdışısın.';
+        status.textContent = navigator.onLine
+          ? 'Bağlantı yeniden deneniyor. Bağlantı kurulduğunda sayfa otomatik açılacak.'
+          : 'İnternet bağlantın geri geldiğinde sayfa otomatik açılacak.';
+      }
+
+      async function reconnect() {
+        clearTimeout(timer);
+        showConnection();
+        if (checking || !navigator.onLine || document.visibilityState === 'hidden') return;
+        checking = true;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+          // This is a normal GET, so the worker cannot turn a failed probe into
+          // an offline HTML success. Never reload until the actual page responds.
+          const response = await fetch(target, {cache: 'no-store', signal: controller.signal});
+          const available = response.ok && response.headers.get('content-type')?.includes('text/html');
+          await response.body?.cancel();
+          if (available) {
+            openPage();
+            return;
+          }
+        } catch {
+          // Stay on this document until the server can be reached again.
+        } finally {
+          clearTimeout(timeout);
+          checking = false;
+        }
+        delay = Math.min(delay * 2, 30000);
+        timer = setTimeout(reconnect, delay);
+      }
+
+      window.addEventListener('online', () => {delay = 1000; void reconnect();});
+      window.addEventListener('offline', showConnection);
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') void reconnect();
+      });
+      showConnection();
+      timer = setTimeout(reconnect, delay);
+    })();
+  </script>
+</body>
+</html>

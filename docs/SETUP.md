@@ -74,7 +74,7 @@ Supabase Auth Site URL'yi kullanılan uygulama adresine ayarla. Parola kurtarma 
 
 `pnpm dev` ile uygulamayı aç; sahip girişi, öğrenci başvurusu ve yönetici onayını kendi geliştirme ortamında dene. Onaylı öğrenciyle bir görev oluştur, yenile ve kaydın korunduğunu gör. Sayaç başlat/duraklat/bitir; oluşan süreyi ve ikinci cihazda aynı hesabı kontrol et. İlk state okuması başlangıç profil/katalog verilerini oluşturabilir; geçmiş çalışma veya başarı seed edilmez.
 
-Oturumsuz ve başka kullanıcı oturumuyla özel kayıtların okunamadığını denetle. Profil fotoğrafı kullanılacaksa ilgili Storage migration/policy'lerinin de uygulanmış olduğunu doğrula. Yerel PGlite testlerinin gerçek Auth, Storage veya iki cihaz kabulünün yerine geçmediğini [test rehberi](TESTING.md) açıklar.
+Oturumsuz ve başka kullanıcı oturumuyla özel kayıtların okunamadığını denetle. Profil fotoğrafı özelliği kaldırılmıştır; fotoğraf erişimini kapatan son Storage migration'ının uygulandığını doğrula. Yerel PGlite testlerinin gerçek Auth, Storage veya iki cihaz kabulünün yerine geçmediğini [test rehberi](TESTING.md) açıklar.
 
 ## Yayın ve bakım
 

@@ -29,11 +29,11 @@ Hesaplamalar [progress.ts](../src/lib/progress.ts), [timing.ts](../src/lib/timin
 | --- | --- |
 | Eğitim profili | YKS hedefi, eğitim düzeyi, dönem ve ders kimliklerini ayırır; tam resmî müfredat ürettiği iddia edilmez. [Ayrıntı](features/STUDENT_PERSONALIZATION.md). |
 | Kırklareli Tıp | Sürümlü katalog, Dönem I–IV, KEG ve ayrı not kuralları. [Ayrıntı](features/KIRKLARELI_MEDICINE.md). |
-| Arkadaşlar | Onaylı hesaplar arasında grup, yarış ve izinli profil fotoğrafı erişimi; sınıf yetkilerinden ayrı kurallar içerir. |
+| Arkadaşlar | Onaylı hesaplar arasında grup ve yarış; kişiler adlarının baş harfleriyle gösterilir. Sınıf yetkilerinden ayrı kurallar içerir. |
 | Google Takvim | Seçilen takvimlerden bugünün etkinliklerini salt okunur getirir; çalışma süresine eklemez. [Kurulum](integrations/GOOGLE_CALENDAR.md). |
 | Günlük ve AI | Günlük paylaşım tercihi ve manuel istekle analiz; sunucu anahtarı, hesap kotası ve uygulama bütçesi gerekir. Otomatik ücretli rapor üretimi kapalıdır. [Ayrıntı](integrations/AI_MCP.md). |
 | MCP | OAuth ve sahip hesabıyla sınırlandırılmış okuma/yazma araçları; genel veritabanı erişimi değildir. [Ayrıntı](integrations/AI_MCP.md). |
-| Eski PDF kayıtları | PDF yükleme/içe aktarma özelliği kaldırılmıştır; `exam-documents` bucket'ına tarayıcıdan yeni yükleme, üzerine yazma ve taşıma da kapalıdır. Mevcut izinli dosyalar okunabilir ve silinebilir; profil fotoğrafları bu sınırdan etkilenmez. |
+| Eski PDF kayıtları | PDF yükleme/içe aktarma özelliği kaldırılmıştır; `exam-documents` bucket'ına tarayıcıdan yeni yükleme, üzerine yazma ve taşıma da kapalıdır. Mevcut izinli PDF dosyaları okunabilir ve silinebilir. |
 
 ## Kalıcılık ve kullanılabilirlik
 

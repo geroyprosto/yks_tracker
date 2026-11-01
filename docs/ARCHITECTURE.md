@@ -61,7 +61,7 @@ API dosyaları [`src/app/api`](../src/app/api) altındadır:
 | `/api/education` | `server/education.ts`; `education_state`, `education_command` |
 | `/api/medicine` | `server/medicine.ts`; `medicine_state`, `medicine_command` |
 | `/api/classroom/*`, `/api/register`, `/api/friends/*` | Sınıf kimliği, başvuru, hesap yönetimi ve arkadaş grupları |
-| `/api/profile/photo`, `/api/friends/[userId]/photo` | Özel Storage dosyaları ve erişim kontrolü |
+| `/api/profile/photo`, `/api/friends/[userId]/photo` | Kaldırılmış fotoğraf özelliği; eski istemcilere 410 yanıtı verir, Storage erişimi yapmaz. |
 | `/api/analysis`, `/api/journal/suggest`, `/api/cron/analysis` | AI/koçluk servisleri; ayrı özellik, kota ve bütçe kapıları |
 | `/api/calendar/*` | `server/google-calendar.ts`, `google-calendar-store.ts`; salt okunur Google erişimi |
 | `/api/mcp`, `/api/mcp/oauth-protected-resource`, `/api/oauth/*` | OAuth audience doğrulaması ve dar sahip geçidi |

@@ -52,8 +52,6 @@
 .first{color:var(--f-rival)}
 .second{color:var(--f-you)}
 .avatar{width:68px;height:68px;position:relative;border:3px solid currentColor;border-radius:50%;display:grid;place-items:center;background:var(--f-surface2);font-size:25px;font-weight:700}
-.photoFrame{width:100%;height:100%;display:grid;place-items:center;overflow:hidden;border-radius:50%}
-.photoFrame img{width:100%;height:100%;display:block;object-fit:cover}
 .rankAvatar{width:32px;height:32px;flex:none;display:grid;place-items:center;border:1px solid var(--f-line);border-radius:50%;background:var(--f-surface2);color:var(--f-you);font-size:12px;font-weight:700}
 .crown{position:absolute;top:-22px;font-size:22px;line-height:1}
 .playerName{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--f-text);font-size:15px;font-weight:700}

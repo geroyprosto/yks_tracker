@@ -44,7 +44,11 @@ before(async()=>{
   }
   // A permissive future policy must not accidentally reopen the retired bucket.
   await db.exec(`create policy fixture_permissive_insert on storage.objects for insert to authenticated with check(true);
-    create policy fixture_permissive_update on storage.objects for update to authenticated using(true) with check(true);`);
+    create policy fixture_permissive_update on storage.objects for update to authenticated using(true) with check(true);
+    insert into storage.buckets(id,name,public) values('fixture-files','fixture-files',false);
+    create policy fixture_other_bucket on storage.objects for all to authenticated
+      using(bucket_id='fixture-files' and name=auth.uid()::text||'/asset.bin')
+      with check(bucket_id='fixture-files' and name=auth.uid()::text||'/asset.bin');`);
 });
 after(async()=>{await db?.close();});
 
@@ -78,20 +82,20 @@ test('retired PDF overwrites and moves into or out of the bucket remain blocked'
     on conflict(bucket_id,name) do update set metadata=excluded.metadata`,[existing(STUDENT)]),/row-level security policy/);
   const overwritten=await db.query("update storage.objects set metadata='{\"size\":2048}' where bucket_id='exam-documents' and name=$1 returning id",[existing(STUDENT)]);
   assert.equal(overwritten.rows.length,0);
-  const movedOut=await db.query("update storage.objects set bucket_id='profile-photos',name=$2 where bucket_id='exam-documents' and name=$1 returning id",
-    [existing(STUDENT),`${STUDENT}/moved.webp`]);
+  const movedOut=await db.query("update storage.objects set bucket_id='fixture-files',name=$2 where bucket_id='exam-documents' and name=$1 returning id",
+    [existing(STUDENT),`${STUDENT}/moved.bin`]);
   assert.equal(movedOut.rows.length,0);
-  await db.query("insert into storage.objects(bucket_id,name) values('profile-photos',$1)",[`${STUDENT}/avatar.webp`]);
-  await assert.rejects(()=>db.query("update storage.objects set bucket_id='exam-documents',name=$2 where bucket_id='profile-photos' and name=$1",
-    [`${STUDENT}/avatar.webp`,`${STUDENT}/${'b'.repeat(64)}.pdf`]),/row-level security policy/);
+  await db.query("insert into storage.objects(bucket_id,name) values('fixture-files',$1)",[`${STUDENT}/asset.bin`]);
+  await assert.rejects(()=>db.query("update storage.objects set bucket_id='exam-documents',name=$2 where bucket_id='fixture-files' and name=$1",
+    [`${STUDENT}/asset.bin`,`${STUDENT}/${'b'.repeat(64)}.pdf`]),/row-level security policy/);
 });
 
 test('other storage buckets keep their approved upload, replacement and deletion rules',async()=>{
   await browser(OTHER);
-  const path=`${OTHER}/avatar.webp`;
-  await db.query("insert into storage.objects(bucket_id,name,metadata) values('profile-photos',$1,'{\"size\":100}')",[path]);
-  assert.equal((await db.query("update storage.objects set metadata='{\"size\":200}' where bucket_id='profile-photos' and name=$1 returning id",[path])).rows.length,1);
-  assert.equal((await db.query("delete from storage.objects where bucket_id='profile-photos' and name=$1 returning id",[path])).rows.length,1);
+  const path=`${OTHER}/asset.bin`;
+  await db.query("insert into storage.objects(bucket_id,name,metadata) values('fixture-files',$1,'{\"size\":100}')",[path]);
+  assert.equal((await db.query("update storage.objects set metadata='{\"size\":200}' where bucket_id='fixture-files' and name=$1 returning id",[path])).rows.length,1);
+  assert.equal((await db.query("delete from storage.objects where bucket_id='fixture-files' and name=$1 returning id",[path])).rows.length,1);
 });
 
 test('existing private PDFs remain readable and deletable only by their authorized owner',async()=>{

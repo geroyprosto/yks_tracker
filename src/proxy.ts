@@ -2,6 +2,8 @@ import {createServerClient} from '@supabase/ssr';
 import {NextResponse,type NextRequest} from 'next/server';
 import {getConfiguration} from '@/lib/server/auth';
 export async function proxy(request:NextRequest){
+ const path=request.nextUrl.pathname;
+ if(path==='/api/profile/photo'||/^\/api\/friends\/[^/]+\/photo$/.test(path))return NextResponse.next();
  const config=getConfiguration();if(!config)return NextResponse.next();
  let response=NextResponse.next({request});
  const db=createServerClient(config.url,config.key,{cookies:{

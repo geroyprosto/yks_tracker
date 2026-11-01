@@ -1,6 +1,6 @@
 # YKSim
 
-Türkçe çalışma takip uygulaması. Günlük görevler, çalışma sayacı, konu ilerlemesi, deneme ve okul sonuçları, günlük, arkadaş grupları ve isteğe bağlı analiz araçlarını bir araya getirir. YKS, lise ve üniversite çalışma profilleri; ayrıca Kırklareli Tıp ve Nova simülasyon modülleri bulunur.
+Türkçe çalışma takip uygulaması. Günlük görevler, çalışma sayacı, konu ilerlemesi, deneme ve okul sonuçları, günlük, arkadaş grupları ve isteğe bağlı analiz araçlarını bir araya getirir. YKS, lise ve üniversite çalışma profilleri; ayrıca Kırklareli Tıp modülü bulunur.
 
 **Geliştirici başlangıcı: [dokümantasyon ve okuma sırası](docs/README.md).**
 
@@ -29,7 +29,7 @@ Gerçek Supabase hesabıyla geliştirmek için [kurulumu](docs/SETUP.md) izle; a
 
 Next.js App Router, React, TypeScript, Tailwind/CSS, Supabase Auth/PostgreSQL/Storage; isteğe bağlı Upstash Redis ve sunucu entegrasyonları. Uygulama sürümleri için `package.json` ve `pnpm-lock.yaml`, veri şeması için `supabase/migrations/` esas alınır.
 
-Öğrenci/öğretmen/yönetici rolleri vardır; öğretmen özellikleri mevcut kodda geçici olarak duraklatılmıştır. AI raporları manuel istek ve bütçe denetimiyle çalışır; otomatik ücretli rapor üretimi kapalıdır. Nova simülasyonu yerel model veya Windows Bridge gerektirmez. Ayrıntılar ve erişim koşulları ilgili modül rehberlerindedir.
+Öğrenci/öğretmen/yönetici rolleri vardır; öğretmen özellikleri mevcut kodda geçici olarak duraklatılmıştır. AI raporları manuel istek ve bütçe denetimiyle çalışır; otomatik ücretli rapor üretimi kapalıdır. Ayrıntılar ve erişim koşulları ilgili modül rehberlerindedir.
 
 ## Doğrulama
 

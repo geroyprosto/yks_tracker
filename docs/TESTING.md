@@ -11,8 +11,6 @@ Komutların kaynağı [package.json](../package.json), tarayıcı ayarlarının 
 | `pnpm test:all` | Yukarıdaki iki dosya grubunu tek koşuda çalıştırır | Playwright'ı içermez; ayrıca `test` ve `test:db` çalıştırmak aynı testleri tekrarlar. |
 | `pnpm test:e2e` | Genel uygulama akışları, `tests/e2e` | Dış hizmetler kurulumsuz sunucu/HTTP mock ile ayrılır; gerçek Google, OpenAI veya Supabase kabulü değildir. |
 | `pnpm test:classroom` | Hesap/rol/üyelik akışları, `tests/classroom-e2e` | Yerel PGlite demosunda çalışır. Öğretmen alanının duraklatılmasına bağlı senaryolar atlanabilir; atlanan test başarılı kabul değildir. |
-| `pnpm test:nova` | Nova adını taşıyan birim ve DB testleri | Tam test paketinin yerine geçmez. |
-| `pnpm test:nova:e2e` | Nova simülasyonu ve yarış, `tests/nova-e2e` | Yerel demo; canlı hesap/sağlayıcı kabulü değildir. |
 
 ## Tarayıcı hazırlığı ve portlar
 
@@ -22,7 +20,6 @@ Playwright testleri sunucuyu kendileri başlatır. Önceden ayrı test sunucusu 
 | --- | --- | --- |
 | [playwright.config.ts](../playwright.config.ts) | `http://127.0.0.1:3100` | 2 worker; varsayılan `test-results/` |
 | [playwright.classroom.config.ts](../playwright.classroom.config.ts) | `http://127.0.0.1:3200` | 1 worker; `tmp/playwright-classroom-results/` |
-| [playwright.nova.config.ts](../playwright.nova.config.ts) | `http://127.0.0.1:3400` | 1 worker; `tmp/playwright-nova-results/` |
 
 Windows'ta varsayılan tarayıcı kanalı `msedge`, diğer sistemlerde Playwright Chromium'dur. Chromium kurmak ve Windows'ta açıkça seçmek için:
 
@@ -33,7 +30,7 @@ pnpm test:e2e
 Remove-Item Env:PLAYWRIGHT_CHANNEL
 ```
 
-Linux CI sistem bağımlılıkları için `pnpm exec playwright install --with-deps chromium` kullanır. Üç config de `tr-TR`, `Europe/Istanbul`, hata halinde screenshot/trace ve engellenmiş service worker ile çalışır. Config env değerleri dış hizmet erişimini sınırlar; testleri üretim kimlik bilgileriyle genişletme.
+Linux CI sistem bağımlılıkları için `pnpm exec playwright install --with-deps chromium` kullanır. İki config de `tr-TR`, `Europe/Istanbul`, hata halinde screenshot/trace ve engellenmiş service worker ile çalışır. Config env değerleri dış hizmet erişimini sınırlar; testleri üretim kimlik bilgileriyle genişletme.
 
 ## Değişiklik için uygun kontrolü seç
 
@@ -56,7 +53,7 @@ pnpm exec playwright test --config playwright.classroom.config.ts tests/classroo
 
 Şema değişiminde DB testlerine ek olarak ayrı geliştirme Supabase ortamında migration uygulamasını ve gerçek Auth/Storage davranışını doğrula. PGlite'ın taklit ettiği platform parçaları bu son kontrolü gerekli kılar. Lint, typecheck ve build birbirini ikame etmez.
 
-[Nova CI iş akışı](../.github/workflows/nova.yml) ilgili PR dosya filtreleriyle lint, typecheck, `test:nova`, Nova E2E ve build çalıştırır. Bu workflow'un yeşil olması tüm uygulama E2E paketinin çalıştığı anlamına gelmez.
+[CI iş akışı](../.github/workflows/verify.yml) PR değişikliklerinde lint, typecheck, `test:all`, ana ekran/sayaç smoke testleri (`home-polish.spec.ts`, `focus-timer.spec.ts`) ve build çalıştırır. Genel E2E paketinin tamamı `pnpm test:e2e` ile çalıştırılabilir. Sınıf PGlite tarayıcı paketi ilgili değişikliklerde ayrıca çalıştırılmalıdır; bu workflow'un yeşil olması tüm tarayıcı senaryolarının veya canlı sağlayıcı kabulünün tamamlandığı anlamına gelmez.
 
 ## Canlı kabul ayrı kayıt tutulur
 

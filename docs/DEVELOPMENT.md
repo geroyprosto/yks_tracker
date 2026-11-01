@@ -30,8 +30,6 @@ Gerçek kayıt akışını geliştireceksen [ortam ve hesap kurulumunu](SETUP.md
 | `pnpm test:all` | Birim/servis ve DB testlerini birlikte çalıştırır |
 | `pnpm test:e2e` | Ana Playwright paketi; ayrı test sunucusunu açar |
 | `pnpm test:classroom` | Sınıf/hesap PGlite tarayıcı paketi |
-| `pnpm test:nova` | Nova birim ve DB testleri |
-| `pnpm test:nova:e2e` | Nova PGlite tarayıcı paketi |
 | `pnpm build` | Üretim derlemesi |
 | `pnpm start` | Önceden oluşturulmuş üretim derlemesini çalıştırır |
 

@@ -21,7 +21,6 @@ Mevcut `.env.local` dosyasının üzerine yazma. Yer tutucuları kendi geliştir
 | AI | `AI_ENABLED`, `OPENAI_API_KEY`, `OPENAI_MODEL`, fiyat ve bütçe değişkenleri | İsteğe bağlı; ayrıca veritabanı bütçe politikası gerekir. [AI ve MCP](integrations/AI_MCP.md). |
 | MCP | `MCP_ENABLED`, `MCP_PUBLIC_URL` | İsteğe bağlı sahip bağlantısı; OAuth/hook kurulumu da gerekir. [AI ve MCP](integrations/AI_MCP.md). |
 | Redis | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | İsteğe bağlı durum önbelleği ve [canlı güncelleme](features/REALTIME.md). |
-| Nova | `NOVA_ENABLED`, yerelde `NOVA_DEMO_ENABLED` | [Nova](features/NOVA.md) migration ve erişim koşullarıyla. |
 | Bakım | `CRON_SECRET` | Korumalı cron uç noktaları. Analiz cron'u ücretli rapor üretmez. |
 
 Diğer örnekler ve varsayılanlar [`.env.example`](../.env.example) içindedir. `CLASSROOM_EMAIL_NOTIFICATIONS_ENABLED`, `RESEND_API_KEY` ve `CLASSROOM_EMAIL_FROM` eski sınıf e-posta akışına aittir; yeni başvuru onayları uygulama içindedir. Parola kurtarma e-postası ayrı bir Supabase Auth akışıdır.

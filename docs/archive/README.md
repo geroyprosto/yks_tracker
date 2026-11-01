@@ -17,11 +17,6 @@ Bu klasör geçmiş gereksinimleri, tasarım bağlamını ve tarihli test/kurulu
 | [STUDENT_PERSONALIZATION_ACCEPTANCE.md](STUDENT_PERSONALIZATION_ACCEPTANCE.md) | Döneme ait AI model/kota ve kabul kanıtları | [Öğrenci çalışma alanı](../features/STUDENT_PERSONALIZATION.md), [testler](../TESTING.md) |
 | [PERFORMANCE_HISTORY.md](PERFORMANCE_HISTORY.md) | 4–7 Ekim performans inceleme ve ölçüm günlüğü | [Performans yaklaşımı](../reference/PERFORMANCE.md) |
 | [REALTIME_HISTORY.md](REALTIME_HISTORY.md) | Artık kullanılmayan SSE/publish mimarisi | [Polling ve yenileme](../features/REALTIME.md) |
-| [NOVA_CORE_HISTORY.md](NOVA_CORE_HISTORY.md) | Kaldırılmış sohbet/ilişki yardımcılarını da içeren motor taslağı | [Aktif motor](../reference/NOVA_CORE.md) |
-| [NOVA_DATABASE_HISTORY.md](NOVA_DATABASE_HISTORY.md) | Sohbet, cihaz, kuyruk ve Bridge SQL sözleşmeleri | [Nova](../features/NOVA.md) |
-| [NOVA_VERIFICATION.md](NOVA_VERIFICATION.md), [NOVA_REFRESH_VERIFICATION.md](NOVA_REFRESH_VERIFICATION.md) | Eski sohbet/model/Bridge ve yayın doğrulaması | [Nova](../features/NOVA.md), [testler](../TESTING.md) |
 | [SOURCES.md](SOURCES.md) | 24 Eylül kaynak taraması ve o günün doğrulama sınırları | Güncel kod ve ilgili özellik belgesi |
 
 Kökteki [PRD.md](../../PRD.md), [IMPLEMENTATION_PLAN.md](../../IMPLEMENTATION_PLAN.md) ve [FEATURE_CHECKLIST.md](../../FEATURE_CHECKLIST.md) ilk aşamalara ait tarihsel belgelerdir. Eski bağlantılar ve başlangıç bağlamı için yerlerinde tutulur; güncel görev listesi olarak kullanılmaz.
-
-`NOVA_BRIDGE.md` ve `NOVA_WINDOWS_PACKAGE.md` yalnız aynı kullanım dışı açıklamasını tekrarlıyordu; kaldırıldı. Ortak açıklama, HTTP 410 davranışı ve eski veri sınırı [aktif Nova belgesinde](../features/NOVA.md) tutulur. Bu arşiv eski Bridge kurulumunu yeniden etkinleştirme talimatı değildir.

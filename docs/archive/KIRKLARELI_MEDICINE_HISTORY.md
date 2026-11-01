@@ -85,7 +85,7 @@ receipt. Ambiguous network failures retry the same ID; a changed payload cannot
 reuse a receipt. Academic years are isolated and the snapshot returns only the
 selected year/dönem. The parent account FK cascades all five personal record
 and receipt tables when an account is deleted; the account deletion test seeds
-and checks this graph. Classroom statistics, YKS MCP tools and Nova do not
+and checks this graph. Classroom statistics and YKS MCP tools do not
 receive medical notes or grades.
 
 ## Publication and rollback

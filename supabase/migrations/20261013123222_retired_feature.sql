@@ -1,0 +1,1 @@
+-- Retained version marker for a retired feature. Fresh installations need no schema objects.

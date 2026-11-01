@@ -35,13 +35,13 @@ flowchart LR
 | Süre, ilerleme ve istatistik hesapları | `src/lib/timing.ts`, `progress.ts`, `progress-breakdown.ts`, `study-report.ts`, `study-statistics-*.ts` |
 | AI raporu, koçluk, günlük önerisi | `src/lib/server/analysis*.ts`, `coaching.ts`, `journal-ai*.ts`; `src/lib/coaching-*.ts`, `ai-report.ts` |
 | Arkadaşlar ve sınıf yönetimi | `src/components/friends-workspace.tsx`, `src/components/classroom/`, `src/lib/server/classroom-*.ts` |
-| Ayrı çalışma alanları | `src/components/nova/`, `src/lib/nova/`, `src/lib/server/nova.ts`; `src/components/medicine/`, `src/lib/medicine.ts`, `src/lib/server/medicine.ts` |
+| Ayrı çalışma alanları | `src/components/medicine/`, `src/lib/medicine.ts`, `src/lib/server/medicine.ts` |
 | Kalıcı şema ve güvenlik | [`supabase/migrations`](../supabase/migrations); `supabase/owner-setup.sql` ilk sahip kaydı içindir |
 | Yerel demo ve katalog araçları | `scripts/classroom-demo-dev.mjs`, `src/lib/server/classroom-demo.ts`, `scripts/build-klu-medicine.py`, `supabase/catalog/` |
 
 ## Sayfalar ve API aileleri
 
-Öğrenci panelindeki Bugün, Görevlerim, Konularım, Sınav Sonuçları, Çalışma İstatistikleri, Arkadaşlar, Nova, Günlüğüm, Analiz ve Ayarlar çoğunlukla `/` içindeki React görünüm durumudur. Her sekme için ayrı bir App Router sayfası yoktur.
+Öğrenci panelindeki Bugün, Görevlerim, Konularım, Sınav Sonuçları, Çalışma İstatistikleri, Arkadaşlar, Günlüğüm, Analiz ve Ayarlar çoğunlukla `/` içindeki React görünüm durumudur. Her sekme için ayrı bir App Router sayfası yoktur.
 
 | URL | İşlev ve sınır |
 | --- | --- |
@@ -51,7 +51,6 @@ flowchart LR
 | `/register`, `/join`, `/friend-invite` | Başvuru ve davet girişleri; kabul yetkisi ilgili API/SQL katmanındadır. |
 | `/forgot-password`, `/reset-password`, `/auth/callback` | Şifre kurtarma ve Supabase Auth dönüşü. |
 | `/calendar`, `/oauth/consent` | Google Takvim bağlantı ekranı ve ayrı MCP OAuth izin ekranı. |
-| `/nova` | Nova'nın ayrı sayfası; özellik anahtarı ve hesap erişim izni gerekir. |
 | `/demo`, `/about`, `/privacy`, `/terms` | Yerel demo hesap seçimi ve bilgilendirme sayfaları. Demo API'si üretimde kapalıdır. |
 
 API dosyaları [`src/app/api`](../src/app/api) altındadır:
@@ -66,9 +65,7 @@ API dosyaları [`src/app/api`](../src/app/api) altındadır:
 | `/api/analysis`, `/api/journal/suggest`, `/api/cron/analysis` | AI/koçluk servisleri; ayrı özellik, kota ve bütçe kapıları |
 | `/api/calendar/*` | `server/google-calendar.ts`, `google-calendar-store.ts`; salt okunur Google erişimi |
 | `/api/mcp`, `/api/mcp/oauth-protected-resource`, `/api/oauth/*` | OAuth audience doğrulaması ve dar sahip geçidi |
-| `/api/nova`, `/api/realtime` | Nova simülasyonu ve çalışma durumu sürüm kontrolü |
-
-`GET /api/nova/chat` ve `POST /api/nova/bridge` kaldırılmış sohbet/Bridge işlevleri için `410 NOVA_CHAT_REMOVED` döndürür. Bunlar kurulum yapılacak etkin entegrasyonlar değildir.
+| `/api/realtime` | Çalışma durumu sürüm kontrolü |
 
 ## Kimlik ve rol sınırları
 
@@ -110,7 +107,7 @@ Bu kuyruk kalıcı çevrimdışı depolama değildir. Sekme kapanınca bekleyen 
 | Eğitim | `education_profiles`, `education_drafts`, `education_terms`, `education_courses`, `course_exam_results` |
 | Hesap ve sınıf | `classroom_accounts`, `classroom_applications`, `classroom_*`; özel arkadaş grup tabloları |
 | Analiz ve denetim | `analysis_*`, özel `coaching_*` / `topic_review_*` / AI bütçe tabloları, `command_receipts`, `audit_log` |
-| Ayrı özellikler | `nova_*`, `medicine_*`, `google_calendar_connections`; özel Storage bucket'ları |
+| Ayrı özellikler | `medicine_*`, `google_calendar_connections`; özel Storage bucket'ları |
 
 Süre saniye, zaman damgası UTC, yerel gün `YYYY-MM-DD` olarak tutulur. RLS, kullanıcıya bağlı yabancı anahtarlar ve RPC kontrolleri başka hesaba ait kimlikleri reddeder. Ders adı ilişki anahtarı değildir; kalıcı `course_id` ve tarihsel ad snapshot'ları kullanılır. Kesinleşmiş sayaç/manuel çalışma süreleri ve bitmiş oturum aralıkları SQL'de değişmezdir. Görev bitirmek konu hâkimiyetini, sayaç bitirmek görev tamamlanmasını kendiliğinden değiştirmez.
 
@@ -120,4 +117,4 @@ Süre saniye, zaman damgası UTC, yerel gün `YYYY-MM-DD` olarak tutulur. RLS, k
 
 Örneğin görev alanına yeni bir kural ekleniyorsa `tasks.tsx` → `domain/commands.ts` → `server/service.ts` → SQL komut dalı sırasını izle. Veriyi ekranda hemen gösteren `optimistic-command.ts`, makbuz eşlemesi ve `AppState` tipini birlikte incele. Yalnız API şemasını değiştirmek SQL, eski istemci ve iyimser görünüm sözleşmesini güncellemez.
 
-Davranışa göre ilgili `tests/*.test.ts`, `supabase/tests/*.test.ts` ve tarayıcı senaryolarını çalıştır; komutlar ve paketlerin sınırları [TESTING.md](TESTING.md) içindedir. Eğitim/derse dokunan işlerde [öğrenci sözleşmesini](features/STUDENT_PERSONALIZATION.md), ayrı çalışma alanlarında [Nova](features/NOVA.md) veya [Kırklareli Tıp](features/KIRKLARELI_MEDICINE.md) rehberini de oku.
+Davranışa göre ilgili `tests/*.test.ts`, `supabase/tests/*.test.ts` ve tarayıcı senaryolarını çalıştır; komutlar ve paketlerin sınırları [TESTING.md](TESTING.md) içindedir. Eğitim/derse dokunan işlerde [öğrenci sözleşmesini](features/STUDENT_PERSONALIZATION.md), ayrı çalışma alanlarında [Kırklareli Tıp](features/KIRKLARELI_MEDICINE.md) rehberini de oku.

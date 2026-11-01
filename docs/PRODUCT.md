@@ -8,7 +8,7 @@ Hesap rolü `student`, `teacher` veya `admin`; erişim durumu ayrıca saklanır.
 
 Öğretmen alanı mevcut kaynakta geçici olarak duraklatılmıştır: öğrenci ilerlemesi, sınıf bildirimleri ve ilgili sınıf işlemleri paylaşılmaz. Yönetici için başvuru değerlendirme, askıya alma, hesap silme ve öğrenci çıkarma; öğrenci için sınıftan ayrılma istisnaları korunur. Ayrıntı: [mimari](ARCHITECTURE.md).
 
-Öğrenci panelindeki Bugün, Görevlerim, Konularım, Sınav Sonuçları, Çalışma İstatistikleri, Arkadaşlar, Nova, Günlüğüm, Analiz ve Ayarlar çoğunlukla aynı `/` sayfasındaki görünümlerdir. Her menü öğesi ayrı bir URL değildir.
+Öğrenci panelindeki Bugün, Görevlerim, Konularım, Sınav Sonuçları, Çalışma İstatistikleri, Arkadaşlar, Günlüğüm, Analiz ve Ayarlar çoğunlukla aynı `/` sayfasındaki görünümlerdir. Her menü öğesi ayrı bir URL değildir.
 
 ## Temel çalışma kuralları
 
@@ -34,7 +34,6 @@ Hesaplamalar [progress.ts](../src/lib/progress.ts), [timing.ts](../src/lib/timin
 | Günlük ve AI | Günlük paylaşım tercihi ve manuel istekle analiz; sunucu anahtarı, hesap kotası ve uygulama bütçesi gerekir. Otomatik ücretli rapor üretimi kapalıdır. [Ayrıntı](integrations/AI_MCP.md). |
 | MCP | OAuth ve sahip hesabıyla sınırlandırılmış okuma/yazma araçları; genel veritabanı erişimi değildir. [Ayrıntı](integrations/AI_MCP.md). |
 | Eski PDF kayıtları | PDF yükleme/içe aktarma özelliği kaldırılmıştır; `exam-documents` bucket'ına tarayıcıdan yeni yükleme, üzerine yazma ve taşıma da kapalıdır. Mevcut izinli dosyalar okunabilir ve silinebilir; profil fotoğrafları bu sınırdan etkilenmez. |
-| Nova | Kullanıcının gerçek çalışmalarına eklenmeyen simülasyon ve ayrı yarış puanı. Yerel modelle sohbet ve Windows Bridge kaldırılmıştır. [Ayrıntı](features/NOVA.md). |
 
 ## Kalıcılık ve kullanılabilirlik
 

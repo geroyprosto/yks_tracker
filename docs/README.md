@@ -21,7 +21,6 @@ Gerçek hesap veya harici servis bağlayacaksan ikinci adımdan sonra [Kurulum](
 | Supabase, hesaplar, ortam değişkenleri ve migration | [SETUP.md](SETUP.md) |
 | Eğitim profili, ders/dönem ve okul sonuçları | [Öğrenci çalışma alanı](features/STUDENT_PERSONALIZATION.md) |
 | Kırklareli Tıp kataloğu ve not kuralları | [Kırklareli Tıp](features/KIRKLARELI_MEDICINE.md) |
-| Nova günlük simülasyonu ve yarış | [Nova](features/NOVA.md), [motor ve puan sözleşmesi](reference/NOVA_CORE.md) |
 | Cihazlar arası değişiklik algılama | [Yenileme ve polling](features/REALTIME.md) |
 | Google Takvim OAuth bağlantısı | [Google Takvim](integrations/GOOGLE_CALENDAR.md) |
 | Manuel AI raporları, bütçe, OAuth ve MCP | [AI ve MCP](integrations/AI_MCP.md) |

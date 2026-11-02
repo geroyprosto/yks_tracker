@@ -4,3 +4,16 @@
 
 [build.environment]
   NODE_VERSION = "24"
+
+# Static files bypass Next.js; keep the same security headers as SSR responses.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "frame-ancestors 'none'"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"

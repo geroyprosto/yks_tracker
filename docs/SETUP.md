@@ -68,7 +68,7 @@ Bu işlem bağlı veritabanını değiştirir. Eski kurulum kayıtlarında uzak 
 
 Öğrenciler `/register` üzerinden başvurur. Sunucu `SUPABASE_SECRET_KEY` ile Auth hesabını oluşturur; onay kararı uygulamadaki yönetici panelindedir. Bu kayıt yolu e-posta iletisi göndermeden Auth `email_confirm` bayrağını ayarlar; bu bayrak posta kutusu sahipliğinin kullanıcı tarafından doğrulandığı kanıtı değildir. Kullanıcı metadatasındaki rol isteğini yönetici yetkisi sayma. Güncel öğretmen alanı hem [uygulama bayrağı](../src/lib/classroom/availability.ts) hem [SQL koruması](../supabase/migrations/20261013122500_pause_teacher_updates.sql) ile duraklatılmıştır; yeniden açılması ikisinin birlikte değiştirilmesini gerektirir.
 
-Supabase Auth Site URL'yi kullanılan uygulama adresine ayarla. Parola kurtarma için aynı origin'in `/auth/callback` ve `/auth/callback?type=recovery` adreslerini allowlist'e ekle. Yerel `localhost` ile `127.0.0.1` farklı origin'lerdir; kullandığın adresleri açıkça tanımla. Google callback'i ayrı olarak [Google rehberinde](integrations/GOOGLE_CALENDAR.md) kurulur.
+Supabase Auth Site URL'yi varsayılan uygulama adresine ayarla. Aynı Supabase projesini birden fazla yayın kullanıyorsa ikinci yayın için bu ortak değeri değiştirme; mevcut dönüş adreslerini koruyup her yayının `/auth/callback` ve `/auth/callback?type=recovery` adreslerini allowlist'e ekle. Uygulama parola kurtarma dönüşünü kendi `APP_ORIGIN` değerinden açıkça gönderir. Yerel `localhost` ile `127.0.0.1` farklı origin'lerdir; kullandığın adresleri açıkça tanımla. Google callback'i ayrı olarak [Google rehberinde](integrations/GOOGLE_CALENDAR.md) kurulur.
 
 ## 4. Kurulumu kabul et
 
@@ -78,7 +78,19 @@ Oturumsuz ve başka kullanıcı oturumuyla özel kayıtların okunamadığını 
 
 ## Yayın ve bakım
 
-Vercel için kurulum `pnpm install --frozen-lockfile`, derleme `pnpm build`, Node.js `24.x` olmalıdır. Production ve Preview ortamlarını ayrı değerlendir; Preview'ı kendiliğinden üretim kişisel verisine bağlama. URL değiştiğinde `APP_ORIGIN`, Supabase Site URL/redirect listesi ve etkin OAuth istemcilerinin callback adreslerini birlikte güncelle. Depodaki [yayın kuralları](../AGENTS.md) görev teslim sürecini tanımlar.
+Vercel için kurulum `pnpm install --frozen-lockfile`, derleme `pnpm build`, Node.js `24.x` olmalıdır. Production ve Preview ortamlarını ayrı değerlendir; Preview'ı kendiliğinden üretim kişisel verisine bağlama. Her yayının `APP_ORIGIN` değeri kendi adresini göstermeli; adres eklerken Supabase redirect listesine ve etkin OAuth istemcilerine ilgili callback'leri ekle. Ortak Supabase Site URL'yi yalnız varsayılan adres gerçekten taşınıyorsa değiştir. Depodaki [yayın kuralları](../AGENTS.md) görev teslim sürecini tanımlar.
+
+### Alternatif Netlify yayını
+
+[Netlify adresi](https://yksim-takip.netlify.app/) aynı uygulamanın ikinci yayınıdır; [Vercel adresi](https://yks-tracker-puce.vercel.app/) çalışmaya devam eder. İki yayın aynı Supabase projesini kullanır; alternatif barındırma için veri taşıma veya yeni migration gerekmez. Çerezler alan adına bağlı olduğundan yeni adreste mevcut hesapla yeniden giriş yapılır.
+
+- Aynı depoyu ve üretim commit'ini Netlify'a bağla. [netlify.toml](../netlify.toml), Node.js `24`, `pnpm build`, `.next` yayın dizini, güvenlik başlıkları ve `/sw.js` önbellek politikasını tanımlar. Next.js adaptörünün sunucu ve Proxy paketlemesini Netlify build sonucunda ayrıca doğrula.
+- Netlify ortamında `APP_ORIGIN=https://yksim-takip.netlify.app` kullan; Vercel'in değerini değiştirme. Gerekli Supabase ve etkin entegrasyon değişkenlerini Netlify'ın uygun build/function kapsamlarına aktar; sırları depoya veya loga yazma. Ortam değişikliklerinden sonra yeniden yayınla.
+- Ortak Redis önbelleği ve canlı güncelleme anahtarları için Netlify üretiminde `VERCEL_ENV=production` kullan. **`VERCEL=1` ayarlama:** bu bayrak Vercel'e özel istemci IP başlığına güvenilmesini sağlar; Netlify'da mevcut güvenli yedek istek sınırı kullanılmalıdır.
+- Supabase allowlist'ine `https://yksim-takip.netlify.app/auth/callback` ve `https://yksim-takip.netlify.app/auth/callback?type=recovery` ekle; Vercel adreslerini ve Site URL'yi koru. Google OAuth istemcisine `https://yksim-takip.netlify.app/api/calendar/callback` ekleyip aynı istemci ve token şifreleme anahtarını kullan. Yeni Google bağlantısını bu adresten ayrıca doğrula.
+- Netlify'da `MCP_ENABLED=false` tut; mevcut MCP bağlantısı ve cron Vercel'de kalır. İkinci bir zamanlayıcı oluşturma. AI ve diğer isteğe bağlı özelliklerin bayraklarını ayrıca doğrula; yalnız ortam değişkenlerinin aktarılması çalışma kabulü sayılmaz.
+
+Yayın sonrasında VPN kapalı bağlantıda giriş, mevcut kayıtların okunması, görev kaydı ve yenileme, sayaç, parola kurtarma ve etkin Google Takvim akışını doğrula. İki adres açıkken güncellemelerin diğerine ulaştığını kontrol et. Netlify yayını sorun çıkarırsa mevcut Vercel adresi kullanılabilir; ortak veritabanını sıfırlama veya geri alma.
 
 Şema değişiminden önce veritabanı ve özel Storage dosyaları için yedek al, ayrı test ortamında geri yüklemeyi doğrula. DB dump'ının fotoğraf/PDF dosyalarını da içerdiğini varsayma. Uygulama içi genel JSON/CSV restore akışı yoktur.
 

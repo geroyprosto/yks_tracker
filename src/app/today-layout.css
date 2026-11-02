@@ -1,4 +1,4 @@
-/* Daily tasks, rhythm and practice stay together beside the calendar. */
+/* Daily tasks and rhythm sit beside the calendar, analysis and practice. */
 .today-primary-grid > .column:last-child {
   display: flex;
   flex-direction: column;

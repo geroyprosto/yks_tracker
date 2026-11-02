@@ -169,12 +169,12 @@ export function Today({state, preview, command, busy, offset, go, openTimer, exp
           <p className="rhythm-scroll-hint">Tüm günleri görmek için grafiği yatay kaydır.</p>
           <p className="footnote">— Kayıt olmayan günler. Henüz çalışma yapılmadığı anlamına gelmez.</p>
         </Card>}
-        {yks&&(modules?.statistics??true)&&<div className="today-practice-card"><PracticeOverview state={state} preview={preview} command={command} busy={busy} onOpen={openPractice}/></div>}
       </div>
       <div className="column">
         <TodayCalendar authenticated={state.authenticated} onOpenSettings={() => go('settings', 'connections')}/>
         {yks&&<YksCountdown examDate={state.settings?.exam_date ?? null} preview={preview} examYear={state.settings?.exam_year ?? 2027} onSetDate={openExamDateSettings}/> }
         {latestAnalysis&&<Card title="Son iki haftalık analiz" action={<Sparkles size={19} className="muted-icon"/>}><p className="soft-copy">{formatDay(latestAnalysis.start)} – {formatDay(latestAnalysis.end)}{latestAnalysis.stale?' · Kayıtlar değişti':''}</p><LinkButton onClick={()=>go('analysis')}>Raporu aç</LinkButton></Card>}
+        {yks&&(modules?.statistics??true)&&<div className="today-practice-card"><PracticeOverview state={state} preview={preview} command={command} busy={busy} onOpen={openPractice}/></div>}
       </div>
     </div>
 

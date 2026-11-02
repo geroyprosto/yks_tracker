@@ -27,7 +27,7 @@ async function openToday(page: Page, state: AppState, sent: { type: string; payl
   await page.route('**/api/state', route => route.fulfill({ json: state }));
   await page.route('**/api/calendar/today', route => route.fulfill({ json: { connected: false, date: today, timezone: 'Europe/Istanbul', events: [], refreshedAt: null } }));
   await page.route('**/api/command', async route => {
-    const request = route.request().postDataJSON() as { type: string; payload: Record<string, unknown> };
+    const request = route.request().postDataJSON() as { request_id: string; type: string; payload: Record<string, unknown> };
     sent.push(request);
     if (request.type !== 'practice.create') throw new Error('Unexpected command: ' + request.type);
     const course = state.education?.courses.find(item => item.id === request.payload.course_id);
@@ -43,7 +43,7 @@ async function openToday(page: Page, state: AppState, sent: { type: string; payl
       created_at: stamp,
       updated_at: stamp,
     } as PracticeEntry);
-    await route.fulfill({ json: { ok: true, state } });
+    await route.fulfill({ json: { ok: true, id: `mock-practice-${sent.length}`, request_id: request.request_id, replayed: false, state } });
   });
   await page.goto('/');
 }

@@ -105,6 +105,11 @@ async function seedStudyGraph(db: PGlite, user: string) {
   await insert(db, 'public.exam_imports', { user_id: user, document_id: document, candidate_index: 0, exam_id: exam, result_fingerprint: 'a'.repeat(32), corrections: {} });
   await insert(db, 'public.google_calendar_connections', { user_id: user, refresh_token_ciphertext: 'synthetic'.repeat(8) });
   await insert(db, 'public.analysis_settings', { user_id: user });
+  const agentHouseRun = { schema_version: 1, run_id: randomUUID(), mode: 'sample', generated_at: '2026-10-01T00:00:00Z',
+    week_start: '2026-09-28', title: 'Synthetic agent house report', agents: [{
+      id: 'leader', status: 'ready', summary: 'Synthetic summary', recommendations: [], sources: [], tables: [], schedule: [],
+    }] };
+  await db.query('select public.agent_house_save_for_user($1::uuid,$2::jsonb)', [user, JSON.stringify(agentHouseRun)]);
   await insert(db, 'public.analysis_reports', { id: report, user_id: user, start_date: '2026-10-01', end_date: '2026-10-01', source_hash: 'b'.repeat(64), status: 'completed', body: 'Synthetic report', request_id: request });
   await insert(db, 'public.analysis_report_requests', { user_id: user, request_id: request, report_id: report, start_date: '2026-10-01', end_date: '2026-10-01', source_hash: 'b'.repeat(64) });
   await insert(db, 'public.analysis_usage', { user_id: user, month: '2026-10-01' });

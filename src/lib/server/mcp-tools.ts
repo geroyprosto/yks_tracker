@@ -8,6 +8,7 @@ import { registerAnalysisSourcesTool } from "./mcp-analysis-tool";
 import {loadCoachingContext} from './coaching';
 import { ApiError } from "./http";
 import { registerTopicStatusTool } from "./mcp-topic-tool";
+import { registerAgentHouseTool } from './mcp-agent-house-tool';
 
 const date = z.iso.date();
 const limit = z.number().int().min(1).max(100).default(25);
@@ -219,6 +220,7 @@ export function createStudyMcpServer(client: SupabaseClient, userId: string, app
       status: command.replayed ? "already_saved" : "saved", replayed: command.replayed, app_url: appUrl };
   }));
   registerTopicStatusTool(server, client, userId, appUrl);
+  registerAgentHouseTool(server, client, userId);
   registerAnalysisSourcesTool(server, () => getMcpOwnerState(client, userId),()=>loadCoachingContext(client,userId));
   return server;
 }

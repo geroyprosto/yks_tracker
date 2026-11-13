@@ -41,12 +41,14 @@ test('analiz metni mobilde okunur, konu vurguları ayrılır ve temalarda taşma
   await page.clock.setFixedTime(new Date(now));
   await page.route('**/api/state', route => route.fulfill({json: {...emptyState(true), authenticated: true, server_now: now}}));
   await page.route('**/api/calendar/today', route => route.fulfill({json: {connected: false, date: '2026-10-01', timezone: 'Europe/Istanbul', events: [], refreshedAt: null}}));
+  await page.route('**/api/agent-house', route => route.fulfill({json: {runs: {sample: [], live: []}}}));
   await page.route('**/api/analysis', route => route.fulfill({json: {ok: true, configured: true, model: 'synthetic',
     limits: {monthly_requests: 4, monthly_usd: 2}, used: {requests: 1, estimated_cost_usd: 0},
     current_coaching: coaching(), current_repetition_results: [{status: 'created', title: 'Parabol', task_ids: ['review-1']}], reports: []}}));
   await page.goto('/');
   await page.getByRole('button', {name: 'Menüyü aç', exact: true}).click();
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   await expect(page.getByTestId('analysis-coaching')).toBeVisible();
 
   const measurements = await page.evaluate(() => {

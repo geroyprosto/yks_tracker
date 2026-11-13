@@ -1,6 +1,10 @@
 import {expect, test} from '@playwright/test';
 import {emptyState, type AppState} from '../../src/lib/domain/types';
 
+test.beforeEach(async ({page}) => {
+  await page.route('**/api/agent-house', route => route.fulfill({json: {runs: {sample: [], live: []}}}));
+});
+
 const now = '2026-10-01T09:00:00.000Z';
 const diaryKinds = ['early_wake', 'stress', 'sleep', 'mood'] as const;
 const diaryLabels = {early_wake: 'ERKEN KALKIŞ', stress: 'STRES', sleep: 'UYKU SÜRESİ', mood: 'RUH HÂLİ'};
@@ -70,7 +74,8 @@ for (const width of [360, 1280]) test(`çalışma analizi gerçek ölçütleri v
   await page.goto('/');
   if (width === 360) await page.getByRole('button', {name: 'Menüyü aç', exact: true}).click();
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
-  await expect(page.getByRole('heading', {name: 'Çalışma Analizi'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Ajan Evi', exact: true})).toBeVisible();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   const current = page.getByTestId('analysis-coaching').first();
   await expect(current).toContainText('Canlı durum');
   await expect(current.getByRole('heading', {name: 'Öncelikli görevler'})).toBeVisible();
@@ -144,6 +149,7 @@ test('güncel ölçütler ile son kaydedilmiş koçluk yönlendirmesi ayrı tari
   }}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   const current = page.getByTestId('analysis-coaching').first();
   await expect(current).toContainText('Canlı durum');
   await expect(current).toContainText('Veri kesimi: 1 Ekim 2026');
@@ -166,6 +172,7 @@ test('çok sayıdaki gerçek tekrar kaydı özette görünür, uzun liste kapal�
     current_coaching: metrics(), current_repetition_results: receipts, current_repetition_cutoff: now, reports: []}}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   const current = page.getByTestId('analysis-coaching');
   await expect(current).toContainText('100 konu · 485 görev');
   await expect(current.getByText('Konu 99 konusu tekrar görevlerine eklendi.')).toBeHidden();
@@ -191,6 +198,7 @@ test('haftalık net grafiği iki denemenin kayıtlı alt ders ortalamasını gö
     current_coaching: current, current_repetition_results: [], reports: []}}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   const chart = page.getByTestId('weekly-exam-tyt');
   await expect(chart).toContainText('Haftalık ortalama');
   await expect(chart).toContainText('2 deneme · 2 toplam net kaydı');

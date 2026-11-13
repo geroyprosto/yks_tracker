@@ -1,6 +1,10 @@
 import {expect, test} from '@playwright/test';
 import {emptyState, type AppState} from '../../src/lib/domain/types';
 
+test.beforeEach(async ({page}) => {
+  await page.route('**/api/agent-house', route => route.fulfill({json: {runs: {sample: [], live: []}}}));
+});
+
 test('rapor isteği, eski kaydın okunması ve kaynak güne geçiş', async ({page}) => {
   const now = '2026-09-25T09:00:00.000Z';
   await page.clock.setFixedTime(new Date(now));
@@ -21,7 +25,8 @@ test('rapor isteği, eski kaydın okunması ve kaynak güne geçiş', async ({pa
 
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
-  await expect(page.getByRole('heading', {name: 'Çalışma Analizi'})).toBeVisible();
+  await expect(page.getByRole('heading', {name: 'Ajan Evi', exact: true})).toBeVisible();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   const controls = page.getByTestId('analysis-controls');
   await controls.locator('summary').click();
   await expect(controls.getByLabel('Rapor dönemi')).toHaveValue('14');
@@ -50,6 +55,7 @@ test('kaydedilmiş eski V2 rapor yeni koçluk ölçütü gibi gösterilmez', asy
         next_actions: [{text: 'O tarihte önerilen görev.'}], limitations: []}}}]}}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   await expect(page.getByTestId('analysis-coaching')).toHaveCount(0);
   await expect(page.getByText('Güncel koçluk ölçütleri henüz hazır değil.')).toBeVisible();
   await expect(page.getByTestId('report-card').first()).not.toHaveAttribute('open');
@@ -81,6 +87,7 @@ test('eski rapor gözlemleri saklı başlar; ham saniye dönüştürülür ve es
     ]}}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
+  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
   const reports = page.getByTestId('report-card');
   await expect(reports).toHaveCount(2);
   await expect(reports.nth(0)).not.toHaveAttribute('open');

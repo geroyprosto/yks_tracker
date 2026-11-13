@@ -55,7 +55,7 @@ test("MCP input schemas enforce bounded reads and idempotent task creation", () 
   assert.equal(createTaskInput.safeParse({ request_id: requestId, title: "Matematik", plan_date: "2026-09-25", planned_minutes: 1441 }).success, false);
 });
 
-test("MCP advertises only the ten scoped tools with correct behavior hints", async () => {
+test("MCP advertises only the eleven scoped tools with correct behavior hints", async () => {
   const [{ createMcpHandler }, { createStudyMcpServer }] = await Promise.all([
     import("@modelcontextprotocol/server"), import("../src/lib/server/mcp-tools"),
   ]);
@@ -71,14 +71,15 @@ test("MCP advertises only the ten scoped tools with correct behavior hints", asy
   assert.ok(payload);
   const body = JSON.parse(payload);
   const tools = body.result.tools as Array<{ name: string; annotations: Record<string, unknown>; _meta: Record<string, unknown> }>;
-  assert.deepEqual(tools.map(tool => tool.name), ["get_study_summary", "list_tasks", "list_topics", "list_study_sessions", "list_exams", "create_task", "create_study_session", "create_exam", "update_topic_status", "get_analysis_sources"]);
+  assert.deepEqual(tools.map(tool => tool.name), ["get_study_summary", "list_tasks", "list_topics", "list_study_sessions", "list_exams", "create_task", "create_study_session", "create_exam", "update_topic_status", "publish_agent_house_report", "get_analysis_sources"]);
   for (const tool of tools) assert.deepEqual(tool._meta.securitySchemes, [{ type: "oauth2", scopes: [] }]);
   assert.equal(tools[0].annotations.readOnlyHint, true);
   assert.equal(tools[3].annotations.readOnlyHint, true);
-  for (const index of [5, 6, 7, 8]) {
+  for (const index of [5, 6, 7, 8, 9]) {
     assert.equal(tools[index].annotations.readOnlyHint, false);
     assert.equal(tools[index].annotations.idempotentHint, true);
   }
+  assert.equal(tools[9].annotations.destructiveHint, false);
 });
 
 test("MCP initialize exposes the coach instructions to connected clients", async () => {

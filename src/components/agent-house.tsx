@@ -47,7 +47,8 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
   const [notice, setNotice] = useState('');
   const [importing, setImporting] = useState(false);
   const [showLegacy, setShowLegacy] = useState(false);
-  const [showHouse, setShowHouse] = useState(false);
+  const [showHouse, setShowHouse] = useState(true);
+  const house = useRef<HTMLDetailsElement>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const request = useRef<AbortController | null>(null);
 
@@ -90,7 +91,15 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
 
   const selectRoom = (id: AgentHouseAgentId) => {
     setSelected(id);
+    setShowHouse(false);
     requestAnimationFrame(() => heading.current?.focus());
+  };
+  const returnToHouse = () => {
+    setShowHouse(true);
+    requestAnimationFrame(() => {
+      const buttons = house.current?.querySelectorAll<HTMLButtonElement>(`[data-room-id="${selected}"]`);
+      Array.from(buttons ?? []).find(button => button.getClientRects().length > 0)?.focus();
+    });
   };
   const importReport = async (file: File) => {
     setImporting(true); setNotice(''); setError('');
@@ -125,6 +134,10 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
       {available.length > 0 && <label className={styles.history}>Rapor<select value={report?.run_id ?? ''} onChange={event => setRunId(event.target.value)}>{available.map(run => <option key={run.run_id} value={run.run_id}>{reportDate(run.week_start)} haftası · {reportDate(run.generated_at, true)}</option>)}</select></label>}
     </div>
     {activeMode === 'sample' && <p className={styles.sampleNotice}><span>ÖRNEK VERİ</span> Bu bölüm, ajan akışının nasıl göründüğünü gösterir. Kişisel çalışma kaydın değildir.</p>}
+    <details ref={house} className={styles.house} open={showHouse} onToggle={event => setShowHouse(event.currentTarget.open)}>
+      <summary><span className={styles.housePreview} aria-hidden="true"><House size={29}/><i/><i/><i/></span><span><strong>Ajan evin</strong><small>Bir odaya dokun, ajanının raporunu aç.</small></span><span className={styles.houseReady}>{readyIds.length} odada rapor hazır</span><ChevronDown size={20} aria-hidden="true"/></summary>
+      {showHouse && <AgentHouseScene selected={selected} onSelect={selectRoom} readyIds={readyIds}/>}
+    </details>
     <div className={styles.studio}>
       <aside className={styles.roomRail} aria-label="Ajan evinin odaları">
         <div className={styles.railHeading}><span>EKİBİN</span><span>{roomOrder.length} oda</span></div>
@@ -137,19 +150,18 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
         <div className={styles.railNote}><span className={styles.noteLine}/><p>Bir oda seç.<br/><strong>Kendine yeni bir açıdan bak.</strong></p></div>
       </aside>
       <section className={styles.report} data-room={selected} aria-labelledby="agent-report-heading" data-testid="agent-room-report">
+        <div className={styles.reportTopline}>
+          <button type="button" onClick={returnToHouse}><House size={16} aria-hidden="true"/>Eve dön</button>
+          <span className={styles.status} data-status={agent?.status ?? 'waiting'}><i aria-hidden="true"/>{agent ? statusLabels[agent.status] : loading ? 'Yükleniyor' : 'Rapor bekliyor'}</span>
+        </div>
         <header className={styles.reportHeader}>
           <div className={styles.reportTitle}><span className={styles.reportAvatar}><RoomIcon size={27} aria-hidden="true"/></span><div><span className={styles.eyebrow}>{room.name}</span><h2 ref={heading} tabIndex={-1} id="agent-report-heading">{room.title}</h2></div></div>
-          <span className={styles.status} data-status={agent?.status ?? 'waiting'}><i aria-hidden="true"/>{agent ? statusLabels[agent.status] : loading ? 'Yükleniyor' : 'Rapor bekliyor'}</span>
         </header>
         <p className={styles.reportDescription}>{room.description}</p>
         {agent ? <AgentHouseReport key={`${activeMode}:${report?.run_id}:${selected}`} agent={agent}/> : loading ? <div className={styles.skeleton} role="status" aria-label="Raporlar getiriliyor"><span/><span/><span/><div/><span/><span/></div> : <div className={styles.empty}><span><FileText size={28} aria-hidden="true"/></span><h3>Bu odanın raporu henüz gelmedi</h3><p>Liderle konuşup bir değerlendirme veya program hazırlattığında, buraya kaydedilen sonucu bu odada göreceksin.</p>{activeMode === 'live' && runs.sample.length > 0 && <button type="button" onClick={() => {setMode('sample'); setRunId('');}}>Örnek akışı incele <ArrowUpRight size={17} aria-hidden="true"/></button>}</div>}
         {agent && <footer className={styles.reportFooter}><FileText size={15} aria-hidden="true"/><span>{report?.title}<br/><time>{report && reportDate(report.generated_at, true)}</time></span></footer>}
       </section>
     </div>
-    <details className={styles.house} onToggle={event => setShowHouse(event.currentTarget.open)}>
-      <summary><span className={styles.housePreview} aria-hidden="true"><House size={29}/><i/><i/><i/></span><span><strong>Evi keşfet</strong><small>Odaların arasında gezin, ekibinle tanış.</small></span><span className={styles.houseReady}>{readyIds.length} odada rapor hazır</span><ChevronDown size={20} aria-hidden="true"/></summary>
-      {showHouse && <AgentHouseScene selected={selected} onSelect={selectRoom} readyIds={readyIds}/>}
-    </details>
     <div className={styles.utilities}>
       <button type="button" aria-expanded={showLegacy} aria-controls="previous-analysis" onClick={() => setShowLegacy(!showLegacy)}><FileText size={16} aria-hidden="true"/>Çalışma ölçütleri ve önceki analizler<ChevronDown size={15} aria-hidden="true"/></button>
       <details className={styles.import}><summary><ArrowDownToLine size={16} aria-hidden="true"/>Hazır rapor aktar</summary><p>Liderin hazırladığı rapor dosyasını hesabına ekleyebilirsin.</p><label>{importing ? 'Kaydediliyor…' : 'Rapor dosyasını seç'}<input type="file" accept="application/json,.json" aria-label="Rapor dosyasını seç" disabled={importing} onChange={event => {const file = event.target.files?.[0]; if (file) void importReport(file); event.target.value = '';}}/></label></details>

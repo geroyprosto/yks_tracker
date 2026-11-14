@@ -52,6 +52,9 @@
 .railNote p { font-size:12px; line-height:1.9; color:var(--house-soft); }
 .railNote strong { font-weight:500; color:var(--foreground); }
 .report { min-width:0; background:var(--surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 3px 16px #00000008; }
+.reportTopline { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 24px; border-bottom:1px solid var(--border); }
+.reportTopline>button { display:inline-flex; align-items:center; gap:8px; min-height:40px; padding:4px; background:transparent; color:var(--house-soft); border:0; font-size:12px; font-weight:600; }
+.reportTopline>button:hover { color:var(--room-accent); }
 .reportHeader { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:28px 28px 0; }
 .reportTitle { display:flex; gap:14px; align-items:center; min-width:0; }
 .reportAvatar { width:54px; height:54px; display:grid; place-items:center; border-radius:14px 14px 14px 4px; background:color-mix(in srgb,var(--room-accent) 12%,var(--surface)); color:var(--room-accent); flex-shrink:0; }
@@ -59,6 +62,7 @@
 .reportTitle .eyebrow { color:var(--room-accent); font-size:11px; letter-spacing:.06em; }
 .reportHeader h2 { font-size:29px; line-height:1.2; letter-spacing:-.04em; font-weight:650; margin:5px 0 0; overflow-wrap:anywhere; }
 .reportHeader h2:focus { outline:0; }
+.reportHeader h2:focus-visible { outline:2px solid var(--room-accent); outline-offset:6px; border-radius:2px; }
 .reportDescription { padding:12px 28px 0; color:var(--house-soft); font-size:13px; line-height:1.7; max-width:76ch; }
 .status { display:flex; gap:6px; align-items:center; border:1px solid var(--border); padding:5px 8px; border-radius:6px; font-size:10px; line-height:1.6; flex-shrink:0; color:var(--house-soft); }
 .status i { height:5px; width:5px; border-radius:50%; background:currentColor; }
@@ -227,6 +231,7 @@
   .roomNav button[aria-pressed=true] { box-shadow:inset 0 -3px var(--room-accent); }
   .roomNav button[aria-pressed=true] .roomIcon { background:transparent; }
   .report { border-radius:12px; }
+  .reportTopline { padding:8px 16px; }
   .reportHeader { padding:22px 18px 0; flex-wrap:wrap; gap:12px; }
   .reportTitle { gap:11px; }.reportAvatar { width:44px; height:44px; border-radius:11px 11px 11px 3px; }
   .reportHeader h2 { font-size:26px; }.reportTitle .eyebrow { font-size:10px; }
@@ -258,3 +263,4 @@
   .utilities { flex-direction:column; gap:8px; }.utilities>button { width:100%; justify-content:space-between; font-size:11px; }
 }
 @media(prefers-reduced-motion:reduce) { .workspace *, .workspace *::before { animation:none!important; transition:none!important; scroll-behavior:auto!important; } }
+:global(html[data-reduced=true]) .workspace *, :global(html[data-reduced=true]) .workspace *::before { animation:none!important; transition:none!important; scroll-behavior:auto!important; }

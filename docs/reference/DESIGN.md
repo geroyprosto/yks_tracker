@@ -24,7 +24,9 @@ Günlük ilerleme ve ders dağılımı kartlarının zemini nötr kalır. Kalın
 
 ## Ajan Evi raporları
 
-Ajan Evi'nde rapor, oda seçiminin yanında açılır. Ev haritası isteğe bağlı açılır; ilk ekranda raporun önüne geçmez. Mobilde oda seçimi üç sütunlu düğmelere, raporlar tek sütuna geçer. Değerlendirme ve öneri metinleri 16 piksel taban boyutu ve rahat satır aralığıyla gösterilir; uzun değerlendirme tek düğmeyle genişletilir.
+Ajan Evi ilk açılışta altı odalı pixel art evi gösterir. Her odada ayrı bir sevimli asistan maskotu bulunur; odanın zemini ve isim plakası aynı erişilebilir düğmenin tıklama alanıdır. Odadan seçim yapmak evi daraltıp ilgili raporun başlığına odaklanır. Raporun “Eve dön” düğmesi evi açar ve seçili odanın düğmesine döner. Ev başlığından elle açılıp kapatılabilir. Rapor yanında hızlı oda menüsü bulunur; mobilde bu menü üç sütunlu düğmelere, raporlar tek sütuna geçer. Değerlendirme ve öneri metinleri 16 piksel taban boyutu ve rahat satır aralığıyla gösterilir; uzun değerlendirme tek düğmeyle genişletilir.
+
+Ev ve maskot görselleri `public/agent-house/` altında saklanır. Sıcak ahşap, oda renkleri, belirgin pikseller ve küçük dekoratif hareketler sakin bir oyun evi hissi verir. Hareket, ajanın gerçekten çalıştığı anlamına gelmez; yalnız mevcut raporun hazır olup olmadığı belirtilir. İşletim sisteminin veya uygulamanın azaltılmış hareket tercihi maskot ve dekor animasyonlarını kapatır.
 
 Özet, Program, Veriler ve Kaynaklar sekmeleri yalnız ilgili içerik varsa görünür. İlk öneri öne çıkar; diğer adımlar açılabilir. Tablo seçimi ve on satırlık sayfalama, uzun raporun bütün satırlarına erişimi korur. Haftalık program açık saatli `schedule` kayıtlarından veya tam olarak `Gün / Sıra / Çalışma / Süre / Nasıl yapacaksın?` sütunlarına sahip rapor tablosundan oluşturulur. Diğer tablolar genel veri görünümünde kalır; metinden tahmini süre veya başarı puanı üretilmez.
 

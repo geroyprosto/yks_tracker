@@ -5,6 +5,11 @@ import type {AgentHouseReport, AgentHouseRuns} from '../../src/lib/agent-house';
 const now = '2026-11-14T09:00:00.000Z';
 const ids = ['leader', 'strategy', 'tracking', 'awareness', 'daily', 'discovery'] as const;
 const labels = ['Lider', 'YKS Stratejisti', 'YKSİM Takipçisi', 'Öz Farkındalık', 'Günlük Rehber', 'Keşif'];
+const reportHeadings = ['Büyük resim', 'Çalışmanın yönü', 'İlerlemenin kaydı', 'Kendi ritmini keşfet', 'Günün akışı', 'Yeni bir pencere'];
+
+function roomRail(page: Page) {
+  return page.getByRole('navigation', {name: 'Ajan odaları', exact: true});
+}
 
 function report(mode: 'sample' | 'live', runId: string = mode): AgentHouseReport {
   return {
@@ -80,13 +85,14 @@ for (const width of [360, 1280]) test(`ajan evi odaları raporu ve programı aç
   const requests = await openHouse(page, width, {live: [report('live')], sample: [report('sample')]});
   const house = page.getByTestId('agent-house');
   const detail = page.getByTestId('agent-room-report');
+  const rooms = roomRail(page);
   await expect(house.getByRole('button', {name: 'Benim raporlarım', exact: true})).toHaveAttribute('aria-pressed', 'true');
   await expect(detail).toContainText('Kişisel Lider değerlendirmesi.');
-  await expect(house.getByRole('button', {name: / odası$/})).toHaveCount(6);
+  await expect(rooms.getByRole('button', {name: / odası$/})).toHaveCount(6);
   await expect(house.getByRole('textbox')).toHaveCount(0);
   await expect(house.locator('textarea,[contenteditable=true]')).toHaveCount(0);
 
-  const strategist = house.getByRole('button', {name: 'YKS Stratejisti odası', exact: true});
+  const strategist = rooms.getByRole('button', {name: 'YKS Stratejisti odası', exact: true});
   await strategist.focus();
   await page.keyboard.press('Enter');
   await expect(strategist).toHaveAttribute('aria-pressed', 'true');
@@ -95,26 +101,26 @@ for (const width of [360, 1280]) test(`ajan evi odaları raporu ve programı aç
   await detail.getByRole('tab', {name: /^Kaynaklar\b/}).click();
   await expect(detail.getByRole('link', {name: 'Öğrenme araştırması'})).toHaveAttribute('href', 'https://example.org/research');
 
-  await house.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true}).click();
+  await rooms.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true}).click();
   await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
   await expect(detail.getByRole('table')).toContainText('Matematik');
   await expect(detail.getByRole('table')).toContainText('90 dk');
 
-  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await rooms.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
   await detail.getByRole('tab', {name: 'Program', exact: true}).click();
   await expect(detail).toContainText('17:00–17:25');
   await expect(detail).toContainText('Problemler');
   await expect(detail).toContainText('Yanlışların nedenlerini not et.');
-  await house.getByRole('button', {name: 'Öz Farkındalık odası', exact: true}).click();
+  await rooms.getByRole('button', {name: 'Öz Farkındalık odası', exact: true}).click();
   await expect(detail).toContainText('Kişisel Öz Farkındalık değerlendirmesi.');
-  await house.getByRole('button', {name: 'Keşif odası', exact: true}).click();
+  await rooms.getByRole('button', {name: 'Keşif odası', exact: true}).click();
   await expect(detail).toContainText('Bu akışta çalışmadı');
 
   await house.getByRole('button', {name: 'Örnek akış', exact: true}).click();
   await expect(house).toContainText('ÖRNEK VERİ');
   await expect(detail).toContainText('Örnek Keşif değerlendirmesi.');
   await expect(detail).not.toContainText('Kişisel');
-  await house.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true}).click();
+  await rooms.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true}).click();
   await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
   await expect(detail.getByRole('table')).toContainText('25 dk');
   await expect(detail.getByRole('table')).not.toContainText('90 dk');
@@ -123,7 +129,7 @@ for (const width of [360, 1280]) test(`ajan evi odaları raporu ve programı aç
   await expect(detail.getByRole('table')).toContainText('90 dk');
   await expect(house).not.toContainText('ÖRNEK VERİ');
 
-  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await rooms.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
   await detail.getByRole('tab', {name: 'Program', exact: true}).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   if (process.env.CAPTURE_AGENT_HOUSE_SCREENSHOT === '1') {
@@ -137,7 +143,7 @@ test('rapor sekmeleri yön tuşlarıyla açılır ve odalar kendi bölümlerini 
   await openHouse(page, 768, {live: [], sample: [longReport()]});
   const house = page.getByTestId('agent-house');
   const detail = house.getByTestId('agent-room-report');
-  await house.getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
+  await roomRail(page).getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
   const tabs = detail.getByRole('tablist', {name: 'Rapor bölümleri'});
   const summary = tabs.getByRole('tab', {name: 'Özet', exact: true});
   const data = tabs.getByRole('tab', {name: 'Veriler', exact: true});
@@ -161,7 +167,7 @@ test('rapor sekmeleri yön tuşlarıyla açılır ve odalar kendi bölümlerini 
   await expect(sources).toBeFocused();
   await expect(sources).toHaveAttribute('aria-selected', 'true');
 
-  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await roomRail(page).getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
   await expect(summary).toHaveAttribute('aria-selected', 'true');
   await expect(tabs.getByRole('tab', {name: 'Program', exact: true})).toBeVisible();
   await expect(data).toHaveCount(0);
@@ -172,7 +178,7 @@ test('uzun örnek raporda son öneri, kaynak ve yüz satırın tamamı okunabili
   const sample = longReport();
   await openHouse(page, 1280, {live: [], sample: [sample]});
   const house = page.getByTestId('agent-house');
-  await house.getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
+  await roomRail(page).getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
   const detail = house.getByTestId('agent-room-report');
   const panel = detail.getByRole('tabpanel');
   const strategy = sample.agents.find(agent => agent.id === 'strategy')!;
@@ -223,7 +229,7 @@ test('tablo biçiminde gelen saat atanmamış program günlere ayrılır ve ası
   ]}];
   await openHouse(page, 768, {live: [], sample: [sample]});
   const house = page.getByTestId('agent-house');
-  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await roomRail(page).getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
   await house.getByRole('tab', {name: 'Program', exact: true}).click();
   const plan = house.getByTestId('agent-plan');
   await expect(plan.getByRole('button', {name: 'Pazartesi', exact: true})).toHaveAttribute('aria-pressed', 'true');
@@ -240,7 +246,7 @@ test('tablo biçiminde gelen saat atanmamış program günlere ayrılır ve ası
 test('program tarih değiştirince yalnız seçilen günün bütün blokları gösterilir', async ({page}) => {
   await openHouse(page, 768, {live: [], sample: [longReport()]});
   const house = page.getByTestId('agent-house');
-  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await roomRail(page).getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
   await house.getByRole('tab', {name: 'Program', exact: true}).click();
   const plan = house.getByTestId('agent-plan');
   const day = plan.getByTestId('agent-plan-day');
@@ -271,7 +277,19 @@ for (const width of [320, 768, 1024, 1440]) test(`uzun ajan raporu sayfayı taş
   await openHouse(page, width, {live: [], sample: [longReport()]});
   const house = page.getByTestId('agent-house');
   const detail = house.getByTestId('agent-room-report');
-  await house.getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
+  const scene = house.getByTestId('agent-house-scene');
+  await expect(scene).toBeVisible();
+  await expect(scene.getByRole('button', {name: / odası$/})).toHaveCount(6);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  const room = scene.getByRole('button', {name: 'YKS Stratejisti odası', exact: true});
+  const floor = room.getByTestId('agent-room-floor-strategy');
+  const heading = detail.getByRole('heading', {name: 'Çalışmanın yönü', exact: true});
+  await floor.click();
+  await expect(heading).toBeFocused();
+  await detail.getByRole('button', {name: 'Eve dön', exact: true}).click();
+  await expect(room).toBeFocused();
+  await room.click();
+  await expect(heading).toBeFocused();
   await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
   await expect(detail.getByRole('table')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -280,19 +298,70 @@ for (const width of [320, 768, 1024, 1440]) test(`uzun ajan raporu sayfayı taş
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
 
-test('azaltılmış hareket tercihinde ev açılır ve oda kontrolü animasyonsuz çalışır', async ({page}) => {
-  await page.emulateMedia({reducedMotion: 'reduce'});
+test('piksel ev ve altı maskot yüklenir, her oda kendi raporunu açar ve geri dönünce oda odaklanır', async ({page}) => {
+  const requests = await openHouse(page, 1440, {live: [], sample: [report('sample')]});
+  const house = page.getByTestId('agent-house');
+  const scene = house.getByTestId('agent-house-scene');
+  const detail = house.getByTestId('agent-room-report');
+  await expect(scene).toBeVisible();
+  const artwork = scene.locator('img');
+  await expect(artwork).toHaveCount(7);
+  await expect.poll(() => artwork.evaluateAll(images => images.every(node => {
+    const image = node as HTMLImageElement;
+    return image.complete && image.naturalWidth > 0;
+  }))).toBe(true);
+  const roomButtons = scene.getByRole('button', {name: / odası$/});
+  await expect(roomButtons).toHaveCount(6);
+
+  for (const [index, label] of labels.entries()) {
+    const room = scene.getByRole('button', {name: `${label} odası`, exact: true});
+    await expect(room).toBeVisible();
+    await room.getByTestId(`agent-room-floor-${ids[index]}`).click();
+    await expect(scene).toBeHidden();
+    await expect(detail.getByRole('heading', {name: reportHeadings[index], exact: true})).toBeFocused();
+    await expect(detail).toContainText(`Örnek ${label} değerlendirmesi.`);
+    await detail.getByRole('button', {name: 'Eve dön', exact: true}).click();
+    await expect(scene).toBeVisible();
+    await expect(room).toHaveAttribute('aria-pressed', 'true');
+    await expect(room).toBeFocused();
+  }
+  expect(requests.writes()).toBe(0);
+});
+
+test('ev görünümü açılıp kapanabilir, hazır oda sayısı seçilen rapora dayanır', async ({page}) => {
+  const sample = report('sample');
+  sample.agents.find(agent => agent.id === 'awareness')!.status = 'no_data';
+  const requests = await openHouse(page, 768, {live: [], sample: [sample]});
+  const house = page.getByTestId('agent-house');
+  const scene = house.getByTestId('agent-house-scene');
+  const toggle = house.locator('summary').filter({hasText: 'Ajan evin'});
+  await expect(scene).toBeVisible();
+  await expect(toggle).toContainText('4 odada rapor hazır');
+  await expect(scene.getByRole('button', {name: / odası$/})).toHaveCount(6);
+  await toggle.click();
+  await expect(scene).toBeHidden();
+  await expect(roomRail(page).getByRole('button', {name: / odası$/})).toHaveCount(6);
+  await toggle.press('Enter');
+  await expect(scene).toBeVisible();
+  await house.getByRole('button', {name: 'Benim raporlarım', exact: true}).click();
+  await expect(scene).toBeVisible();
+  await expect(toggle).toContainText('0 odada rapor hazır');
+  await expect(house.getByTestId('agent-room-report')).toContainText('Bu odanın raporu henüz gelmedi');
+  expect(requests.writes()).toBe(0);
+});
+
+for (const preference of ['system', 'app'] as const) test(`azaltılmış hareket tercihinde ev ve oda kontrolü animasyonsuz çalışır · ${preference}`, async ({page}) => {
+  await page.emulateMedia({reducedMotion: preference === 'system' ? 'reduce' : 'no-preference'});
+  if (preference === 'app') await page.addInitScript(() => localStorage.setItem('yksim-reduced', 'true'));
   await openHouse(page, 1440, {live: [], sample: [report('sample')]});
   const house = page.getByTestId('agent-house');
   const scene = house.getByTestId('agent-house-scene');
-  await expect(scene).toBeHidden();
-  await house.locator('summary').filter({hasText: /Evi keşfet/}).click();
   await expect(scene).toBeVisible();
+  if (preference === 'app') await expect(page.locator('html')).toHaveAttribute('data-reduced', 'true');
   const room = scene.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true});
-  await expect(room).toHaveCSS('animation-name', 'none');
-  await expect(room).toHaveCSS('transition-duration', '0s');
+  await expect.poll(() => scene.evaluate(element => element.getAnimations({subtree: true}).length)).toBe(0);
   await room.press('Enter');
-  await expect(room).toHaveAttribute('aria-pressed', 'true');
+  await expect(scene).toBeHidden();
   await expect(house.getByRole('heading', {name: 'İlerlemenin kaydı', exact: true})).toBeFocused();
 });
 

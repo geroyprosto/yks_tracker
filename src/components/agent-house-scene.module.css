@@ -35,7 +35,7 @@
 .activityBubble[data-activity=visiting] { background:#e8f1c5; color:#476447; }
 .activityBubble[data-activity=visiting]::after { background:#e8f1c5; }
 .activityBubble[data-activity=visiting] svg { animation:waveGreeting 1.2s ease-in-out infinite; transform-origin:50% 90%; }
-.motionControls { position:sticky; right:12px; bottom:10px; width:36px; margin:-46px 12px 0 auto; z-index:5; }
+.motionControls { position:sticky; right:12px; bottom:62px; width:36px; margin:-98px 12px 0 auto; z-index:5; }
 .motionToggle { display:grid; place-items:center; width:36px; height:36px; border:1px solid #778363; border-radius:3px; background:#233a2de6; color:#f3edcc; cursor:pointer; box-shadow:2px 2px 0 #102119; }
 .motionToggle:hover:not(:disabled) { background:#3a513b; border-color:#b4c292; }
 .motionToggle:focus-visible { outline:3px solid #efd291; outline-offset:3px; }
@@ -69,8 +69,6 @@
   .activityBubble { min-width:16px; height:16px; border-width:1px; padding:2px; right:-10%; top:-3%; gap:1px; box-shadow:1px 1px 0 #16272166; }
   .activityBubble svg { width:10px; height:10px; }.activityBubble::after { width:3px; height:3px; bottom:-3px; left:3px; border-width:0 1px 1px 0; }
   .activityBubble[data-activity=working] i { width:2px; height:2px; box-shadow:0 -3px #cba16a; }
-  .motionControls { right:12px; bottom:12px; }
-
   .roomCopy { top:-3px; padding:5px 8px; }
   .floorTarget { border-width:1px; }.dot { width:3px; height:3px; bottom:4px; right:4px; }
   .firelight { box-shadow:0 0 12px 3px #ffa94030; }

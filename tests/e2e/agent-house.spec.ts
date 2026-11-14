@@ -248,6 +248,7 @@ test('örnek ve kişisel raporlar karışmaz, geçmiş seçim seçeneklerde kal�
   let detail = await openRoom(page, 'Lider');
   await expect(detail).toContainText(earlier.agents[0].summary);
   await detail.getByRole('button', {name: 'Eve dön', exact: true}).click();
+  await options(page);
   await house.getByRole('button', {name: 'Örnek akış', exact: true}).click();
   detail = await openRoom(page, 'Lider');
   await expect(detail).toContainText('Örnek Lider değerlendirmesi.');
@@ -349,6 +350,22 @@ test('maskot yürür, masasında çalışır, yan odaya gider ve başlangıç ye
   expect(writes).toEqual([]);
 });
 
+test('ziyaretteki maskota dokunmak kendi notunu açar ve kapatınca ona döner', async ({page}) => {
+  const {strategist, motion, writes} = await openMovingHouse(page);
+  await page.clock.runFor(33_000);
+  await expect(strategist).toHaveAttribute('data-target-room', 'tracking');
+  await strategist.getByTestId('agent-mascot-strategy').click();
+  const note = page.getByTestId('agent-room-report');
+  await expect(note.getByRole('heading', {name: 'Çalışmanın yönü', exact: true})).toBeFocused();
+  await expect(note).toContainText('Önce problem çözümündeki yanlışlarını incele.');
+  await expect(motion).toHaveAttribute('data-motion', 'reduced');
+  await page.keyboard.press('Escape');
+  await page.clock.runFor(80);
+  await expect(strategist).toBeFocused();
+  await expect(motion).toHaveAttribute('data-motion', 'running');
+  expect(writes).toEqual([]);
+});
+
 test('hareket düğmesi maskotu olduğu yerde durdurur ve aynı rotadan sürdürür', async ({page}) => {
   const {writes, scene, motion, strategist} = await openMovingHouse(page);
   await page.clock.runFor(1600);
@@ -367,7 +384,7 @@ test('hareket düğmesi maskotu olduğu yerde durdurur ve aynı rotadan sürdür
   await expect(strategist).toHaveAttribute('data-mascot-state', 'walking');
   expect(distance(await mascotPosition(strategist), before)).toBeGreaterThan(2);
 
-  await scene.getByTestId('agent-room-floor-strategy').click();
+  await scene.getByTestId('agent-room-floor-strategy').click({position: {x: 8, y: 30}});
   await page.clock.runFor(80);
   await expect(scene).toBeVisible();
   await expect(page.getByTestId('agent-room-report').getByRole('heading', {name: 'Çalışmanın yönü', exact: true})).toBeFocused();

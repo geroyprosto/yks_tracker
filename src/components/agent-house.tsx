@@ -49,6 +49,7 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
   const [openRoom, setOpenRoom] = useState(false);
   const house = useRef<HTMLDivElement>(null);
   const options = useRef<HTMLDetailsElement>(null);
+  const roomTrigger = useRef<HTMLButtonElement | null>(null);
   const request = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -87,12 +88,15 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
   const readyIds = report?.agents.filter(item => item.status === 'ready').map(item => item.id) ?? [];
 
   const selectRoom = (id: AgentHouseAgentId) => {
+    roomTrigger.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null;
+    options.current?.removeAttribute('open');
     setSelected(id);
     setOpenRoom(true);
   };
   const returnToHouse = () => {
     setOpenRoom(false);
     requestAnimationFrame(() => {
+      if (roomTrigger.current?.isConnected) {roomTrigger.current.focus(); return;}
       const buttons = house.current?.querySelectorAll<HTMLButtonElement>(`[data-room-id="${selected}"]`);
       Array.from(buttons ?? []).find(button => button.getClientRects().length > 0)?.focus();
     });
@@ -120,7 +124,7 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
 
   return <div className={styles.workspace} data-testid="agent-house">
     <div className={styles.studioBar}>
-      <div><strong>Ajan evin</strong><span>{report ? `${reportDate(report.week_start)} haftası` : 'Birlikte, adım adım.'}</span></div>
+      <span className={styles.weekLabel}>{report ? `${reportDate(report.week_start)} haftası` : 'Birlikte, adım adım.'}</span>
       <div className={styles.tools}>
         <button type="button" className={styles.iconButton} aria-label="Yenile" title="Yenile" disabled={loading} onClick={() => void load()}><RefreshCw size={17} aria-hidden="true" className={loading ? styles.spinning : ''}/></button>
         <details ref={options} className={styles.options}>

@@ -40,7 +40,7 @@ export function AgentHouseScene({selected, onSelect, readyIds = [], reduceMotion
 }) {
   return <div className={styles.scene} data-testid="agent-house-scene" data-reduced={reduceMotion}>
     <div className={styles.world}>
-      <AgentHouseMascots selected={selected} rooms={rooms} reduceMotion={reduceMotion}>
+      <AgentHouseMascots selected={selected} rooms={rooms} reduceMotion={reduceMotion} onSelect={onSelect}>
         <Image className={styles.house} src="/agent-house/pixel-house-v1.png" alt="" fill sizes="(max-width:760px) 100vw, 1060px" loading="eager" draggable={false}/>
         <div className={styles.atmosphere} aria-hidden="true">
           <span className={styles.firelight}/><span className={styles.lamplight}/><span className={styles.twinkle}/><span className={styles.twinkle}/>

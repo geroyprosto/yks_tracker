@@ -5,6 +5,7 @@ import {useEffect, useRef, useState, useSyncExternalStore, type CSSProperties, t
 import {Hand, Pause, PencilLine, Play} from 'lucide-react';
 import type {AgentHouseAgentId} from '@/lib/agent-house';
 import {getHouseFrame, HOUSE_DOORS} from '@/lib/agent-house-motion';
+import {agentRooms} from './agent-house-meta';
 import styles from './agent-house-scene.module.css';
 
 const FRAME_INTERVAL = 160;
@@ -52,11 +53,12 @@ function useSceneTime(running: boolean) {
 
 type MotionStyle = CSSProperties & Record<`--${string}`, string>;
 
-export function AgentHouseMascots({children, selected, rooms, reduceMotion}: {
+export function AgentHouseMascots({children, selected, rooms, reduceMotion, onSelect}: {
   children: ReactNode;
   selected: AgentHouseAgentId;
   rooms: ReadonlyArray<{id: AgentHouseAgentId; color: string}>;
   reduceMotion: boolean;
+  onSelect: (id: AgentHouseAgentId) => void;
 }) {
   const canvas = useRef<HTMLDivElement>(null);
   const [inView, setInView] = useState(false);
@@ -78,9 +80,9 @@ export function AgentHouseMascots({children, selected, rooms, reduceMotion}: {
   return <>
     <div className={styles.canvas} ref={canvas} data-motion={motion}>
       {children}
-      <div className={styles.motionLayer} data-testid="agent-house-motion" data-motion={motion} aria-hidden="true">
-        {HOUSE_DOORS.map(door => <span key={door.id} className={styles.doorway} data-door-id={door.id} data-orientation={door.orientation} style={{left:`${door.x}%`, top:`${door.y}%`}}/>)}
-        {getHouseFrame(time).map((frame, index) => <div key={frame.id} className={styles.mascot}
+      <div className={styles.motionLayer} data-testid="agent-house-motion" data-motion={motion}>
+        {HOUSE_DOORS.map(door => <span key={door.id} className={styles.doorway} aria-hidden="true" data-door-id={door.id} data-orientation={door.orientation} style={{left:`${door.x}%`, top:`${door.y}%`}}/>)}
+        {getHouseFrame(time).map((frame, index) => <button key={frame.id} type="button" className={styles.mascot} aria-label={`${agentRooms[frame.id].name} notunu aç`} onClick={() => onSelect(frame.id)}
           data-mascot-id={frame.id} data-mascot-state={reduced ? 'idle' : frame.state} data-target-room={frame.targetRoom} data-selected={selected === frame.id}
           style={{'--mascot-x':`${frame.x}cqw`, '--mascot-y':`${frame.y * 2 / 3}cqw`, '--mascot-facing':frame.facing === 'left' ? '-1' : '1', '--mascot-delay':`${index * -.31}s`, '--room-accent':rooms.find(room => room.id === frame.id)?.color ?? '#f5d58e', zIndex:Math.round(frame.y)} as MotionStyle}>
           <div className={styles.mascotFigure}>
@@ -92,13 +94,12 @@ export function AgentHouseMascots({children, selected, rooms, reduceMotion}: {
             {!reduced && frame.state === 'working' && <span className={styles.activityBubble} data-activity="working"><PencilLine size={13}/><i/></span>}
             {!reduced && frame.state === 'visiting' && <span className={styles.activityBubble} data-activity="visiting"><Hand size={13}/></span>}
           </div>
-        </div>)}
+        </button>)}
       </div>
     </div>
     <div className={styles.motionControls}>
-      <span className={styles.motionDescription}><span className={styles.motionIndicator} data-running={running}/><span><strong>Ev animasyonu</strong><small>{reduced ? 'Hareket azaltıldı' : userPaused ? 'Duraklatıldı' : 'Dekoratif sahne'}</small></span></span>
-      <button type="button" className={styles.motionToggle} disabled={reduced} aria-label={userPaused || reduced ? 'Hareketi başlat' : 'Hareketi durdur'} onClick={() => setUserPaused(value => !value)}>
-        {userPaused || reduced ? <Play size={14} aria-hidden="true"/> : <Pause size={14} aria-hidden="true"/>}{userPaused || reduced ? 'Başlat' : 'Durdur'}
+      <button type="button" className={styles.motionToggle} disabled={reduced} aria-label={userPaused || reduced ? 'Hareketi başlat' : 'Hareketi durdur'} title={userPaused || reduced ? 'Hareketi başlat' : 'Hareketi durdur'} onClick={() => setUserPaused(value => !value)}>
+        {userPaused || reduced ? <Play size={14} aria-hidden="true"/> : <Pause size={14} aria-hidden="true"/>}
       </button>
     </div>
   </>;

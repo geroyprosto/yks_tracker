@@ -16,4 +16,4 @@ Apply `20261113221107_agent_house_reports.sql` before releasing this UI. Reports
 
 Publish only user-facing conclusions. The strict schema rejects extra raw-journal fields and unsafe source URL schemes, but free text is not an automatic secret scrubber. The producer must omit raw journals, private prompts, credentials, and local paths. The separate local workflow exports its reviewed display projection as `agent-house-report.json`.
 
-This release stores and displays reports; it does not make local Codex jobs run while the computer is off or add live video/research ingestion. Previously stored reports remain available from the hosted app independently of the local computer.
+The [local Codex workflow](AGENT_HOUSE_CODEX.md) now assigns explicit models to six roles, reads dated personal memory and publishes new live reports through the same contract. The visible house checks for updates every minute. A configured Codex heartbeat can refresh connected sources and invoke the runner, but local jobs cannot run while the computer/Codex is off. Previously stored reports remain available independently of the local computer.

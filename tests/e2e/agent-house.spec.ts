@@ -123,6 +123,37 @@ async function options(page: Page) {
   return page.getByTestId('agent-house');
 }
 
+test('new Codex reports arrive without reload, while a selected older report remains readable', async ({page}) => {
+  const first = report('live', 'first');
+  const second = report('live', 'second');
+  second.agents[0].summary = 'Yeni kayıtlarına göre yenilenen lider notu.';
+  const runs: AgentHouseRuns = {live: [first], sample: []};
+  const requests = await openHouse(page, 1440, runs, {controlledClock: true});
+  const room = await openRoom(page, 'Lider');
+  await expect(room).toContainText('Kişisel Lider değerlendirmesi.');
+  runs.live = [second, first];
+  await page.clock.runFor(60_100);
+  await expect(room).toContainText('Yeni kayıtlarına göre yenilenen lider notu.');
+  await room.getByRole('button', {name: 'Eve dön', exact: true}).click();
+  await options(page);
+  await page.getByRole('combobox', {name: 'Rapor', exact: true}).selectOption('first');
+  await page.getByLabel('Ev seçenekleri', {exact: true}).click();
+  await openRoom(page, 'Lider');
+  await page.clock.runFor(60_100);
+  await expect(room).toContainText('Kişisel Lider değerlendirmesi.');
+  expect(requests.gets()).toBeGreaterThanOrEqual(3);
+  expect(requests.writes()).toBe(0);
+});
+
+test('a failed background refresh preserves the last completed note', async ({page}) => {
+  await openHouse(page, 1440, {live: [report('live')], sample: []}, {controlledClock: true});
+  const room = await openRoom(page, 'Lider');
+  await page.route('**/api/agent-house', route => route.fulfill({status: 503, json: {error: {message: 'Geçici hata'}}}));
+  await page.clock.runFor(60_100);
+  await expect(room).toContainText('Kişisel Lider değerlendirmesi.');
+  await expect(page.getByTestId('agent-house').getByRole('alert')).toHaveCount(0);
+});
+
 for (const width of [320, 768, 1024, 1440]) test(`ev tek sahnede kalır, not açılır ve odağa dönülür · ${width}px`, async ({page}) => {
   const requests = await openHouse(page, width, {live: [longReportWithMode()], sample: []});
   const house = page.getByTestId('agent-house');

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "agents:codex": "tsx scripts/agent-house-codex/run.ts",
+    "agents:sync": "tsx scripts/agent-house-codex/memory.ts",
     "dev:demo": "node scripts/classroom-demo-dev.mjs",
     "test:classroom": "playwright test --config playwright.classroom.config.ts",
     "build": "next build",

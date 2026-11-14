@@ -51,36 +51,41 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
   const options = useRef<HTMLDetailsElement>(null);
   const roomTrigger = useRef<HTMLButtonElement | null>(null);
   const request = useRef<AbortController | null>(null);
+  const importingRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (quiet = false) => {
+    if (quiet && (request.current || importingRef.current)) return;
     request.current?.abort();
     const controller = new AbortController();
     request.current = controller;
-    setLoading(true); setError('');
+    if (!quiet) {setLoading(true); setError('');}
     try {
       const response = await fetch('/api/agent-house', {cache: 'no-store', signal: controller.signal});
       const body: unknown = await response.json();
       if (!response.ok) throw new Error(responseError(body));
       const incoming = parseRuns(body);
-      if (!controller.signal.aborted) setRuns(incoming);
+      if (!controller.signal.aborted) {setRuns(incoming); setError('');}
     } catch (cause) {
-      if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Raporlar yüklenemedi.');
-    } finally { if (!controller.signal.aborted) setLoading(false); }
+      if (!controller.signal.aborted && !quiet) setError(cause instanceof Error ? cause.message : 'Raporlar yüklenemedi.');
+    } finally {
+      if (request.current === controller) request.current = null;
+      if (!controller.signal.aborted && !quiet) setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    const controller = new AbortController();
-    request.current = controller;
-    void fetch('/api/agent-house', {cache: 'no-store', signal: controller.signal})
-      .then(async response => {
-        const body: unknown = await response.json();
-        if (!response.ok) throw new Error(responseError(body));
-        return parseRuns(body);
-      }).then(incoming => {if (!controller.signal.aborted) setRuns(incoming);})
-      .catch(cause => {if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : 'Raporlar yüklenemedi.');})
-      .finally(() => {if (!controller.signal.aborted) setLoading(false);});
-    return () => request.current?.abort();
-  }, []);
+    // Initial loading is already visible; subsequent checks keep the open room intact.
+    let mounted = true;
+    void Promise.resolve().then(() => {if (mounted) void load();});
+    const refresh = () => {if (document.visibilityState === 'visible') void load(true);};
+    const interval = window.setInterval(refresh, 60_000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      mounted = false; window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', refresh);
+      request.current?.abort(); request.current = null;
+    };
+  }, [load]);
   const activeMode = mode ?? (runs.live.length ? 'live' : runs.sample.length ? 'sample' : 'live');
   const available = runs[activeMode];
   const report = available.find(run => run.run_id === runId) ?? available[0];
@@ -102,6 +107,7 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
     });
   };
   const importReport = async (file: File) => {
+    importingRef.current = true;
     setImporting(true); setNotice(''); setError('');
     try {
       if (file.size > agentHouseReportMaxBytes) throw new Error('Rapor dosyası 128 KB sınırını aşıyor.');
@@ -113,13 +119,14 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
       const saved = agentHouseReportSchema.safeParse(body && typeof body === 'object' && 'run' in body ? body.run : null);
       if (!saved.success || saved.data.run_id !== parsed.data.run_id || saved.data.mode !== parsed.data.mode) throw new Error('Raporun kaydı doğrulanamadı. Yenile ile kontrol edebilirsin.');
       request.current?.abort();
+      request.current = null;
       setLoading(false);
       const incoming = saved.data;
       setRuns(previous => ({...previous, [incoming.mode]: [incoming, ...previous[incoming.mode].filter(run => run.run_id !== incoming.run_id)]}));
       setMode(incoming.mode); setRunId(incoming.run_id);
       setNotice('Rapor hesabına kaydedildi. Odalardan inceleyebilirsin.');
     } catch (cause) {setError(cause instanceof SyntaxError ? 'Dosya okunamadı. Geçerli bir rapor dosyası seç.' : cause instanceof Error ? cause.message : 'Rapor kaydedilemedi.');}
-    finally {setImporting(false);}
+    finally {importingRef.current = false; setImporting(false);}
   };
 
   return <div className={styles.workspace} data-testid="agent-house">

@@ -1,7 +1,7 @@
 'use client';
 
-import {useRef, useState} from 'react';
-import {ArrowRight, CalendarDays, Clock3} from 'lucide-react';
+import {useState} from 'react';
+import {ArrowLeft, ArrowRight, ChevronDown} from 'lucide-react';
 import type {AgentHouseAgent} from '@/lib/agent-house';
 import {reportDate} from './agent-house-meta';
 import styles from './agent-house.module.css';
@@ -29,25 +29,18 @@ export function planDays(agent: AgentHouseAgent): PlanDay[] {
 
 export function AgentHousePlan({days}: {days: PlanDay[]}) {
   const [selection, setSelection] = useState(0);
-  const dayButtons = useRef<Array<HTMLButtonElement | null>>([]);
   const current = days[selection] ?? days[0];
   if (!current) return null;
-  return <section className={styles.plan} data-testid="agent-plan">
-    <div className={styles.sectionIntro}><div><span className={styles.eyebrow}>ADIM ADIM İLERLE</span><h3>Haftanın akışı</h3></div><span className={styles.softBadge}><CalendarDays size={15} aria-hidden="true"/>{days.length} gün</span></div>
-    <div className={styles.days} aria-label="Program günleri">
-      {days.map((day, index) => <button type="button" key={day.label} aria-pressed={current.label === day.label} aria-label={day.label} ref={element => {dayButtons.current[index] = element;}} onClick={() => setSelection(index)}>
-        <span>{day.label}</span><small>{day.blocks.length} blok</small><i aria-hidden="true"/>
-      </button>)}
+  return <section className={styles.plan} data-testid="agent-plan" aria-label="Günlük program">
+    <div className={styles.dayPicker}>
+      <button className={styles.dayArrow} type="button" aria-label="Önceki gün" disabled={selection === 0} onClick={() => setSelection(selection - 1)}><ArrowLeft size={16} aria-hidden="true"/></button>
+      <select aria-label="Program günü" value={selection} onChange={event => setSelection(Number(event.target.value))}>{days.map((day, index) => <option key={day.label} value={index}>{day.label}</option>)}</select>
+      <button className={styles.dayArrow} type="button" aria-label="Sonraki gün" disabled={selection === days.length - 1} onClick={() => setSelection(selection + 1)}><ArrowRight size={16} aria-hidden="true"/></button>
     </div>
-    <div key={current.label} className={styles.dayContent} data-testid="agent-plan-day">
-      <div className={styles.dayTitle}><h4>{current.label}</h4><span>{current.blocks.length} çalışma bloğu</span></div>
-      <ol className={styles.timeline}>
-        {current.blocks.map((block, index) => <li key={index}>
-          <span className={styles.blockNumber} aria-label={`Sıra ${block.order}`}>{block.order}</span>
-          <div className={styles.blockCard}><div className={styles.blockHeading}><h5>{block.title}</h5><span><Clock3 size={14} aria-hidden="true"/>{block.timing}</span></div>{block.detail && <p>{block.detail}</p>}</div>
-        </li>)}
-      </ol>
-    </div>
-    {selection < days.length - 1 && <button className={styles.nextDay} type="button" onClick={() => {setSelection(selection + 1); dayButtons.current[selection + 1]?.focus();}}>Sonraki gün <ArrowRight size={17} aria-hidden="true"/></button>}
+    <ol key={current.label} className={styles.timeline} data-testid="agent-plan-day">
+      {current.blocks.map((block, index) => <li key={index}>
+        {block.detail ? <details><summary className={styles.blockHeading}><strong>{block.title}</strong><span className={styles.blockTiming}>{block.timing}</span><ChevronDown size={14} aria-hidden="true"/></summary><p className={styles.blockDetail}>{block.detail}</p></details> : <div className={styles.blockHeading}><strong>{block.title}</strong><span className={styles.blockTiming}>{block.timing}</span></div>}
+      </li>)}
+    </ol>
   </section>;
 }

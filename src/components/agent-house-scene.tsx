@@ -1,8 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import {useState, type CSSProperties} from 'react';
-import {ArrowUpRight, MousePointer2} from 'lucide-react';
+import type {CSSProperties} from 'react';
 import type {AgentHouseAgentId} from '@/lib/agent-house';
 import {AgentHouseMascots} from './agent-house-mascots';
 import styles from './agent-house-scene.module.css';
@@ -39,9 +38,6 @@ export function AgentHouseScene({selected, onSelect, readyIds = [], reduceMotion
   readyIds?: AgentHouseAgentId[];
   reduceMotion?: boolean;
 }) {
-  const [hovered, setHovered] = useState<AgentHouseAgentId | null>(null);
-  const [focused, setFocused] = useState<AgentHouseAgentId | null>(null);
-  const active = rooms.find(room => room.id === (hovered ?? focused ?? selected)) ?? rooms[4];
   return <div className={styles.scene} data-testid="agent-house-scene" data-reduced={reduceMotion}>
     <div className={styles.world}>
       <AgentHouseMascots selected={selected} rooms={rooms} reduceMotion={reduceMotion}>
@@ -51,21 +47,14 @@ export function AgentHouseScene({selected, onSelect, readyIds = [], reduceMotion
         </div>
       </AgentHouseMascots>
       <nav className={styles.rooms} aria-label="Evin odaları">
-        {rooms.map((room, index) => <button key={room.id} type="button" style={roomStyle(room)} className={styles.roomButton}
+        {rooms.map(room => <button key={room.id} type="button" style={roomStyle(room)} className={styles.roomButton}
           aria-label={`${room.label} odası`} aria-pressed={selected === room.id} data-room-id={room.id}
-          onPointerEnter={() => setHovered(room.id)} onPointerLeave={() => setHovered(null)}
-          onFocus={() => setFocused(room.id)} onBlur={() => setFocused(null)} onClick={() => onSelect(room.id)}>
-          <span className={styles.floorTarget} data-testid={`agent-room-floor-${room.id}`} aria-hidden="true"><span className={styles.floorNumber}>{String(index + 1).padStart(2,'0')}</span><span className={styles.floorAction}>Raporu aç <ArrowUpRight size={13}/></span></span>
-          <span className={styles.roomNumber} aria-hidden="true">{String(index + 1).padStart(2,'0')}</span>
-          <span className={styles.roomCopy}><strong>{room.label}</strong><small>{room.name}</small></span>
+          onClick={() => onSelect(room.id)}>
+          <span className={styles.floorTarget} data-testid={`agent-room-floor-${room.id}`} aria-hidden="true"/>
+          <span className={styles.roomCopy}>{room.label}</span>
           <span className={styles.dot} data-ready={readyIds.includes(room.id)} aria-label={readyIds.includes(room.id) ? 'Rapor hazır' : 'Odayı incele'}/>
-          <ArrowUpRight className={styles.roomArrow} size={17} aria-hidden="true"/>
         </button>)}
       </nav>
-      <div className={styles.caption} style={{'--room-accent':active.color} as SceneStyle}>
-        <MousePointer2 size={16} aria-hidden="true"/><p><strong>{active.label}</strong><span>{active.description}</span></p>
-        <span className={styles.hint}>Odaya ya da adına dokun</span>
-      </div>
     </div>
   </div>;
 }

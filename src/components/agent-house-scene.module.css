@@ -1,7 +1,10 @@
-.scene { overflow:hidden; position:relative; isolation:isolate; background:#172625; color:#f5eddb; }
-.world { position:relative; width:min(100%,1060px); margin:0 auto; container-type:inline-size; }
-.canvas { position:relative; width:100%; aspect-ratio:3/2; overflow:hidden; }
-.house { display:block; width:100%; height:100%; object-fit:contain; image-rendering:pixelated; user-select:none; }
+.scene { overflow-x:auto; overflow-y:hidden; position:relative; isolation:isolate; width:100%; height:100%; container-type:size; overscroll-behavior-x:contain; scrollbar-width:none; background:#172625; color:#f5eddb; }
+.scene::-webkit-scrollbar { display:none; }
+/* The scene fills the available viewport. Narrow screens pan across the house
+   instead of shrinking the rooms or stretching the illustration vertically. */
+.world { width:max(100%,120cqh); height:100%; }
+.canvas { position:relative; width:100%; height:100%; overflow:hidden; container-type:size; }
+.house { display:block; width:100%; height:100%; object-fit:fill; image-rendering:pixelated; user-select:none; }
 .atmosphere { position:absolute; inset:0; pointer-events:none; }
 .firelight,.lamplight { position:absolute; pointer-events:none; border-radius:50%; mix-blend-mode:screen; background:#ffb84d44; animation:lamplight 6s steps(4,end) infinite alternate; }
 .firelight { left:47%; top:53%; width:6%; height:10%; box-shadow:0 0 26px 8px #ffa94030; }
@@ -32,7 +35,7 @@
 .activityBubble[data-activity=visiting] { background:#e8f1c5; color:#476447; }
 .activityBubble[data-activity=visiting]::after { background:#e8f1c5; }
 .activityBubble[data-activity=visiting] svg { animation:waveGreeting 1.2s ease-in-out infinite; transform-origin:50% 90%; }
-.motionControls { position:absolute; right:12px; bottom:10px; z-index:5; }
+.motionControls { position:sticky; right:12px; bottom:10px; width:36px; margin:-46px 12px 0 auto; z-index:5; }
 .motionToggle { display:grid; place-items:center; width:36px; height:36px; border:1px solid #778363; border-radius:3px; background:#233a2de6; color:#f3edcc; cursor:pointer; box-shadow:2px 2px 0 #102119; }
 .motionToggle:hover:not(:disabled) { background:#3a513b; border-color:#b4c292; }
 .motionToggle:focus-visible { outline:3px solid #efd291; outline-offset:3px; }
@@ -43,7 +46,7 @@
 .motionLayer[data-motion=reduced] *,.canvas[data-motion=reduced] .atmosphere * { animation:none!important; transition:none!important; }
 /* Room names are small wooden signs inside the illustration. The whole floor
    remains a keyboard-accessible target; there is no second navigation panel. */
-.rooms { position:absolute; inset:0 0 auto; height:66.6667cqw; pointer-events:none; z-index:3; }
+.rooms { position:absolute; inset:0; pointer-events:none; z-index:3; }
 .roomButton { position:absolute; left:var(--hit-left); top:var(--hit-top); width:var(--hit-width); height:var(--hit-height); padding:0; border:0; background:transparent; color:#fff0cd; cursor:pointer; pointer-events:auto; }
 .floorTarget { position:absolute; inset:0; border:2px solid transparent; transition:border-color .15s,background .15s; }
 .roomButton:hover .floorTarget,.roomButton:focus-visible .floorTarget { border-color:var(--room-accent); background:color-mix(in srgb,var(--room-accent) 7%,transparent); }
@@ -66,9 +69,9 @@
   .activityBubble { min-width:16px; height:16px; border-width:1px; padding:2px; right:-10%; top:-3%; gap:1px; box-shadow:1px 1px 0 #16272166; }
   .activityBubble svg { width:10px; height:10px; }.activityBubble::after { width:3px; height:3px; bottom:-3px; left:3px; border-width:0 1px 1px 0; }
   .activityBubble[data-activity=working] i { width:2px; height:2px; box-shadow:0 -3px #cba16a; }
-  .motionControls { right:6px; bottom:6px; }.motionToggle { width:28px; height:28px; }
+  .motionControls { right:12px; bottom:12px; }
 
-  .roomCopy { top:-3px; padding:3px 4px; font-size:clamp(7px,2.15vw,10px); }
+  .roomCopy { top:-3px; padding:5px 8px; }
   .floorTarget { border-width:1px; }.dot { width:3px; height:3px; bottom:4px; right:4px; }
   .firelight { box-shadow:0 0 12px 3px #ffa94030; }
 }

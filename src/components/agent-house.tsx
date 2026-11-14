@@ -124,12 +124,12 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
 
   return <div className={styles.workspace} data-testid="agent-house">
     <div className={styles.studioBar}>
-      <span className={styles.weekLabel}>{report ? `${reportDate(report.week_start)} haftası` : 'Birlikte, adım adım.'}</span>
       <div className={styles.tools}>
         <button type="button" className={styles.iconButton} aria-label="Yenile" title="Yenile" disabled={loading} onClick={() => void load()}><RefreshCw size={17} aria-hidden="true" className={loading ? styles.spinning : ''}/></button>
         <details ref={options} className={styles.options}>
           <summary aria-label="Ev seçenekleri" title="Ev seçenekleri"><Ellipsis size={22} aria-hidden="true"/></summary>
           <div className={styles.optionsPanel}>
+            <span className={styles.weekLabel}>{report ? `${reportDate(report.week_start)} haftası` : 'Birlikte, adım adım.'}</span>
             <div className={styles.modes} aria-label="Rapor türü">{(['live', 'sample'] as const).map(value => <button type="button" key={value} aria-pressed={activeMode === value} onClick={() => {setMode(value); setRunId(''); options.current?.removeAttribute('open');}}>{value === 'live' ? 'Benim raporlarım' : 'Örnek akış'}</button>)}</div>
             {available.length > 0 && <label className={styles.history}>Rapor<select value={report?.run_id ?? ''} onChange={event => setRunId(event.target.value)}>{available.map(run => <option key={run.run_id} value={run.run_id}>{reportDate(run.week_start)} haftası · {reportDate(run.generated_at, true)}</option>)}</select></label>}
             <label className={styles.import}>{importing ? 'Kaydediliyor…' : 'Hazır rapor aktar'}<input type="file" accept="application/json,.json" aria-label="Rapor dosyasını seç" disabled={importing} onChange={event => {const file = event.target.files?.[0]; if (file) void importReport(file); event.target.value = '';}}/></label>
@@ -138,12 +138,14 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
         </details>
       </div>
     </div>
-    {error && <p className={styles.error} role="alert">{error}</p>}
-    {notice && <p className={styles.notice} role="status">{notice}</p>}
-    {activeMode === 'sample' && <p className={styles.sampleNotice}>Örnek ev · Kişisel kayıtların değil.</p>}
+    <div className={styles.messages}>
+      {error && <p className={styles.error} role="alert">{error}</p>}
+      {notice && <p className={styles.notice} role="status">{notice}</p>}
+      {activeMode === 'sample' && <p className={styles.sampleNotice}>Örnek ev · Kişisel kayıtların değil.</p>}
+    </div>
     <div ref={house} className={styles.house}>
       <AgentHouseScene selected={selected} onSelect={selectRoom} readyIds={readyIds} reduceMotion={openRoom}/>
-      <p className={styles.houseHint}>Bir arkadaşına dokun, notunu oku.</p>
+      <p className={styles.houseHint}><span>Bir arkadaşına dokun, notunu oku.</span><span className={styles.panHint}>Diğer odalar için evi yana kaydır.</span></p>
     </div>
     {openRoom && <AgentHouseRoom selected={selected} sample={activeMode === 'sample'} onClose={returnToHouse}>
       {agent ? <AgentHouseReport key={`${activeMode}:${report?.run_id}:${selected}`} agent={agent}/> : loading ? <div className={styles.skeleton} role="status" aria-label="Raporlar getiriliyor"><span/><span/><span/></div> : <div className={styles.empty}><h3>Henüz bir not yok.</h3><p>Raporun hazır olduğunda burada olacak.</p></div>}

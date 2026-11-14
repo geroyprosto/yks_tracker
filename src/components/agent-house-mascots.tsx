@@ -84,7 +84,7 @@ export function AgentHouseMascots({children, selected, rooms, reduceMotion, onSe
         {HOUSE_DOORS.map(door => <span key={door.id} className={styles.doorway} aria-hidden="true" data-door-id={door.id} data-orientation={door.orientation} style={{left:`${door.x}%`, top:`${door.y}%`}}/>)}
         {getHouseFrame(time).map((frame, index) => <button key={frame.id} type="button" className={styles.mascot} aria-label={`${agentRooms[frame.id].name} notunu aç`} onClick={() => onSelect(frame.id)}
           data-mascot-id={frame.id} data-mascot-state={reduced ? 'idle' : frame.state} data-target-room={frame.targetRoom} data-selected={selected === frame.id}
-          style={{'--mascot-x':`${frame.x}cqw`, '--mascot-y':`${frame.y * 2 / 3}cqw`, '--mascot-facing':frame.facing === 'left' ? '-1' : '1', '--mascot-delay':`${index * -.31}s`, '--room-accent':rooms.find(room => room.id === frame.id)?.color ?? '#f5d58e', zIndex:Math.round(frame.y)} as MotionStyle}>
+          style={{'--mascot-x':`${frame.x}cqw`, '--mascot-y':`${frame.y}cqh`, '--mascot-facing':frame.facing === 'left' ? '-1' : '1', '--mascot-delay':`${index * -.31}s`, '--room-accent':rooms.find(room => room.id === frame.id)?.color ?? '#f5d58e', zIndex:Math.round(frame.y)} as MotionStyle}>
           <div className={styles.mascotFigure}>
             <span className={styles.mascotShadow}/>
             <span className={styles.mascotPose}>

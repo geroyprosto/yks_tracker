@@ -15,3 +15,13 @@
 .modal-error{padding:12px 14px;border:1px solid var(--danger);border-radius:8px;color:var(--danger);font-size:12px;margin-bottom:18px}
 .task-delete-trigger{margin-right:auto;color:var(--danger)}
 .task-delete-confirm{margin-bottom:18px}
+
+/* Ajan Evi is a viewport-sized game surface, without the dashboard's page gutters. */
+.house-shell>main#main{max-width:none;margin:0;padding:0}
+.house-shell>.topbar{display:none}
+@media(max-width:760px){
+  .house-shell>.topbar{display:block;position:absolute;top:max(12px,env(safe-area-inset-top));left:max(12px,env(safe-area-inset-left));height:auto;padding:0;border:0;z-index:9}
+  .house-shell>.topbar .breadcrumbs{display:block}
+  .house-shell>.topbar .breadcrumbs>:not(button),.house-shell>.topbar .topbar-right{display:none}
+  .house-shell>.topbar .icon-button{width:44px;height:44px;border:1px solid #87906880;border-radius:5px;background:#172b24df;color:#f5eddb;box-shadow:0 2px 0 #102119}
+}

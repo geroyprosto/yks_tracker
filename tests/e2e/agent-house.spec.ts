@@ -156,6 +156,37 @@ function longReportWithMode(): AgentHouseReport {
   return {...longReport(), mode: 'live'};
 }
 
+for (const [width, height] of [[1440, 900], [1920, 915], [2560, 1080]]) test(`ev kullanılabilir ekranı boşluksuz doldurur · ${width}×${height}`, async ({page}) => {
+  await openHouse(page, width, {live: [report('live')], sample: []});
+  await page.setViewportSize({width, height});
+  const scene = page.getByTestId('agent-house-scene');
+  const sidebar = await page.locator('aside.sidebar').boundingBox();
+  await expect.poll(() => scene.boundingBox()).toEqual({x: sidebar!.width, y: 0, width: width - sidebar!.width, height});
+  expect(await page.evaluate(() => ({width: document.documentElement.scrollWidth, height: document.documentElement.scrollHeight}))).toEqual({width, height});
+  for (const id of ids) await expect(scene.locator(`[data-room-id="${id}"]`)).toBeInViewport({ratio: 1});
+  await expect(scene.getByRole('button', {name: 'Hareketi durdur', exact: true})).toBeInViewport({ratio: 1});
+});
+
+test('dar ekranda ev kaydırılır, bütün odalar ve ana menü erişilebilir kalır', async ({page}) => {
+  await openHouse(page, 390, {live: [report('live')], sample: []});
+  await page.setViewportSize({width: 390, height: 844});
+  const scene = page.getByTestId('agent-house-scene');
+  await expect.poll(() => scene.boundingBox()).toEqual({x: 0, y: 0, width: 390, height: 844});
+  expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(844);
+  for (const label of labels) {
+    const room = roomRail(page).getByRole('button', {name: `${label} odası`, exact: true});
+    await room.click();
+    await expect(page.getByTestId('agent-room-report')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(room).toBeFocused();
+    await expect(scene.getByRole('button', {name: 'Hareketi durdur', exact: true})).toBeInViewport({ratio: 1});
+  }
+  await page.getByRole('button', {name: 'Menüyü aç', exact: true}).click();
+  await page.getByRole('navigation', {name: 'Ana gezinme', exact: true}).getByRole('button', {name: 'Bugün', exact: true}).click();
+  await expect(page.getByTestId('agent-house')).toHaveCount(0);
+  await expect(page.getByRole('navigation', {name: 'Mobil gezinme'})).toBeVisible();
+});
+
 test('altı oda kendi notunu açar, görseller yüklenir ve odak not defterinde kalır', async ({page}) => {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));

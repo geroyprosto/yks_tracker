@@ -8,8 +8,9 @@
 .lamplight { left:78.5%; top:52%; width:4%; height:9%; background:#ffd98022; animation-delay:-3s; }
 .twinkle { position:absolute; left:25.7%; top:3.4%; width:3px; height:3px; background:#ffe3a2; box-shadow:0 0 6px #ffe3a288; animation:twinkle 7s steps(2,end) infinite; }
 .twinkle:last-child { left:89.4%; top:94%; animation-delay:-4s; }
-.mascot { position:absolute; width:8%; min-width:28px; max-width:100px; transform:translate(-50%,-100%); pointer-events:none; z-index:2; }
-.mascotBody { display:block; width:100%; height:auto; image-rendering:pixelated; filter:hue-rotate(var(--mascot-hue)) drop-shadow(0 2px 0 #14262588); animation:mascotBob 4s steps(2,end) infinite; animation-delay:var(--mascot-delay); transform-origin:50% 100%; user-select:none; }
+/* All six square sprites place their feet near 98% of the canvas height. */
+.mascot { position:absolute; width:8%; min-width:28px; max-width:100px; transform:translate(-50%,-98%); pointer-events:none; z-index:2; }
+.mascotBody { display:block; width:100%; height:auto; image-rendering:pixelated; filter:drop-shadow(0 2px 0 #14262588); animation:mascotBob var(--mascot-duration) steps(2,end) infinite; animation-delay:var(--mascot-delay); transform-origin:50% 100%; user-select:none; }
 .mascotShadow { position:absolute; left:22%; right:22%; height:8%; bottom:-1%; border-radius:50%; background:#14241d55; }
 .mascotSpark { display:none; position:absolute; right:1%; top:30%; width:5px; height:5px; background:var(--room-accent); box-shadow:0 -4px 0 -1px var(--room-accent),0 4px 0 -1px var(--room-accent),-4px 0 0 -1px var(--room-accent),4px 0 0 -1px var(--room-accent); }
 .mascot[data-selected=true] .mascotSpark { display:block; }

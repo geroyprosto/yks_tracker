@@ -8,17 +8,17 @@ import styles from './agent-house-scene.module.css';
 
 type Room = {
   id: AgentHouseAgentId; label: string; name: string; description: string; color: string;
-  left: number; top: number; width: number; height: number; mascotX: number; mascotY: number; hue: number;
+  left: number; top: number; width: number; height: number; mascotX: number; mascotY: number;
 };
 
 // Coordinates are percentages of the 1536 × 1024 artwork, never of the legend.
 const rooms: Room[] = [
-  {id:'strategy', label:'YKS Stratejisti', name:'Kütüphane', description:'Hedeflerini ve çalışma yöntemini birlikte incele.', color:'#a9d4f2', left:9, top:10.8, width:26.1, height:33.7, mascotX:22, mascotY:43, hue:35},
-  {id:'tracking', label:'YKSİM Takipçisi', name:'Kayıt odası', description:'Çalışma kayıtlarını ve ilerleme tablolarını aç.', color:'#b4dfbd', left:37.1, top:10.8, width:25.7, height:33.7, mascotX:50, mascotY:43, hue:0},
-  {id:'discovery', label:'Keşif', name:'Fikir atölyesi', description:'Sana uygun kaynaklara ve yeni fikirlere göz at.', color:'#d2c0f5', left:65.1, top:10.8, width:25.8, height:33.7, mascotX:78, mascotY:43, hue:130},
-  {id:'awareness', label:'Öz Farkındalık', name:'Dinlenme odası', description:'Odak ve günlük düzen için küçük adımları keşfet.', color:'#f2b7c4', left:9, top:48.1, width:26.1, height:37.5, mascotX:22, mascotY:85.4, hue:210},
-  {id:'leader', label:'Lider', name:'Buluşma odası', description:'Ekibin ortak değerlendirmesini ve ilk adımını gör.', color:'#f5d58e', left:37.1, top:48.1, width:25.7, height:37.5, mascotX:50, mascotY:85.4, hue:-80},
-  {id:'daily', label:'Günlük Rehber', name:'Planlama odası', description:'Günlük programını ve çalışma bloklarını aç.', color:'#f6bd93', left:65.1, top:48.1, width:25.8, height:37.5, mascotX:78, mascotY:85.4, hue:-115},
+  {id:'strategy', label:'YKS Stratejisti', name:'Kütüphane', description:'Hedeflerini ve çalışma yöntemini birlikte incele.', color:'#a9d4f2', left:9, top:10.8, width:26.1, height:33.7, mascotX:22, mascotY:43},
+  {id:'tracking', label:'YKSİM Takipçisi', name:'Kayıt odası', description:'Çalışma kayıtlarını ve ilerleme tablolarını aç.', color:'#b4dfbd', left:37.1, top:10.8, width:25.7, height:33.7, mascotX:50, mascotY:43},
+  {id:'discovery', label:'Keşif', name:'Fikir atölyesi', description:'Sana uygun kaynaklara ve yeni fikirlere göz at.', color:'#d2c0f5', left:65.1, top:10.8, width:25.8, height:33.7, mascotX:78, mascotY:43},
+  {id:'awareness', label:'Öz Farkındalık', name:'Dinlenme odası', description:'Odak ve günlük düzen için küçük adımları keşfet.', color:'#f2b7c4', left:9, top:48.1, width:26.1, height:37.5, mascotX:22, mascotY:85.4},
+  {id:'leader', label:'Lider', name:'Buluşma odası', description:'Ekibin ortak değerlendirmesini ve ilk adımını gör.', color:'#f5d58e', left:37.1, top:48.1, width:25.7, height:37.5, mascotX:50, mascotY:85.4},
+  {id:'daily', label:'Günlük Rehber', name:'Planlama odası', description:'Günlük programını ve çalışma bloklarını aç.', color:'#f6bd93', left:65.1, top:48.1, width:25.8, height:37.5, mascotX:78, mascotY:85.4},
 ];
 
 type SceneStyle = CSSProperties & Record<`--${string}`, string>;
@@ -48,9 +48,9 @@ export function AgentHouseScene({selected, onSelect, readyIds = [], reduceMotion
         <div className={styles.atmosphere} aria-hidden="true">
           <span className={styles.firelight}/><span className={styles.lamplight}/><span className={styles.twinkle}/><span className={styles.twinkle}/>
         </div>
-        {rooms.map((room, index) => <div key={room.id} className={styles.mascot} data-mascot-id={room.id} data-selected={selected === room.id} style={{left:`${room.mascotX}%`, top:`${room.mascotY}%`, '--mascot-hue':`${room.hue}deg`, '--mascot-delay':`${index * -.65}s`, '--room-accent':room.color} as SceneStyle} aria-hidden="true">
+        {rooms.map((room, index) => <div key={room.id} className={styles.mascot} data-mascot-id={room.id} data-selected={selected === room.id} style={{left:`${room.mascotX}%`, top:`${room.mascotY}%`, '--mascot-duration':`${4 + index * .35}s`, '--mascot-delay':`${index * -.65}s`, '--room-accent':room.color} as SceneStyle} aria-hidden="true">
           <span className={styles.mascotShadow}/>
-          <Image className={styles.mascotBody} src="/agent-house/pixel-mascot-v1.png" alt="" width={1254} height={1254} sizes="(max-width:520px) 40px, (max-width:1000px) 80px, 100px" loading="eager" draggable={false}/>
+          <Image className={styles.mascotBody} data-testid={`agent-mascot-${room.id}`} src={`/agent-house/mascot-${room.id}-v1.png`} alt="" width={1254} height={1254} sizes="(max-width:520px) 40px, (max-width:1000px) 80px, 100px" loading="eager" draggable={false}/>
           <span className={styles.mascotSpark}/>
         </div>)}
       </div>

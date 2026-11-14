@@ -1,29 +1,17 @@
 'use client';
 
 import {useCallback, useEffect, useRef, useState} from 'react';
-import {ArrowDownToLine, ArrowUpRight, BookOpen, CalendarDays, ChevronDown, FileText, RefreshCw} from 'lucide-react';
+import {ArrowDownToLine, ArrowUpRight, ChevronDown, ChevronRight, FileText, House, RefreshCw} from 'lucide-react';
 import {agentHouseReportMaxBytes, agentHouseReportSchema, type AgentHouseAgentId, type AgentHouseRuns, type AgentHouseMode} from '@/lib/agent-house';
 import {AgentHouseScene} from './agent-house-scene';
+import {AgentHouseReport} from './agent-house-report';
+import {agentRooms, reportDate} from './agent-house-meta';
 import {Analysis} from './analysis';
 import styles from './agent-house.module.css';
 
-const rooms: Record<AgentHouseAgentId, {name: string; title: string; description: string}> = {
-  leader: {name: 'Lider', title: 'Büyük resim', description: 'Ekibin ortak değerlendirmesi, önceliklerin ve atacağın ilk adım.'},
-  strategy: {name: 'YKS Stratejisti', title: 'Çalışmanın yönü', description: 'Hangi konuyu, neden ve nasıl çalışacağın; haftanın hedefleri ve dayanakları.'},
-  tracking: {name: 'YKSİM Takipçisi', title: 'İlerlemenin kaydı', description: 'Çalışma sürelerin, konu ilerlemen ve denemelerin. Eksik kayıtlar ayrıca belirtilir.'},
-  awareness: {name: 'Öz Farkındalık', title: 'Kendi ritmini keşfet', description: 'Odak, dinlenme ve günlük düzen için sana sunulan gözlemler ve küçük denemeler.'},
-  daily: {name: 'Günlük Rehber', title: 'Günün akışı', description: 'Derslerin ve diğer işlerin, uygun saatlerine yerleştirilmiş hâli.'},
-  discovery: {name: 'Keşif', title: 'Yeni bir pencere', description: 'Sana uygun fikirler, kaynaklar ve fırsatlar; neden seçildikleriyle birlikte.'},
-};
 const emptyRuns: AgentHouseRuns = {live: [], sample: []};
 const statusLabels = {ready: 'Rapor hazır', no_data: 'Veri bekliyor', skipped: 'Bu akışta çalışmadı'};
-
-function date(value: string, time = false) {
-  const parsed = new Date(value.length === 10 ? `${value}T12:00:00Z` : value);
-  return Number.isFinite(parsed.getTime()) ? new Intl.DateTimeFormat('tr-TR', {
-    dateStyle: 'medium', ...(time ? {timeStyle: 'short' as const} : {}), timeZone: 'Europe/Istanbul',
-  }).format(parsed) : value;
-}
+const roomOrder: AgentHouseAgentId[] = ['leader', 'daily', 'strategy', 'tracking', 'awareness', 'discovery'];
 
 function responseError(body: unknown) {
   if (body && typeof body === 'object' && 'error' in body) {
@@ -59,6 +47,7 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
   const [notice, setNotice] = useState('');
   const [importing, setImporting] = useState(false);
   const [showLegacy, setShowLegacy] = useState(false);
+  const [showHouse, setShowHouse] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
   const request = useRef<AbortController | null>(null);
 
@@ -95,12 +84,13 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
   const available = runs[activeMode];
   const report = available.find(run => run.run_id === runId) ?? available[0];
   const agent = report?.agents.find(item => item.id === selected);
-  const room = rooms[selected];
+  const room = agentRooms[selected];
+  const RoomIcon = room.icon;
   const readyIds = report?.agents.filter(item => item.status === 'ready').map(item => item.id) ?? [];
 
   const selectRoom = (id: AgentHouseAgentId) => {
     setSelected(id);
-    requestAnimationFrame(() => heading.current?.focus({preventScroll: true}));
+    requestAnimationFrame(() => heading.current?.focus());
   };
   const importReport = async (file: File) => {
     setImporting(true); setNotice(''); setError('');
@@ -124,36 +114,45 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
   };
 
   return <div className={styles.workspace} data-testid="agent-house">
-    <header className={styles.intro}>
-      <div><span className={styles.eyebrow}>SANA AİT BİR ÇALIŞMA ALANI</span><p>Her odada, hayatının bir alanına açılan bir pencere.</p></div>
-      <button type="button" className={styles.refresh} disabled={loading} onClick={() => void load()}><RefreshCw size={15} aria-hidden="true"/>{loading ? 'Yükleniyor' : 'Yenile'}</button>
-    </header>
+    <div className={styles.studioBar}>
+      <div className={styles.studioLabel}><span className={styles.studioMark}><House size={19} aria-hidden="true"/></span><div><strong>{report ? `${reportDate(report.week_start)} haftası` : 'Kişisel çalışma stüdyon'}</strong><span>{report ? `${report.agents.length} oda · Tek bir bakış` : 'Ekibinle bir sonraki adımını bul'}</span></div></div>
+      <button type="button" className={styles.refresh} disabled={loading} onClick={() => void load()}><RefreshCw size={16} aria-hidden="true" className={loading ? styles.spinning : ''}/>{loading ? 'Yükleniyor' : 'Yenile'}</button>
+    </div>
     {error && <div className={styles.error} role="alert">{error}</div>}
     {notice && <p className={styles.notice} role="status">{notice}</p>}
     <div className={styles.toolbar}>
       <div className={styles.modes} aria-label="Rapor türü">{(['live', 'sample'] as const).map(value => <button type="button" key={value} aria-pressed={activeMode === value} onClick={() => {setMode(value); setRunId('');}}>{value === 'live' ? 'Benim raporlarım' : 'Örnek akış'}</button>)}</div>
-      {available.length > 0 && <label className={styles.history}>Rapor<select value={report?.run_id ?? ''} onChange={event => setRunId(event.target.value)}>{available.map(run => <option key={run.run_id} value={run.run_id}>{date(run.week_start)} haftası · {date(run.generated_at, true)}</option>)}</select></label>}
+      {available.length > 0 && <label className={styles.history}>Rapor<select value={report?.run_id ?? ''} onChange={event => setRunId(event.target.value)}>{available.map(run => <option key={run.run_id} value={run.run_id}>{reportDate(run.week_start)} haftası · {reportDate(run.generated_at, true)}</option>)}</select></label>}
     </div>
     {activeMode === 'sample' && <p className={styles.sampleNotice}><span>ÖRNEK VERİ</span> Bu bölüm, ajan akışının nasıl göründüğünü gösterir. Kişisel çalışma kaydın değildir.</p>}
-    <section className={styles.house} aria-label="Ajan evinin odaları">
-      <div className={styles.houseHeading}><span>EVİM</span><span>İncelemek için bir odaya dokun</span></div>
-      <AgentHouseScene selected={selected} onSelect={selectRoom} readyIds={readyIds}/>
-      <div className={styles.houseFoot}><span><i aria-hidden="true"/>{readyIds.length} odada rapor hazır</span><span>{report ? `${date(report.week_start)} haftası` : 'İlk raporun için hazır'}</span></div>
-    </section>
-    <section className={styles.report} aria-labelledby="agent-report-heading" data-testid="agent-room-report">
-      <header className={styles.reportHeader}><div><span className={styles.eyebrow}>{room.name}</span><h2 ref={heading} tabIndex={-1} id="agent-report-heading">{room.title}</h2><p>{room.description}</p></div><span className={styles.status}>{agent ? statusLabels[agent.status] : loading ? 'Yükleniyor' : 'Rapor bekliyor'}</span></header>
-      {agent ? <>
-        <div className={styles.summary}><p>{agent.summary}</p></div>
-        {agent.recommendations.length > 0 && <section className={styles.recommendations}><h3>Öneriler ve sonraki adımlar</h3><ol>{agent.recommendations.map((item, index) => <li key={index}><span aria-hidden="true">{String(index + 1).padStart(2, '0')}</span><p>{item}</p></li>)}</ol></section>}
-        {agent.schedule.length > 0 && <section className={styles.schedule}><h3><CalendarDays size={18} aria-hidden="true"/>Programın</h3>{[...new Set(agent.schedule.map(block => block.date))].sort().map(day => <div className={styles.scheduleDay} key={day}><h4>{date(day)}</h4><ol>{agent.schedule.filter(block => block.date === day).toSorted((a, b) => a.start.localeCompare(b.start)).map((block, index) => <li key={index}><time>{block.start}–{block.end}</time><div><strong>{block.title}</strong>{block.detail && <p>{block.detail}</p>}</div></li>)}</ol></div>)}</section>}
-        {agent.tables.map((table, index) => <section className={styles.dataSection} key={index}><h3>{table.title}</h3><div className={styles.tableScroll} role="region" aria-label={table.title} tabIndex={0}><table><thead><tr>{table.columns.map((column, columnIndex) => <th key={columnIndex} scope="col">{column}</th>)}</tr></thead><tbody>{table.rows.map((row, rowIndex) => <tr key={rowIndex}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody></table></div>{!table.rows.length && <p className={styles.muted}>Bu tabloda henüz kayıt yok.</p>}</section>)}
-        {agent.sources.length > 0 && <section className={styles.sources}><h3><BookOpen size={17} aria-hidden="true"/>Kaynaklar ve dayanaklar</h3><ul>{agent.sources.map((source, index) => <li key={index}>{source.url ? <a href={source.url} target="_blank" rel="noopener noreferrer">{source.title}<ArrowUpRight size={14} aria-hidden="true"/></a> : <strong>{source.title}</strong>}{source.note && <p>{source.note}</p>}</li>)}</ul></section>}
-        <footer className={styles.reportFooter}><FileText size={14} aria-hidden="true"/><span>{report?.title} · {report && date(report.generated_at, true)}</span></footer>
-      </> : <div className={styles.empty}><FileText size={25} aria-hidden="true"/><h3>{loading ? 'Raporlar getiriliyor…' : 'Bu odanın raporu henüz gelmedi'}</h3><p>Liderle konuşup bir değerlendirme veya program hazırlattığında, buraya kaydedilen sonucu bu odada göreceksin.</p>{!loading && activeMode === 'live' && runs.sample.length > 0 && <button type="button" onClick={() => {setMode('sample'); setRunId('');}}>Örnek akışı incele <ArrowUpRight size={15} aria-hidden="true"/></button>}</div>}
-    </section>
+    <div className={styles.studio}>
+      <aside className={styles.roomRail} aria-label="Ajan evinin odaları">
+        <div className={styles.railHeading}><span>EKİBİN</span><span>{roomOrder.length} oda</span></div>
+        <nav className={styles.roomNav} aria-label="Ajan odaları">{roomOrder.map(id => {
+          const info = agentRooms[id]; const Icon = info.icon; const data = report?.agents.find(item => item.id === id);
+          return <button type="button" key={id} data-room-id={id} data-room={id} aria-label={`${info.name} odası`} aria-pressed={selected === id} onClick={() => selectRoom(id)}>
+            <span className={styles.roomIcon}><Icon size={21} aria-hidden="true"/></span><span className={styles.roomText}><strong>{info.name}</strong><small>{info.short}</small></span><span className={styles.roomDot} data-ready={data?.status === 'ready'} aria-label={data ? statusLabels[data.status] : 'Rapor bekliyor'}/><ChevronRight className={styles.roomArrow} size={15} aria-hidden="true"/>
+          </button>;
+        })}</nav>
+        <div className={styles.railNote}><span className={styles.noteLine}/><p>Bir oda seç.<br/><strong>Kendine yeni bir açıdan bak.</strong></p></div>
+      </aside>
+      <section className={styles.report} data-room={selected} aria-labelledby="agent-report-heading" data-testid="agent-room-report">
+        <header className={styles.reportHeader}>
+          <div className={styles.reportTitle}><span className={styles.reportAvatar}><RoomIcon size={27} aria-hidden="true"/></span><div><span className={styles.eyebrow}>{room.name}</span><h2 ref={heading} tabIndex={-1} id="agent-report-heading">{room.title}</h2></div></div>
+          <span className={styles.status} data-status={agent?.status ?? 'waiting'}><i aria-hidden="true"/>{agent ? statusLabels[agent.status] : loading ? 'Yükleniyor' : 'Rapor bekliyor'}</span>
+        </header>
+        <p className={styles.reportDescription}>{room.description}</p>
+        {agent ? <AgentHouseReport key={`${activeMode}:${report?.run_id}:${selected}`} agent={agent}/> : loading ? <div className={styles.skeleton} role="status" aria-label="Raporlar getiriliyor"><span/><span/><span/><div/><span/><span/></div> : <div className={styles.empty}><span><FileText size={28} aria-hidden="true"/></span><h3>Bu odanın raporu henüz gelmedi</h3><p>Liderle konuşup bir değerlendirme veya program hazırlattığında, buraya kaydedilen sonucu bu odada göreceksin.</p>{activeMode === 'live' && runs.sample.length > 0 && <button type="button" onClick={() => {setMode('sample'); setRunId('');}}>Örnek akışı incele <ArrowUpRight size={17} aria-hidden="true"/></button>}</div>}
+        {agent && <footer className={styles.reportFooter}><FileText size={15} aria-hidden="true"/><span>{report?.title}<br/><time>{report && reportDate(report.generated_at, true)}</time></span></footer>}
+      </section>
+    </div>
+    <details className={styles.house} onToggle={event => setShowHouse(event.currentTarget.open)}>
+      <summary><span className={styles.housePreview} aria-hidden="true"><House size={29}/><i/><i/><i/></span><span><strong>Evi keşfet</strong><small>Odaların arasında gezin, ekibinle tanış.</small></span><span className={styles.houseReady}>{readyIds.length} odada rapor hazır</span><ChevronDown size={20} aria-hidden="true"/></summary>
+      {showHouse && <AgentHouseScene selected={selected} onSelect={selectRoom} readyIds={readyIds}/>}
+    </details>
     <div className={styles.utilities}>
       <button type="button" aria-expanded={showLegacy} aria-controls="previous-analysis" onClick={() => setShowLegacy(!showLegacy)}><FileText size={16} aria-hidden="true"/>Çalışma ölçütleri ve önceki analizler<ChevronDown size={15} aria-hidden="true"/></button>
-      <details className={styles.import}><summary><ArrowDownToLine size={15} aria-hidden="true"/>Hazır rapor aktar</summary><p>Liderin hazırladığı rapor dosyasını hesabına ekleyebilirsin.</p><label>{importing ? 'Kaydediliyor…' : 'Rapor dosyasını seç'}<input type="file" accept="application/json,.json" aria-label="Rapor dosyasını seç" disabled={importing} onChange={event => {const file = event.target.files?.[0]; if (file) void importReport(file); event.target.value = '';}}/></label></details>
+      <details className={styles.import}><summary><ArrowDownToLine size={16} aria-hidden="true"/>Hazır rapor aktar</summary><p>Liderin hazırladığı rapor dosyasını hesabına ekleyebilirsin.</p><label>{importing ? 'Kaydediliyor…' : 'Rapor dosyasını seç'}<input type="file" accept="application/json,.json" aria-label="Rapor dosyasını seç" disabled={importing} onChange={event => {const file = event.target.files?.[0]; if (file) void importReport(file); event.target.value = '';}}/></label></details>
     </div>
     {showLegacy && <section id="previous-analysis" className={styles.legacy}><h2>Çalışma ölçütleri ve önceki analizler</h2><Analysis {...props}/></section>}
   </div>;

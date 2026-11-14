@@ -22,6 +22,14 @@ Parlak üst alan dekoratiftir; başlık, işlem düğmeleri ve metinler koyu gö
 
 Günlük ilerleme ve ders dağılımı kartlarının zemini nötr kalır. Kalın halkalar, sayısal açıklamalar ve seçili menü tamamlayıcı vurgu renklerini kullanır. Sade görünüm geçişli kartları düz koyu tona indirir, dekoratif üst geçişi kapatır.
 
+## Ajan Evi raporları
+
+Ajan Evi'nde rapor, oda seçiminin yanında açılır. Ev haritası isteğe bağlı açılır; ilk ekranda raporun önüne geçmez. Mobilde oda seçimi üç sütunlu düğmelere, raporlar tek sütuna geçer. Değerlendirme ve öneri metinleri 16 piksel taban boyutu ve rahat satır aralığıyla gösterilir; uzun değerlendirme tek düğmeyle genişletilir.
+
+Özet, Program, Veriler ve Kaynaklar sekmeleri yalnız ilgili içerik varsa görünür. İlk öneri öne çıkar; diğer adımlar açılabilir. Tablo seçimi ve on satırlık sayfalama, uzun raporun bütün satırlarına erişimi korur. Haftalık program açık saatli `schedule` kayıtlarından veya tam olarak `Gün / Sıra / Çalışma / Süre / Nasıl yapacaksın?` sütunlarına sahip rapor tablosundan oluşturulur. Diğer tablolar genel veri görünümünde kalır; metinden tahmini süre veya başarı puanı üretilmez.
+
+Oda, sekme ve gün seçimi yalnız görüntüyü değiştirir; çalışma görevlerini veya raporu güncellemez. Örnek ve kişisel raporlar ayrı kalır. Veri bekleyen bir odanın açıklaması ve önerileri okunabilir. Klavye odakları görünürdür, bölüm sekmeleri ok/Home/End tuşlarını destekler ve azaltılmış hareket tercihinde giriş animasyonları kapatılır.
+
 ## Eski tercihler
 
 Kaldırılan temalar güvenli biçimde eşlenir: Çelik Mavisi → Okyanus, Grafit / Orman → Siyah, Aurora → Beyaz, Bordo → Gül. Sunucu eski tema kimliklerini kayıt uyumluluğu için kabul etmeye devam eder. Sayfa açılırken otomatik API yazma isteği gönderilmez.

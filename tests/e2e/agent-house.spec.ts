@@ -21,6 +21,34 @@ function report(mode: 'sample' | 'live', runId: string = mode): AgentHouseReport
   };
 }
 
+const longDetail = 'Bu sentetik programda çalışmanın tamamlanma ölçütü ve kaynak notu birlikte korunur. '.repeat(9).trim();
+
+function longReport(): AgentHouseReport {
+  const result = report('sample', 'long-synthetic');
+  const strategy = result.agents.find(agent => agent.id === 'strategy')!;
+  strategy.summary += ` ${longDetail} Son değerlendirme kontrolü.`;
+  strategy.recommendations = Array.from({length: 12}, (_, index) => `Deneme önerisi ${index + 1}. ${longDetail.slice(0, 320)}`);
+  strategy.sources = Array.from({length: 16}, (_, index) => ({
+    title: `Sentetik kaynak ${index + 1}`, url: `https://example.org/sources/${index + 1}`, note: longDetail,
+  }));
+  strategy.tables = [{
+    title: 'Ayrıntılı çalışma görevleri',
+    columns: ['Kayıt', 'Uzun konu başlığı', 'Kayıtlı süre', 'Başarı ölçütü', 'Yöntem açıklaması'],
+    rows: Array.from({length: 100}, (_, index) => [`Sentetik satır ${index + 1}`, 'ÇokUzunBoşluksuzAlan'.repeat(14),
+      `${index + 1} dk`, `Sonuç kontrolü ${index + 1}`, longDetail.slice(0, 200)]),
+  }, {
+    title: 'Ayrı doğrulama tablosu', columns: ['Aşama', 'Sonuç'], rows: [['Son kontrol', 'İkinci tablo uç kaydı']],
+  }];
+  const daily = result.agents.find(agent => agent.id === 'daily')!;
+  daily.schedule = [
+    {date: '2026-11-18', start: '19:00', end: '19:35', title: 'Çarşamba son oturumu', detail: longDetail},
+    {date: '2026-11-16', start: '08:00', end: '08:25', title: 'Pazartesi açılışı', detail: 'Önceki yanlışları kayıttan aç.'},
+    {date: '2026-11-18', start: '16:00', end: '16:25', title: 'Çarşamba ilk oturumu', detail: 'Deneme ölçütlerini kontrol et.'},
+    {date: '2026-11-22', start: '11:00', end: '11:20', title: 'Pazar son kontrolü', detail: 'Bütün sentetik görevleri gözden geçir.'},
+  ];
+  return result;
+}
+
 async function openHouse(page: Page, width: number, runs: AgentHouseRuns, fail = false) {
   await page.setViewportSize({width, height: 1000});
   await page.clock.setFixedTime(new Date(now));
@@ -35,8 +63,14 @@ async function openHouse(page: Page, width: number, runs: AgentHouseRuns, fail =
     return route.fulfill(fail ? {status: 503, json: {error: {message: 'Rapor bağlantısı geçici olarak kesildi.'}}} : {json: {runs}});
   });
   await page.goto('/');
-  if (width < 760) await page.getByRole('button', {name: 'Menüyü aç', exact: true}).click();
-  await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz', exact: true}).click();
+  const navigation = page.getByRole('navigation', {name: 'Ana gezinme'});
+  if (width <= 760) {
+    const menu = page.getByRole('button', {name: 'Menüyü aç', exact: true});
+    await expect(menu).toBeVisible();
+    await menu.click();
+    await expect(page.locator('aside.sidebar.is-open').getByRole('navigation', {name: 'Ana gezinme'})).toBeInViewport();
+  }
+  await navigation.getByRole('button', {name: 'Analiz', exact: true}).click();
   await expect(page.getByTestId('agent-house')).toBeVisible();
   await expect(page.getByTestId('agent-house').getByRole('button', {name: 'Yenile', exact: true})).toBeEnabled();
   return {writes: () => writes, gets: () => gets};
@@ -58,13 +92,16 @@ for (const width of [360, 1280]) test(`ajan evi odaları raporu ve programı aç
   await expect(strategist).toHaveAttribute('aria-pressed', 'true');
   await expect(detail.getByRole('heading', {name: 'Çalışmanın yönü'})).toBeFocused();
   await expect(detail).toContainText('Önce problem çözümündeki yanlışlarını incele.');
+  await detail.getByRole('tab', {name: /^Kaynaklar\b/}).click();
   await expect(detail.getByRole('link', {name: 'Öğrenme araştırması'})).toHaveAttribute('href', 'https://example.org/research');
 
   await house.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true}).click();
+  await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
   await expect(detail.getByRole('table')).toContainText('Matematik');
   await expect(detail.getByRole('table')).toContainText('90 dk');
 
   await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await detail.getByRole('tab', {name: 'Program', exact: true}).click();
   await expect(detail).toContainText('17:00–17:25');
   await expect(detail).toContainText('Problemler');
   await expect(detail).toContainText('Yanlışların nedenlerini not et.');
@@ -78,16 +115,203 @@ for (const width of [360, 1280]) test(`ajan evi odaları raporu ve programı aç
   await expect(detail).toContainText('Örnek Keşif değerlendirmesi.');
   await expect(detail).not.toContainText('Kişisel');
   await house.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true}).click();
+  await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
   await expect(detail.getByRole('table')).toContainText('25 dk');
   await expect(detail.getByRole('table')).not.toContainText('90 dk');
   await house.getByRole('button', {name: 'Benim raporlarım', exact: true}).click();
+  await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
   await expect(detail.getByRole('table')).toContainText('90 dk');
   await expect(house).not.toContainText('ÖRNEK VERİ');
 
   await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await detail.getByRole('tab', {name: 'Program', exact: true}).click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-  await page.screenshot({path: `artifacts/agent-house-${width}.png`, fullPage: true});
+  if (process.env.CAPTURE_AGENT_HOUSE_SCREENSHOT === '1') {
+    await page.screenshot({path: `artifacts/agent-house-${width}.png`, fullPage: true});
+  }
   expect(requests.gets()).toBeGreaterThanOrEqual(1);
+  expect(requests.writes()).toBe(0);
+});
+
+test('rapor sekmeleri yön tuşlarıyla açılır ve odalar kendi bölümlerini gösterir', async ({page}) => {
+  await openHouse(page, 768, {live: [], sample: [longReport()]});
+  const house = page.getByTestId('agent-house');
+  const detail = house.getByTestId('agent-room-report');
+  await house.getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
+  const tabs = detail.getByRole('tablist', {name: 'Rapor bölümleri'});
+  const summary = tabs.getByRole('tab', {name: 'Özet', exact: true});
+  const data = tabs.getByRole('tab', {name: 'Veriler', exact: true});
+  const sources = tabs.getByRole('tab', {name: /^Kaynaklar\b/});
+  const panel = detail.getByRole('tabpanel');
+  await expect(summary).toHaveAttribute('aria-selected', 'true');
+  await expect(summary).toHaveAttribute('tabindex', '0');
+  await expect(data).toHaveAttribute('tabindex', '-1');
+  await summary.press('ArrowRight');
+  await expect(data).toBeFocused();
+  await expect(data).toHaveAttribute('aria-selected', 'true');
+  await expect(panel.getByRole('table')).toContainText('Sentetik satır 1');
+  await data.press('End');
+  await expect(sources).toBeFocused();
+  await expect(sources).toHaveAttribute('aria-selected', 'true');
+  await expect(panel.getByRole('link', {name: /^Sentetik kaynak 16\b/})).toBeVisible();
+  await sources.press('Home');
+  await expect(summary).toBeFocused();
+  await expect(panel).toContainText('Örnek YKS Stratejisti değerlendirmesi.');
+  await summary.press('ArrowLeft');
+  await expect(sources).toBeFocused();
+  await expect(sources).toHaveAttribute('aria-selected', 'true');
+
+  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await expect(summary).toHaveAttribute('aria-selected', 'true');
+  await expect(tabs.getByRole('tab', {name: 'Program', exact: true})).toBeVisible();
+  await expect(data).toHaveCount(0);
+  await expect(sources).toHaveCount(0);
+});
+
+test('uzun örnek raporda son öneri, kaynak ve yüz satırın tamamı okunabilir', async ({page}) => {
+  const sample = longReport();
+  await openHouse(page, 1280, {live: [], sample: [sample]});
+  const house = page.getByTestId('agent-house');
+  await house.getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
+  const detail = house.getByTestId('agent-room-report');
+  const panel = detail.getByRole('tabpanel');
+  const strategy = sample.agents.find(agent => agent.id === 'strategy')!;
+  const fullSummary = panel.getByText(strategy.summary, {exact: true});
+  await expect(fullSummary).toBeHidden();
+  await panel.getByRole('button', {name: 'Değerlendirmenin tamamını oku'}).click();
+  await expect(fullSummary).toBeVisible();
+  await panel.getByRole('button', {name: 'Özeti daralt'}).click();
+  await expect(fullSummary).toBeHidden();
+  await expect(panel.getByText(strategy.recommendations[0], {exact: true})).toBeVisible();
+  const finalRecommendation = panel.getByText(strategy.recommendations[11], {exact: true});
+  await expect(finalRecommendation).toBeHidden();
+  await panel.locator('summary').filter({hasText: /Öneri 12/}).click();
+  await expect(finalRecommendation).toBeVisible();
+
+  await detail.getByRole('tab', {name: /^Kaynaklar\b/}).click();
+  await expect(panel.getByRole('link')).toHaveCount(16);
+  await expect(panel.getByRole('link', {name: /^Sentetik kaynak 16\b/})).toHaveAttribute('href', 'https://example.org/sources/16');
+
+  await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
+  const firstTable = strategy.tables[0];
+  const table = panel.getByRole('table');
+  const next = panel.getByRole('button', {name: 'Sonraki satırlar', exact: true});
+  const previous = panel.getByRole('button', {name: 'Önceki satırlar', exact: true});
+  await expect(previous).toBeDisabled();
+  for (let start = 0; start < firstTable.rows.length; start += 10) {
+    const rows = firstTable.rows.slice(start, start + 10);
+    await expect(table.locator('tbody tr td:first-child')).toHaveText(rows.map(row => row[0]));
+    if (start + rows.length < firstTable.rows.length) await next.click();
+  }
+  await expect(next).toBeDisabled();
+  await previous.click();
+  await expect(table.getByRole('cell', {name: 'Sentetik satır 81', exact: true})).toBeVisible();
+  await panel.getByRole('button', {name: /Ayrı doğrulama tablosu/}).click();
+  await expect(table).toContainText('İkinci tablo uç kaydı');
+  await panel.getByRole('button', {name: /Ayrıntılı çalışma görevleri/}).click();
+  await expect(table).not.toContainText('İkinci tablo uç kaydı');
+});
+
+test('tablo biçiminde gelen saat atanmamış program günlere ayrılır ve asıl kayıtlar okunabilir kalır', async ({page}) => {
+  const sample = report('sample');
+  const daily = sample.agents.find(agent => agent.id === 'daily')!;
+  daily.schedule = [];
+  daily.tables = [{title: 'Haftalık çalışma sırası', columns: ['Gün', 'Sıra', 'Çalışma', 'Süre', 'Nasıl yapacaksın?'], rows: [
+    ['Pazartesi', '1', 'Sentetik geometri tekrarı', '25 dk', 'Eski yanlışları yeniden dene.'],
+    ['Cuma', '1', 'Sentetik paragraf denemesi', '15 dk', 'İki yanlışın nedenini yaz.'],
+    ['Cuma', '2', 'Sentetik haftalık kontrol', '10 dk', 'Kaydedilen süreleri karşılaştır.'],
+  ]}];
+  await openHouse(page, 768, {live: [], sample: [sample]});
+  const house = page.getByTestId('agent-house');
+  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await house.getByRole('tab', {name: 'Program', exact: true}).click();
+  const plan = house.getByTestId('agent-plan');
+  await expect(plan.getByRole('button', {name: 'Pazartesi', exact: true})).toHaveAttribute('aria-pressed', 'true');
+  await expect(plan.getByText('Sentetik geometri tekrarı', {exact: true})).toBeVisible();
+  await plan.getByRole('button', {name: 'Cuma', exact: true}).click();
+  const friday = plan.getByTestId('agent-plan-day');
+  await expect(friday.getByRole('heading', {name: /^Sentetik/})).toHaveText(['Sentetik paragraf denemesi', 'Sentetik haftalık kontrol']);
+  await expect(friday).toContainText('15 dk');
+  await expect(friday).toContainText('Kaydedilen süreleri karşılaştır.');
+  await house.getByRole('tab', {name: 'Veriler', exact: true}).click();
+  await expect(house.getByRole('table').getByRole('row')).toHaveCount(4);
+});
+
+test('program tarih değiştirince yalnız seçilen günün bütün blokları gösterilir', async ({page}) => {
+  await openHouse(page, 768, {live: [], sample: [longReport()]});
+  const house = page.getByTestId('agent-house');
+  await house.getByRole('button', {name: 'Günlük Rehber odası', exact: true}).click();
+  await house.getByRole('tab', {name: 'Program', exact: true}).click();
+  const plan = house.getByTestId('agent-plan');
+  const day = plan.getByTestId('agent-plan-day');
+  const monday = plan.getByRole('button', {name: /\b16\b/});
+  const wednesday = plan.getByRole('button', {name: /\b18\b/});
+  const sunday = plan.getByRole('button', {name: /\b22\b/});
+  await expect(monday).toHaveAttribute('aria-pressed', 'true');
+  await expect(plan.getByText('Pazartesi açılışı', {exact: true})).toBeVisible();
+  await expect(plan.getByText('Çarşamba son oturumu', {exact: true})).toHaveCount(0);
+
+  await wednesday.press('Enter');
+  await expect(wednesday).toHaveAttribute('aria-pressed', 'true');
+  await expect(monday).toHaveAttribute('aria-pressed', 'false');
+  await expect(plan.getByText('Pazartesi açılışı', {exact: true})).toHaveCount(0);
+  const last = plan.getByText('Çarşamba son oturumu', {exact: true});
+  await expect(day.getByRole('heading', {name: /Çarşamba .* oturumu/})).toHaveText(['Çarşamba ilk oturumu', 'Çarşamba son oturumu']);
+  await expect(plan.getByText(longDetail, {exact: true})).toBeVisible();
+
+  await sunday.click();
+  await expect(sunday).toHaveAttribute('aria-pressed', 'true');
+  await expect(plan.getByText('Pazar son kontrolü', {exact: true})).toBeVisible();
+  await expect(last).toHaveCount(0);
+  await monday.click();
+  await expect(plan.getByText('Önceki yanlışları kayıttan aç.', {exact: true})).toBeVisible();
+});
+
+for (const width of [320, 768, 1024, 1440]) test(`uzun ajan raporu sayfayı taşırmaz · ${width}px`, async ({page}) => {
+  await openHouse(page, width, {live: [], sample: [longReport()]});
+  const house = page.getByTestId('agent-house');
+  const detail = house.getByTestId('agent-room-report');
+  await house.getByRole('button', {name: 'YKS Stratejisti odası', exact: true}).click();
+  await detail.getByRole('tab', {name: 'Veriler', exact: true}).click();
+  await expect(detail.getByRole('table')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await detail.getByRole('tab', {name: /^Kaynaklar\b/}).click();
+  await expect(detail.getByRole('link', {name: /^Sentetik kaynak 16\b/})).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test('azaltılmış hareket tercihinde ev açılır ve oda kontrolü animasyonsuz çalışır', async ({page}) => {
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  await openHouse(page, 1440, {live: [], sample: [report('sample')]});
+  const house = page.getByTestId('agent-house');
+  const scene = house.getByTestId('agent-house-scene');
+  await expect(scene).toBeHidden();
+  await house.locator('summary').filter({hasText: /Evi keşfet/}).click();
+  await expect(scene).toBeVisible();
+  const room = scene.getByRole('button', {name: 'YKSİM Takipçisi odası', exact: true});
+  await expect(room).toHaveCSS('animation-name', 'none');
+  await expect(room).toHaveCSS('transition-duration', '0s');
+  await room.press('Enter');
+  await expect(room).toHaveAttribute('aria-pressed', 'true');
+  await expect(house.getByRole('heading', {name: 'İlerlemenin kaydı', exact: true})).toBeFocused();
+});
+
+test('ajan evi seçilen geçmiş raporun içeriğini gösterir', async ({page}) => {
+  const earlier = report('live', 'earlier-report');
+  earlier.generated_at = '2026-11-07T09:00:00.000Z';
+  earlier.week_start = '2026-11-09';
+  earlier.agents[0].summary = 'Daha erken tarihli sentetik lider değerlendirmesi.';
+  const requests = await openHouse(page, 1280, {live: [report('live'), earlier], sample: [report('sample')]});
+  const house = page.getByTestId('agent-house');
+  const detail = page.getByTestId('agent-room-report');
+  const history = house.getByRole('combobox', {name: 'Rapor', exact: true});
+  await expect(history).toHaveValue('live');
+  await expect(detail).toContainText('Kişisel Lider değerlendirmesi.');
+  await history.selectOption('earlier-report');
+  await expect(detail).toContainText(earlier.agents[0].summary);
+  await expect(detail).not.toContainText('Kişisel Lider değerlendirmesi.');
+  await history.selectOption('live');
+  await expect(detail).toContainText('Kişisel Lider değerlendirmesi.');
   expect(requests.writes()).toBe(0);
 });
 

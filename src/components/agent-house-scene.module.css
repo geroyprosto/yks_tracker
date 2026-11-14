@@ -8,12 +8,42 @@
 .lamplight { left:78.5%; top:52%; width:4%; height:9%; background:#ffd98022; animation-delay:-3s; }
 .twinkle { position:absolute; left:25.7%; top:3.4%; width:3px; height:3px; background:#ffe3a2; box-shadow:0 0 6px #ffe3a288; animation:twinkle 7s steps(2,end) infinite; }
 .twinkle:last-child { left:89.4%; top:94%; animation-delay:-4s; }
-/* All six square sprites place their feet near 98% of the canvas height. */
-.mascot { position:absolute; width:8%; min-width:28px; max-width:100px; transform:translate(-50%,-98%); pointer-events:none; z-index:2; }
-.mascotBody { display:block; width:100%; height:auto; image-rendering:pixelated; filter:drop-shadow(0 2px 0 #14262588); animation:mascotBob var(--mascot-duration) steps(2,end) infinite; animation-delay:var(--mascot-delay); transform-origin:50% 100%; user-select:none; }
+.motionLayer { position:absolute; inset:0; z-index:2; pointer-events:none; }
+.doorway { position:absolute; transform:translate(-50%,-50%); width:3.1%; height:7.7%; background:repeating-linear-gradient(0deg,#895a39 0 22%,#72472e 22% 26%,#895a39 26% 48%); border-top:3px solid #cb9a60; border-bottom:3px solid #34271f; box-shadow:inset 4px 0 #35271e,inset -4px 0 #aa794a,0 -2px #493323,0 2px #bd8c53; }
+.doorway::before,.doorway::after { content:''; position:absolute; top:0; bottom:0; width:2px; background:#e0b27377; }
+.doorway::before { left:5px; }.doorway::after { right:5px; }
+.doorway[data-orientation=horizontal] { width:6%; height:4%; }
+.mascot { position:absolute; left:0; top:0; width:8%; min-width:28px; max-width:100px; transform:translate3d(var(--mascot-x),var(--mascot-y),0); transition:transform 160ms linear; pointer-events:none; }
+/* Each sprite's sole is near 98% of its square canvas. Translation lives on
+   a separate wrapper, keeping walking/working poses and facing independent. */
+.mascotFigure { position:relative; transform:translate(-50%,-98%); }
+.mascotPose { display:block; transform-origin:50% 100%; animation-delay:var(--mascot-delay); }
+.mascotBody { display:block; width:100%; height:auto; image-rendering:pixelated; filter:drop-shadow(0 2px 0 #14262588); transform:scaleX(var(--mascot-facing)); user-select:none; }
+.mascot[data-mascot-state=walking] .mascotPose { animation:mascotWalk .56s steps(2,end) infinite; animation-delay:var(--mascot-delay); }
+.mascot[data-mascot-state=working] .mascotPose { animation:mascotWork 1.8s ease-in-out infinite; animation-delay:var(--mascot-delay); }
+.mascot[data-mascot-state=visiting] .mascotPose { animation:mascotGreet 1.6s ease-in-out infinite; animation-delay:var(--mascot-delay); }
 .mascotShadow { position:absolute; left:22%; right:22%; height:8%; bottom:-1%; border-radius:50%; background:#14241d55; }
 .mascotSpark { display:none; position:absolute; right:1%; top:30%; width:5px; height:5px; background:var(--room-accent); box-shadow:0 -4px 0 -1px var(--room-accent),0 4px 0 -1px var(--room-accent),-4px 0 0 -1px var(--room-accent),4px 0 0 -1px var(--room-accent); }
 .mascot[data-selected=true] .mascotSpark { display:block; }
+.activityBubble { position:absolute; right:-7%; top:3%; display:flex; align-items:center; justify-content:center; gap:2px; min-width:24px; height:23px; padding:3px; color:#413321; background:#fff0c7; border:2px solid #5b432d; box-shadow:2px 2px 0 #16272166; }
+.activityBubble::after { content:''; position:absolute; bottom:-5px; left:5px; width:5px; height:5px; background:#fff0c7; border-right:2px solid #5b432d; border-bottom:2px solid #5b432d; }
+.activityBubble[data-activity=working] svg { animation:pencilWork 1.1s steps(2,end) infinite; }
+.activityBubble[data-activity=working] i { width:3px; height:3px; background:#a77c45; align-self:flex-end; margin-bottom:2px; box-shadow:0 -4px #cba16a; }
+.activityBubble[data-activity=visiting] { background:#e8f1c5; color:#476447; }
+.activityBubble[data-activity=visiting]::after { background:#e8f1c5; }
+.activityBubble[data-activity=visiting] svg { animation:waveGreeting 1.2s ease-in-out infinite; transform-origin:50% 90%; }
+.motionControls { display:flex; align-items:center; justify-content:space-between; gap:14px; min-height:59px; padding:7px 18px; background:#1b2d25; border-top:1px solid #46573a; }
+.motionDescription { display:flex; align-items:center; gap:9px; min-width:0; }
+.motionDescription strong { display:block; font:600 11px/1.5 var(--font-body,sans-serif); color:#e2dfbc; }
+.motionDescription small { display:block; color:#acbea2; font-size:10px; line-height:1.5; }
+.motionIndicator { flex-shrink:0; width:7px; height:7px; background:#809179; box-shadow:2px 2px 0 #122219; }
+.motionIndicator[data-running=true] { background:#c8dca0; }
+.motionToggle { display:inline-flex; align-items:center; justify-content:center; gap:7px; min-width:92px; min-height:44px; padding:8px 12px; border:1px solid #778363; border-radius:3px; background:#2b4030; color:#f3edcc; font-size:11px; font-weight:600; cursor:pointer; box-shadow:2px 2px 0 #102119; }
+.motionToggle:hover:not(:disabled) { background:#3a513b; border-color:#b4c292; }
+.motionToggle:focus-visible { outline:3px solid #efd291; outline-offset:3px; }
+.motionToggle:disabled { cursor:default; opacity:.6; }
+.motionLayer[data-motion=paused] *,.canvas[data-motion=paused] .atmosphere * { animation-play-state:paused!important; }
+.motionLayer[data-motion=reduced] *,.canvas[data-motion=reduced] .atmosphere * { animation:none!important; transition:none!important; }
 .rooms { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1px; padding:1px; background:#485747; border-top:1px solid #59624b; }
 .roomButton { position:static; display:flex; align-items:center; gap:12px; padding:15px 18px; min-height:72px; background:#21322d; color:#f5eddb; border:0; text-align:left; cursor:pointer; transition:background .16s; }
 .roomButton:hover,.roomButton:focus-visible { background:#2a3f35; }
@@ -40,7 +70,11 @@
 .caption strong { color:var(--room-accent); font-size:12px; font-weight:600; }
 .caption p>span { font-size:12px; line-height:1.65; }
 .hint { color:#b9c6ab; font-size:10px; white-space:nowrap; }
-@keyframes mascotBob { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
+@keyframes mascotWalk { 0%,100% { transform:translateY(0) rotate(-1deg); } 50% { transform:translateY(-3px) rotate(1deg); } }
+@keyframes mascotWork { 0%,100% { transform:rotate(0); } 40% { transform:translateY(1px) rotate(-2deg); } 70% { transform:rotate(1deg); } }
+@keyframes mascotGreet { 0%,100% { transform:rotate(0); } 35% { transform:rotate(-3deg); } 65% { transform:rotate(3deg); } }
+@keyframes pencilWork { 0%,100% { transform:translate(0,0); } 50% { transform:translate(-1px,1px) rotate(-8deg); } }
+@keyframes waveGreeting { 0%,100% { transform:rotate(0); } 30% { transform:rotate(-13deg); } 65% { transform:rotate(13deg); } }
 @keyframes lamplight { from { opacity:.4; } to { opacity:.85; } }
 @keyframes twinkle { 0%,35%,100% { opacity:.2; } 55%,75% { opacity:.75; } }
 @media(max-width:760px) {
@@ -58,6 +92,12 @@
   .roomArrow { width:14px; height:14px; }
   .dot { margin-right:9px; }
   .mascot { width:9%; min-width:28px; }
+  .doorway { border-top-width:1px; border-bottom-width:1px; box-shadow:inset 2px 0 #35271e,inset -2px 0 #aa794a,0 -1px #493323,0 1px #bd8c53; }
+  .doorway::before,.doorway::after { width:1px; }.doorway::before { left:2px; }.doorway::after { right:2px; }
+  .activityBubble { min-width:16px; height:16px; border-width:1px; padding:2px; right:-10%; top:-3%; gap:1px; box-shadow:1px 1px 0 #16272166; }
+  .activityBubble svg { width:10px; height:10px; }.activityBubble::after { width:3px; height:3px; bottom:-3px; left:3px; border-width:0 1px 1px 0; }
+  .activityBubble[data-activity=working] i { width:2px; height:2px; box-shadow:0 -3px #cba16a; }
+  .motionControls { padding:5px 12px; min-height:56px; }.motionToggle { min-width:84px; padding:8px; }
   .floorTarget { border-width:1px; }
   .floorNumber { left:3px; top:3px; min-width:16px; height:16px; font-size:8px; padding:2px; border:0; box-shadow:1px 1px 0 #17232066; }
   .floorAction { bottom:3px; padding:3px 4px; font-size:8px; gap:2px; }.floorAction svg { width:10px; height:10px; }

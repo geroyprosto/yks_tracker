@@ -1,4 +1,4 @@
-import {expect, test, type Page} from '@playwright/test';
+import {expect, test, type Locator, type Page} from '@playwright/test';
 import {emptyState} from '../../src/lib/domain/types';
 import type {AgentHouseReport, AgentHouseRuns} from '../../src/lib/agent-house';
 
@@ -54,9 +54,10 @@ function longReport(): AgentHouseReport {
   return result;
 }
 
-async function openHouse(page: Page, width: number, runs: AgentHouseRuns, fail = false) {
+async function openHouse(page: Page, width: number, runs: AgentHouseRuns, options: {fail?: boolean; controlledClock?: boolean} = {}) {
   await page.setViewportSize({width, height: 1000});
-  await page.clock.setFixedTime(new Date(now));
+  if (options.controlledClock) await page.clock.install({time: new Date(now)});
+  else await page.clock.setFixedTime(new Date(now));
   await page.route('**/api/state', route => route.fulfill({json: {...emptyState(true), authenticated: true, server_now: now}}));
   await page.route('**/api/calendar/today', route => route.fulfill({json: {connected: false, date: '2026-11-14', timezone: 'Europe/Istanbul', events: [], refreshedAt: null}}));
   await page.route('**/api/analysis', route => route.fulfill({json: {ok: true, reports: [], configured: false, model: null, limits: {monthly_requests: 4, monthly_usd: 0}, used: {requests: 0, estimated_cost_usd: 0}}}));
@@ -65,7 +66,7 @@ async function openHouse(page: Page, width: number, runs: AgentHouseRuns, fail =
   await page.route('**/api/agent-house', route => {
     if (route.request().method() !== 'GET') writes++;
     else gets++;
-    return route.fulfill(fail ? {status: 503, json: {error: {message: 'Rapor bağlantısı geçici olarak kesildi.'}}} : {json: {runs}});
+    return route.fulfill(options.fail ? {status: 503, json: {error: {message: 'Rapor bağlantısı geçici olarak kesildi.'}}} : {json: {runs}});
   });
   await page.goto('/');
   const navigation = page.getByRole('navigation', {name: 'Ana gezinme'});
@@ -75,10 +76,41 @@ async function openHouse(page: Page, width: number, runs: AgentHouseRuns, fail =
     await menu.click();
     await expect(page.locator('aside.sidebar.is-open').getByRole('navigation', {name: 'Ana gezinme'})).toBeInViewport();
   }
-  await navigation.getByRole('button', {name: 'Analiz', exact: true}).click();
+  const analysis = navigation.getByRole('button', {name: 'Analiz', exact: true});
+  await expect(analysis).toBeInViewport();
+  if (options.controlledClock) await page.clock.pauseAt(await page.evaluate(() => Date.now() + 1000));
+  await analysis.click();
   await expect(page.getByTestId('agent-house')).toBeVisible();
   await expect(page.getByTestId('agent-house').getByRole('button', {name: 'Yenile', exact: true})).toBeEnabled();
   return {writes: () => writes, gets: () => gets};
+}
+
+async function mascotPosition(mascot: Locator) {
+  return mascot.evaluate(async element => {
+    const transitions = element.getAnimations().filter(animation => animation instanceof CSSTransition);
+    await Promise.allSettled(transitions.map(animation => animation.finished));
+    const {x, y} = element.getBoundingClientRect();
+    const scene = element.closest('[data-testid="agent-house-scene"]')!.getBoundingClientRect();
+    return {x: x - scene.x, y: y - scene.y};
+  });
+}
+
+function distance(first: {x: number; y: number}, second: {x: number; y: number}) {
+  return Math.hypot(first.x - second.x, first.y - second.y);
+}
+
+async function openMovingHouse(page: Page) {
+  await page.emulateMedia({reducedMotion: 'no-preference'});
+  const writes: string[] = [];
+  page.on('request', request => {
+    if (new URL(request.url()).pathname.startsWith('/api/') && !['GET', 'HEAD', 'OPTIONS'].includes(request.method())) writes.push(request.url());
+  });
+  await openHouse(page, 1440, {live: [], sample: [report('sample')]}, {controlledClock: true});
+  const scene = page.getByTestId('agent-house-scene');
+  const motion = scene.getByTestId('agent-house-motion');
+  await motion.scrollIntoViewIfNeeded();
+  await expect(motion).toHaveAttribute('data-motion', 'running');
+  return {writes, scene, motion, strategist: motion.locator('[data-mascot-id="strategy"]')};
 }
 
 for (const width of [360, 1280]) test(`ajan evi odaları raporu ve programı açar, sohbet ve otomatik yazma yok · ${width}px`, async ({page}) => {
@@ -350,6 +382,88 @@ test('ev görünümü açılıp kapanabilir, hazır oda sayısı seçilen rapora
   expect(requests.writes()).toBe(0);
 });
 
+test('maskot yürür, masasında çalışır, yan odaya gider ve başlangıç yerine döner', async ({page}) => {
+  const {writes, strategist} = await openMovingHouse(page);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'idle');
+  const home = await mascotPosition(strategist);
+
+  await page.clock.runFor(1600);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'walking');
+  await expect(strategist).toHaveAttribute('data-target-room', 'strategy');
+  const firstStep = await mascotPosition(strategist);
+  expect(distance(home, firstStep)).toBeGreaterThan(2);
+  await page.clock.runFor(500);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'walking');
+  const secondStep = await mascotPosition(strategist);
+  expect(distance(firstStep, secondStep)).toBeGreaterThan(2);
+
+  await page.clock.runFor(2900);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'working');
+  const desk = await mascotPosition(strategist);
+  expect(distance(home, desk)).toBeGreaterThan(10);
+
+  // Visiting the adjacent room is well inside a five-second hold, so sample it directly.
+  await page.clock.runFor(28_000);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'visiting');
+  await expect(strategist).toHaveAttribute('data-target-room', 'tracking');
+  const visit = await mascotPosition(strategist);
+  expect(visit.x - home.x).toBeGreaterThan(50);
+
+  await page.clock.runFor(10_000);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'idle');
+  await expect(strategist).toHaveAttribute('data-target-room', 'strategy');
+  expect(distance(await mascotPosition(strategist), home)).toBeLessThan(1);
+  expect(writes).toEqual([]);
+});
+
+test('hareket düğmesi maskotu olduğu yerde durdurur ve aynı rotadan sürdürür', async ({page}) => {
+  const {writes, scene, motion, strategist} = await openMovingHouse(page);
+  await page.clock.runFor(1600);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'walking');
+  const before = await mascotPosition(strategist);
+  await scene.getByRole('button', {name: 'Hareketi durdur', exact: true}).click();
+  await expect(motion).toHaveAttribute('data-motion', 'paused');
+  await expect.poll(() => motion.evaluate(element => element.getAnimations({subtree: true})
+    .some(animation => animation.playState === 'running'))).toBe(false);
+  await page.clock.runFor(3500);
+  expect(distance(await mascotPosition(strategist), before)).toBeLessThan(1);
+
+  await scene.getByRole('button', {name: 'Hareketi başlat', exact: true}).click();
+  await expect(motion).toHaveAttribute('data-motion', 'running');
+  await page.clock.runFor(480);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'walking');
+  expect(distance(await mascotPosition(strategist), before)).toBeGreaterThan(2);
+
+  await scene.getByTestId('agent-room-floor-strategy').click();
+  await page.clock.runFor(80);
+  await expect(scene).toBeHidden();
+  await expect(page.getByTestId('agent-room-report').getByRole('heading', {name: 'Çalışmanın yönü', exact: true})).toBeFocused();
+  expect(writes).toEqual([]);
+});
+
+for (const preference of ['system', 'app'] as const) test(`hareket tercihi çalışma sırasında uygulanır · ${preference}`, async ({page}) => {
+  const {writes, scene, motion, strategist} = await openMovingHouse(page);
+  await page.clock.runFor(1600);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'walking');
+  const before = await mascotPosition(strategist);
+  if (preference === 'system') await page.emulateMedia({reducedMotion: 'reduce'});
+  else await page.locator('html').evaluate(root => root.setAttribute('data-reduced', 'true'));
+
+  await expect(motion).toHaveAttribute('data-motion', 'reduced');
+  await expect(scene.getByRole('button', {name: 'Hareketi başlat', exact: true})).toBeDisabled();
+  await expect.poll(() => scene.evaluate(element => element.getAnimations({subtree: true}).length)).toBe(0);
+  await page.clock.runFor(3500);
+  expect(distance(await mascotPosition(strategist), before)).toBeLessThan(1);
+
+  if (preference === 'system') await page.emulateMedia({reducedMotion: 'no-preference'});
+  else await page.locator('html').evaluate(root => root.setAttribute('data-reduced', 'false'));
+  await expect(motion).toHaveAttribute('data-motion', 'running');
+  await page.clock.runFor(480);
+  await expect(strategist).toHaveAttribute('data-mascot-state', 'walking');
+  expect(distance(await mascotPosition(strategist), before)).toBeGreaterThan(2);
+  expect(writes).toEqual([]);
+});
+
 for (const preference of ['system', 'app'] as const) test(`azaltılmış hareket tercihinde ev ve oda kontrolü animasyonsuz çalışır · ${preference}`, async ({page}) => {
   await page.emulateMedia({reducedMotion: preference === 'system' ? 'reduce' : 'no-preference'});
   if (preference === 'app') await page.addInitScript(() => localStorage.setItem('yksim-reduced', 'true'));
@@ -398,7 +512,7 @@ test('ajan evi örnek sonucu kişisel rapor boşluğuna karıştırmaz', async (
 });
 
 test('ajan evi hata ile boş rapor durumunu gösterir ve yeniden okuyabilir', async ({page}) => {
-  const requests = await openHouse(page, 360, {live: [], sample: []}, true);
+  const requests = await openHouse(page, 360, {live: [], sample: []}, {fail: true});
   const house = page.getByTestId('agent-house');
   await expect(house.getByRole('alert')).toContainText('Rapor bağlantısı geçici olarak kesildi.');
   await expect(page.getByTestId('agent-room-report')).toContainText('Bu odanın raporu henüz gelmedi');

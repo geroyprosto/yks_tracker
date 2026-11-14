@@ -1,6 +1,7 @@
 import {expect, test, type Locator, type Page} from '@playwright/test';
 import {emptyState} from '../../src/lib/domain/types';
 import type {AgentHouseReport, AgentHouseRuns} from '../../src/lib/agent-house';
+import type {LeaderChatMessage} from '../../src/lib/agent-house-chat';
 
 const now = '2026-11-14T09:00:00.000Z';
 const ids = ['leader', 'strategy', 'tracking', 'awareness', 'daily', 'discovery'] as const;
@@ -63,6 +64,7 @@ async function openHouse(page: Page, width: number, runs: AgentHouseRuns, option
   await page.route('**/api/analysis', route => route.fulfill({json: {ok: true, reports: [], configured: false, model: null, limits: {monthly_requests: 4, monthly_usd: 0}, used: {requests: 0, estimated_cost_usd: 0}}}));
   let writes = 0;
   let gets = 0;
+  await page.route('**/api/agent-house/chat', route => route.fulfill({json: {messages: []}}));
   await page.route('**/api/agent-house', route => {
     if (route.request().method() !== 'GET') writes++;
     else gets++;
@@ -123,7 +125,7 @@ async function options(page: Page) {
   return page.getByTestId('agent-house');
 }
 
-test('new Codex reports arrive without reload, while a selected older report remains readable', async ({page}) => {
+test('reports stay stable until returning to the app; selecting an older report remains respected', async ({page}) => {
   const first = report('live', 'first');
   const second = report('live', 'second');
   second.agents[0].summary = 'Yeni kayıtlarına göre yenilenen lider notu.';
@@ -133,6 +135,9 @@ test('new Codex reports arrive without reload, while a selected older report rem
   await expect(room).toContainText('Kişisel Lider değerlendirmesi.');
   runs.live = [second, first];
   await page.clock.runFor(60_100);
+  await expect(room).toContainText('Kişisel Lider değerlendirmesi.');
+  expect(requests.gets()).toBe(1);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(room).toContainText('Yeni kayıtlarına göre yenilenen lider notu.');
   await room.getByRole('button', {name: 'Eve dön', exact: true}).click();
   await options(page);
@@ -140,8 +145,9 @@ test('new Codex reports arrive without reload, while a selected older report rem
   await page.getByLabel('Ev seçenekleri', {exact: true}).click();
   await openRoom(page, 'Lider');
   await page.clock.runFor(60_100);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(room).toContainText('Kişisel Lider değerlendirmesi.');
-  expect(requests.gets()).toBeGreaterThanOrEqual(3);
+  await expect.poll(requests.gets).toBeGreaterThanOrEqual(3);
   expect(requests.writes()).toBe(0);
 });
 
@@ -150,8 +156,43 @@ test('a failed background refresh preserves the last completed note', async ({pa
   const room = await openRoom(page, 'Lider');
   await page.route('**/api/agent-house', route => route.fulfill({status: 503, json: {error: {message: 'Geçici hata'}}}));
   await page.clock.runFor(60_100);
+  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await expect(room).toContainText('Kişisel Lider değerlendirmesi.');
   await expect(page.getByTestId('agent-house').getByRole('alert')).toHaveCount(0);
+});
+
+test('leader notes retry with the same id, show real replies, and stop checking after closing the room', async ({page}) => {
+  const reports = await openHouse(page, 390, {live: [report('live')], sample: []}, {controlledClock: true});
+  const messages: LeaderChatMessage[] = [];
+  const posts: {id: string; content: string}[] = [];
+  let reads = 0;
+  await page.route('**/api/agent-house/chat', async route => {
+    if (route.request().method() === 'GET') { reads++; return route.fulfill({json: {messages}}); }
+    const input = route.request().postDataJSON() as {id: string; content: string}; posts.push(input);
+    if (!messages.some(message => message.id === input.id)) messages.push({...input, author: 'user', status: 'pending', reply_to: null, created_at: now});
+    if (posts.length === 1) return route.fulfill({status: 503, json: {error: {message: 'Bağlantı kesildi; yeniden deneyebilirsin.'}}});
+    return route.fulfill({json: {id: input.id, created: false}});
+  });
+  const room = await openRoom(page, 'Lider');
+  const note = room.getByRole('textbox', {name: 'Lidere notun'});
+  await note.fill('Bugün nereden başlamalıyım?');
+  await room.getByRole('button', {name: 'Not bırak', exact: true}).click();
+  await expect(room.getByRole('alert')).toContainText('Bağlantı kesildi');
+  await expect(note).toHaveValue('Bugün nereden başlamalıyım?');
+  await room.getByRole('button', {name: 'Not bırak', exact: true}).click();
+  await expect(note).toHaveValue('');
+  expect(posts).toHaveLength(2); expect(posts[0].id).toBe(posts[1].id);
+  await expect(room.getByRole('log')).toContainText('Bugün nereden başlamalıyım?');
+  await expect(room.getByRole('status')).toContainText('Notun liderin masasında');
+  messages[0].status = 'done';
+  messages.push({id: '44444444-4444-4444-8444-444444444444', author: 'leader', content: 'Önce kısa matematik bloğunu açalım.', reply_to: messages[0].id, status: 'done', created_at: '2026-11-14T09:01:00Z'});
+  await page.clock.runFor(30_100);
+  await expect(room.getByRole('log')).toContainText('Önce kısa matematik bloğunu açalım.');
+  expect(reports.writes()).toBe(0); expect(reports.gets()).toBe(1);
+  await room.getByRole('button', {name: 'Eve dön', exact: true}).click();
+  const previousReads = reads;
+  await page.clock.runFor(60_100);
+  expect(reads).toBe(previousReads);
 });
 
 for (const width of [320, 768, 1024, 1440]) test(`ev tek sahnede kalır, not açılır ve odağa dönülür · ${width}px`, async ({page}) => {

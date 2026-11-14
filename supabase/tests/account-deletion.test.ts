@@ -110,6 +110,11 @@ async function seedStudyGraph(db: PGlite, user: string) {
       id: 'leader', status: 'ready', summary: 'Synthetic summary', recommendations: [], sources: [], tables: [], schedule: [],
     }] };
   await db.query('select public.agent_house_save_for_user($1::uuid,$2::jsonb)', [user, JSON.stringify(agentHouseRun)]);
+  await insert(db, 'private.agent_house_drafts', {user_id: user, report: agentHouseRun});
+  await insert(db, 'private.agent_team_memory', {user_id: user, agent_id: 'awareness', memory: {private_note: 'Synthetic private memory'}});
+  const teamRequest = randomUUID();
+  await insert(db, 'private.agent_team_messages', {user_id: user, id: teamRequest, sender: 'strategy', recipient: 'tracking', kind: 'request', body: 'Synthetic request'});
+  await insert(db, 'private.agent_team_messages', {user_id: user, id: randomUUID(), sender: 'tracking', recipient: 'strategy', kind: 'answer', body: 'Synthetic answer', parent_id: teamRequest});
   await insert(db, 'public.analysis_reports', { id: report, user_id: user, start_date: '2026-10-01', end_date: '2026-10-01', source_hash: 'b'.repeat(64), status: 'completed', body: 'Synthetic report', request_id: request });
   await insert(db, 'public.analysis_report_requests', { user_id: user, request_id: request, report_id: report, start_date: '2026-10-01', end_date: '2026-10-01', source_hash: 'b'.repeat(64) });
   await insert(db, 'public.analysis_usage', { user_id: user, month: '2026-10-01' });

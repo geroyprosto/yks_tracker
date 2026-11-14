@@ -6,6 +6,7 @@ import {agentHouseReportMaxBytes, agentHouseReportSchema, type AgentHouseAgentId
 import {AgentHouseScene} from './agent-house-scene';
 import {AgentHouseReport} from './agent-house-report';
 import {AgentHouseRoom} from './agent-house-room';
+import {AgentHouseLeaderChat} from './agent-house-leader-chat';
 import {reportDate} from './agent-house-meta';
 import {Analysis} from './analysis';
 import styles from './agent-house.module.css';
@@ -78,10 +79,9 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
     let mounted = true;
     void Promise.resolve().then(() => {if (mounted) void load();});
     const refresh = () => {if (document.visibilityState === 'visible') void load(true);};
-    const interval = window.setInterval(refresh, 60_000);
     document.addEventListener('visibilitychange', refresh);
     return () => {
-      mounted = false; window.clearInterval(interval);
+      mounted = false;
       document.removeEventListener('visibilitychange', refresh);
       request.current?.abort(); request.current = null;
     };
@@ -156,6 +156,7 @@ export function AgentHouse(props: Parameters<typeof Analysis>[0]) {
     </div>
     {openRoom && <AgentHouseRoom selected={selected} sample={activeMode === 'sample'} onClose={returnToHouse}>
       {agent ? <AgentHouseReport key={`${activeMode}:${report?.run_id}:${selected}`} agent={agent}/> : loading ? <div className={styles.skeleton} role="status" aria-label="Raporlar getiriliyor"><span/><span/><span/></div> : <div className={styles.empty}><h3>Henüz bir not yok.</h3><p>Raporun hazır olduğunda burada olacak.</p></div>}
+      {selected === 'leader' && activeMode === 'live' && <AgentHouseLeaderChat/>}
     </AgentHouseRoom>}
     {showLegacy && <section id="previous-analysis" className={styles.legacy}><h2>Önceki analizler</h2><Analysis {...props}/></section>}
   </div>;

@@ -29,7 +29,7 @@ export function AgentHouseRoom({selected, sample, onClose, children}: {
     onCancel={event => {event.preventDefault(); onClose();}}
     onKeyDown={event => {
       if (event.key !== 'Tab') return;
-      const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),select,summary,input,[href],[tabindex="0"]'))
+      const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled),select:not(:disabled),summary,input:not(:disabled),textarea:not(:disabled),[href],[tabindex="0"]'))
         .filter(element => element.getClientRects().length > 0);
       const first = controls[0]; const last = controls.at(-1);
       const active = document.activeElement;

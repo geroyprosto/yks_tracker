@@ -114,6 +114,10 @@ async function seedStudyGraph(db: PGlite, user: string) {
   await insert(db, 'private.agent_team_memory', {user_id: user, agent_id: 'awareness', memory: {private_note: 'Synthetic private memory'}});
   const teamRequest = randomUUID();
   await insert(db, 'private.agent_team_messages', {user_id: user, id: teamRequest, sender: 'strategy', recipient: 'tracking', kind: 'request', body: 'Synthetic request'});
+  const eventSubscription = 'sub_' + user.replaceAll('-', '').repeat(2);
+  await insert(db, 'private.agent_event_subscriptions', {user_id: user, id: eventSubscription, client_id: 'synthetic',
+    callback_url: 'https://chatgpt.com/events/synthetic', secret: 'whsec_' + Buffer.alloc(32, 1).toString('base64'), expires_at: '2027-01-01T00:00:00Z'});
+  await insert(db, 'private.agent_event_deliveries', {user_id: user, subscription_id: eventSubscription, message_id: teamRequest});
   await insert(db, 'private.agent_team_messages', {user_id: user, id: randomUUID(), sender: 'tracking', recipient: 'strategy', kind: 'answer', body: 'Synthetic answer', parent_id: teamRequest});
   await insert(db, 'public.analysis_reports', { id: report, user_id: user, start_date: '2026-10-01', end_date: '2026-10-01', source_hash: 'b'.repeat(64), status: 'completed', body: 'Synthetic report', request_id: request });
   await insert(db, 'public.analysis_report_requests', { user_id: user, request_id: request, report_id: report, start_date: '2026-10-01', end_date: '2026-10-01', source_hash: 'b'.repeat(64) });

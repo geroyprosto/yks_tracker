@@ -36,7 +36,7 @@ export function AgentHouseLeaderChat() {
     void Promise.resolve().then(() => { if (mounted) void load(); });
     // Read replies only while this room is open. This never publishes a report.
     const refresh = () => { if (document.visibilityState === 'visible') void load(); };
-    const timer = window.setInterval(refresh, 30_000);
+    const timer = window.setInterval(refresh, 10_000);
     document.addEventListener('visibilitychange', refresh);
     return () => {
       mounted = false; window.clearInterval(timer); document.removeEventListener('visibilitychange', refresh);
@@ -78,7 +78,7 @@ export function AgentHouseLeaderChat() {
       </div>)}
     </div>
     {messages.some(message => message.author === 'user' && message.status === 'pending')
-      ? <p className={styles.chatHint} role="status">Notun liderin masasında. Ekip bir sonraki çalışmasında yanıtlayacak.</p>
+      ? <p className={styles.chatHint} role="status">Notun liderin masasında. Yanıtı hazır olduğunda burada kendiliğinden görünecek.</p>
       : <p className={styles.chatHint}>{loaded && !messages.length ? 'Aklındakini bırak; birlikte bir sonraki adımı bulalım.' : 'Yanıt hazır olduğunda burada buluşalım.'}</p>}
     <form onSubmit={event => void send(event)}>
       <label className={styles.chatLabel} htmlFor="leader-note">Lidere notun</label>

@@ -5,6 +5,7 @@ import { createStudyMcpServer } from "./mcp-tools";
 import { addToolSecurityMetadata } from "./mcp-security-metadata";
 import { mcpTransportDiagnostic } from "./mcp-diagnostics";
 import { readMcpBody } from "./mcp-request-body";
+import { addEventCapability, handleMcpEventRequest } from './mcp-events';
 
 export async function handleMcpRequest(request: Request): Promise<Response> {
   const config = getMcpConfiguration();
@@ -37,6 +38,8 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
       if (parsed instanceof Response) return parsed;
       rpcBody = parsed.parsedBody;
     }
+    const eventResponse = await handleMcpEventRequest(rpcBody, authorized.client, authorized.userId, authorized.clientId);
+    if (eventResponse) return eventResponse;
     const toolListRequest = rpcBody !== null && typeof rpcBody === "object" &&
       !Array.isArray(rpcBody) && "method" in rpcBody && rpcBody.method === "tools/list";
     const handler = createMcpHandler(
@@ -46,7 +49,9 @@ export async function handleMcpRequest(request: Request): Promise<Response> {
     const rawResponse = await handler.fetch(innerRequest, innerRequest.method === "POST" ? { parsedBody: rpcBody } : undefined);
     const diagnostic = await mcpTransportDiagnostic(innerRequest, rpcBody, rawResponse);
     if (diagnostic) console.warn("MCP_TRANSPORT_REJECTED", JSON.stringify(diagnostic));
-    const response = toolListRequest ? await addToolSecurityMetadata(rawResponse) : rawResponse;
+    let response = toolListRequest ? await addToolSecurityMetadata(rawResponse) : rawResponse;
+    if (rpcBody && typeof rpcBody === 'object' && 'method' in rpcBody &&
+      ['initialize', 'server/discover'].includes(String(rpcBody.method))) response = await addEventCapability(response);
     response.headers.set("Cache-Control", "no-store");
     return response;
   });

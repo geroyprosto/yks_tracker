@@ -16,7 +16,17 @@ Bu mantıksal görev/bağlam ayrımıdır; aynı hesap adına bağlı Supabase y
 
 ## Lider odası
 
-`GET/POST /api/agent-house/chat` oturumu doğrular. POST aynı origin ve UUID ile tekrar güvenliği gerektirir. Kullanıcının notu liderin gelen kutusuna gider; liderin o nota bağlı cevabı aynı konuşmada görünür. Bu asenkron çalışma modelidir: zamanlanmış bulut çalışması ve gerekiyorsa uzman cevabı bekleneceği arayüzde açıkça belirtilir. Açık odada yalnız yanıtlar 30 saniyede bir okunur. Raporları dakika başı yenileyen eski döngü kaldırılmıştır.
+`GET/POST /api/agent-house/chat` oturumu doğrular. POST aynı origin ve UUID ile tekrar güvenliği gerektirir. Kullanıcının notu liderin gelen kutusuna gider; liderin o nota bağlı cevabı aynı konuşmada görünür. Açık odada yalnız yanıtlar 10 saniyede bir okunur; rapor yayını bundan ayrıdır.
+
+### Not geldiğinde çalışma
+
+`20261115103829_agent_note_mcp_events.sql` geçişi ve MCP uç noktası `leader.note.created` olayını destekler. ChatGPT'de bu olaya abone bir bulut görevi etkin olmalıdır; yalnız sunucu kodunu yayınlamak abonelik oluşturmaz. Saatlik lider görevi erişim veya olay teslimi kesintilerinde mevcut yedek akış olarak kalır. Model çağrıları ChatGPT'de çalışır; bu bağlantı ücretli bir model API'si çağırmaz.
+
+OAuth ile doğrulanan hesap ve istemci için abonelik özel şemada saklanır. Sunucu yalnız doğrulanmış ChatGPT HTTPS geri çağrılarına, her bağlantıda denetlenip sabitlenen genel IPv4 adresleri üzerinden imzalı olay yollar; yönlendirmeleri izlemez. Olay yalnız not kimliği ve uygulama bağlantısı içerir. Not metni, günlük veya uzman hafızası webhook'a eklenmez. İmza anahtarı tarayıcıya ve loglara verilmez.
+
+Yeni not ve olay kuyruğu aynı işlemde kaydedilir. `after()` teslimi yanıt sonrasında başlatır. Kalıcı kiralama/deneme makbuzları eşzamanlı çağrıları ve tekrarları yönetir; geçici hatalar artan aralıklarla en fazla beş kez denenir. Açık lider odasının okuması yarıda kalan teslimi sürdürür; 410/413 kalıcı olarak durdurulur. Abonelik süresi en fazla yedi gündür ve ChatGPT yeniler. İptal kuyruğu da kaldırır; hesap silme bütün abonelikleri ve teslim kayıtlarını siler. Saatlik görev kapatılmaz. Olayın kabul edilmesi yanıtın tamamlandığı anlamına gelmez; canlı doğrulama nota bağlı gerçek lider yanıtıyla yapılır.
+
+Kaynak: https://developers.openai.com/plugins/build/mcp-events
 
 ## Windows kurulumu
 

@@ -186,7 +186,7 @@ test('leader notes retry with the same id, show real replies, and stop checking 
   await expect(room.getByRole('status')).toContainText('Notun liderin masasında');
   messages[0].status = 'done';
   messages.push({id: '44444444-4444-4444-8444-444444444444', author: 'leader', content: 'Önce kısa matematik bloğunu açalım.', reply_to: messages[0].id, status: 'done', created_at: '2026-11-14T09:01:00Z'});
-  await page.clock.runFor(30_100);
+  await page.clock.runFor(10_100);
   await expect(room.getByRole('log')).toContainText('Önce kısa matematik bloğunu açalım.');
   expect(reports.writes()).toBe(0); expect(reports.gets()).toBe(1);
   await room.getByRole('button', {name: 'Eve dön', exact: true}).click();

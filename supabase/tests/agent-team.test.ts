@@ -109,3 +109,40 @@ test('browser and OAuth callers cannot read memories or run privileged actions',
     await assert.rejects(() => db.query('select * from private.agent_team_memory'), /permission denied/);
   }
 });
+
+test('note events are transactional, owner scoped, leased, and acknowledged once', async () => {
+  await db.exec('reset role; set role service_role');
+  const sub = 'sub_' + 'a'.repeat(64); const messageId = randomUUID();
+  const secret = 'whsec_' + Buffer.alloc(32, 5).toString('base64');
+  const expires = new Date(Date.now() + 3600000).toISOString();
+  await rpc('mcp_agent_event_subscribe', [owner, sub, 'client', 'https://chatgpt.com/events/test', secret, expires]);
+  await rpc('mcp_agent_event_subscribe', [owner, sub, 'client', 'https://chatgpt.com/events/test', secret, expires]);
+  assert.equal(await rpc('mcp_agent_event_verified', [owner, sub, 'client', secret]), true);
+  assert.equal(await rpc('mcp_agent_event_verified', [owner, sub, 'different-client', secret]), false);
+  await assert.rejects(() => rpc('mcp_agent_event_claim', [other]), /OWNER_REQUIRED/);
+  await rpc('agent_team_chat_send', [owner, messageId, 'Automatic reply test']);
+  await rpc('agent_team_chat_send', [owner, messageId, 'Automatic reply test']);
+  const first = await rpc<{ id: string; message_id: string; attempt: number }[]>('mcp_agent_event_claim', [owner]);
+  assert.equal(first.length, 1); assert.equal(first[0].message_id, messageId); assert.equal(first[0].attempt, 1);
+  assert.deepEqual(await rpc('mcp_agent_event_claim', [owner]), []);
+  await rpc('mcp_agent_event_finish', [owner, sub, messageId, 1, 'retry', 503]);
+  assert.deepEqual(await rpc('mcp_agent_event_claim', [owner]), []);
+  await db.exec('reset role');
+  await db.query('update private.agent_event_deliveries set next_attempt_at=now() where message_id=$1', [messageId]);
+  await db.exec('set role service_role');
+  const second = await rpc<{ attempt: number }[]>('mcp_agent_event_claim', [owner]);
+  assert.equal(second[0].attempt, 2);
+  // A stale worker cannot acknowledge a newer attempt.
+  await rpc('mcp_agent_event_finish', [owner, sub, messageId, 1, 'delivered', 202]);
+  await rpc('mcp_agent_event_finish', [owner, sub, messageId, 2, 'delivered', 202]);
+  assert.deepEqual(await rpc('mcp_agent_event_claim', [owner]), []);
+  await rpc('mcp_agent_event_unsubscribe', [owner, sub, 'different-client']);
+  assert.equal(await rpc('mcp_agent_event_verified', [owner, sub, 'client', secret]), true);
+  await rpc('mcp_agent_event_unsubscribe', [owner, sub, 'client']);
+  assert.equal(await rpc('mcp_agent_event_verified', [owner, sub, 'client', secret]), false);
+  for (const role of ['anon','authenticated']) {
+    await db.exec(`reset role; set role ${role}`);
+    await assert.rejects(() => rpc('mcp_agent_event_claim', [owner]), /permission denied/);
+    await assert.rejects(() => db.query('select secret from private.agent_event_subscriptions'), /permission denied/);
+  }
+});

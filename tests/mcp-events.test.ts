@@ -3,6 +3,7 @@ import test from 'node:test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { addEventCapability, deliverLeaderNoteEvents, handleMcpEventRequest, subscriptionId } from '../src/lib/server/mcp-events';
 import { callbackUrl, publicIPv4, signingKey, verifyCallback, type WebhookSender } from '../src/lib/server/mcp-event-webhook';
+import { scheduleLeaderNoteDelivery } from '../src/lib/server/leader-note-delivery';
 
 const secret = 'whsec_' + Buffer.alloc(32, 42).toString('base64');
 const url = 'https://chatgpt.com/mcp-events/test-callback';
@@ -18,6 +19,27 @@ function database() {
   return { client, calls };
 }
 const echo: WebhookSender = async (_subscription, _id, payload) => ({ status: 200, body: JSON.stringify(payload) });
+
+test('alternate app hosts deliver after the response even with their MCP endpoint disabled', async () => {
+  const saved = { origin: process.env.APP_ORIGIN, mcp: process.env.MCP_ENABLED };
+  process.env.APP_ORIGIN = 'https://yksim-takip.netlify.app'; process.env.MCP_ENABLED = 'false';
+  try {
+    const jobs: (() => Promise<void>)[] = []; const waits: number[] = []; let deliveries = 0;
+    scheduleLeaderNoteDelivery(database().client, 'owner', {
+      defer: job => jobs.push(job), wait: async ms => { waits.push(ms); },
+      deliver: async (_client, userId, appUrl) => {
+        assert.equal(userId, 'owner'); assert.equal(appUrl, 'https://yksim-takip.netlify.app');
+        deliveries++; return true;
+      },
+    });
+    assert.equal(deliveries, 0); assert.equal(jobs.length, 1);
+    await jobs[0](); assert.equal(deliveries, 3); assert.deepEqual(waits, [5500, 10500]);
+  } finally {
+    for (const [key, value] of [['APP_ORIGIN', saved.origin], ['MCP_ENABLED', saved.mcp]] as const) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  }
+});
 
 test('callback requests only reach public ChatGPT HTTPS destinations', () => {
   assert.equal(callbackUrl(url).hostname, 'chatgpt.com');

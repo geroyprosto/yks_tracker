@@ -4,7 +4,6 @@ import { requireAiStudyContext } from '@/lib/server/classroom';
 import { ApiError, errorResponse, json, readJson, sameOrigin } from '@/lib/server/http';
 import { databaseError } from '@/lib/server/service';
 import { scheduleLeaderNoteDelivery } from '@/lib/server/leader-note-delivery';
-import { getMcpConfiguration } from '@/lib/server/mcp-auth';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -16,9 +15,8 @@ export async function GET() {
     if (error) databaseError(error);
     const parsed = leaderChatMessagesSchema.safeParse(data);
     if (!parsed.success) throw new ApiError(503, 'INVALID_RESPONSE', 'Liderin defteri şu anda açılamıyor.');
-    const config = getMcpConfiguration();
-    if (config && parsed.data.some(message => message.author === 'user' && message.status === 'pending')) {
-      scheduleLeaderNoteDelivery(analysisAdmin(), userId, config.appUrl);
+    if (parsed.data.some(message => message.author === 'user' && message.status === 'pending')) {
+      scheduleLeaderNoteDelivery(analysisAdmin(), userId);
     }
     return json({ messages: parsed.data });
   } catch (error) { return errorResponse(error); }
@@ -38,8 +36,7 @@ export async function POST(request: Request) {
     if (!data || data.id !== parsed.data.id || typeof data.created !== 'boolean') {
       throw new ApiError(503, 'INVALID_RESPONSE', 'Notunun kaydı doğrulanamadı. Aynı notu yeniden gönderebilirsin.');
     }
-    const config = getMcpConfiguration();
-    if (config) scheduleLeaderNoteDelivery(analysisAdmin(), userId, config.appUrl);
+    scheduleLeaderNoteDelivery(analysisAdmin(), userId);
     return json({ id: data.id, created: data.created }, data.created ? 201 : 200);
   } catch (error) { return errorResponse(error); }
 }

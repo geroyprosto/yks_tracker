@@ -24,6 +24,8 @@ Bu mantıksal görev/bağlam ayrımıdır; aynı hesap adına bağlı Supabase y
 
 OAuth ile doğrulanan hesap ve istemci için abonelik özel şemada saklanır. Sunucu yalnız doğrulanmış ChatGPT HTTPS geri çağrılarına, her bağlantıda denetlenip sabitlenen genel IPv4 adresleri üzerinden imzalı olay yollar; yönlendirmeleri izlemez. Olay yalnız not kimliği ve uygulama bağlantısı içerir. Not metni, günlük veya uzman hafızası webhook'a eklenmez. İmza anahtarı tarayıcıya ve loglara verilmez.
 
+Abonelik Vercel'deki MCP uç noktasından kurulur. Netlify'ın kendi MCP girişinin kapalı olması not teslimini kapatmaz: iki uygulama aynı özel kuyruğu kullanır, olay bağlantısı notu alan yayının `APP_ORIGIN` değeridir.
+
 Yeni not ve olay kuyruğu aynı işlemde kaydedilir. `after()` teslimi yanıt sonrasında başlatır. Kalıcı kiralama/deneme makbuzları eşzamanlı çağrıları ve tekrarları yönetir; geçici hatalar artan aralıklarla en fazla beş kez denenir. Açık lider odasının okuması yarıda kalan teslimi sürdürür; 410/413 kalıcı olarak durdurulur. Abonelik süresi en fazla yedi gündür ve ChatGPT yeniler. İptal kuyruğu da kaldırır; hesap silme bütün abonelikleri ve teslim kayıtlarını siler. Saatlik görev kapatılmaz. Olayın kabul edilmesi yanıtın tamamlandığı anlamına gelmez; canlı doğrulama nota bağlı gerçek lider yanıtıyla yapılır.
 
 Kaynak: https://developers.openai.com/plugins/build/mcp-events

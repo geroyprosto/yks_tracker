@@ -1,9 +1,16 @@
-import {expect, test} from '@playwright/test';
+import {expect, test, type Page} from '@playwright/test';
 import {emptyState, type AppState} from '../../src/lib/domain/types';
 
 test.beforeEach(async ({page}) => {
   await page.route('**/api/agent-house', route => route.fulfill({json: {runs: {sample: [], live: []}}}));
 });
+
+async function openPreviousReports(page: Page) {
+  const options = page.getByLabel('Ev seçenekleri');
+  await options.click();
+  await page.getByRole('button', {name: 'Önceki analizler', exact: true}).click();
+  await options.click();
+}
 
 const now = '2026-10-01T09:00:00.000Z';
 const diaryKinds = ['early_wake', 'stress', 'sleep', 'mood'] as const;
@@ -63,7 +70,8 @@ for (const width of [360, 1280]) test(`çalışma analizi gerçek ölçütleri v
       current_repetition_results: [{series_id: 'series-1', topic_id: 'topic-1', title: 'Parabol', subject: 'Matematik', status: 'created',
         task_ids: ['review-1'], stages: [{stage: 0, plan_date: '2026-10-04', status: 'created', task_id: 'review-1'}]},
       {series_id: 'series-2', topic_id: 'topic-2', title: 'Solunum Sistemi', subject: 'Biyoloji', status: 'existing',
-        task_ids: ['review-2'], stages: [{stage: 0, plan_date: '2026-10-04', status: 'created', task_id: 'review-2'}]}],
+        task_ids: ['review-2'], stages: [{stage: 0, plan_date: '2026-10-04', status: 'created', task_id: 'review-2'}]},
+      {title: 'Gazlar', subject: 'Kimya', status: 'deferred_capacity', task_ids: []}],
       reports: [{id: 'legacy-3', start_date: '2026-09-18', end_date: '2026-10-01', status: 'completed', body: null,
         created_at: now, stale: false, summary: {source_days: ['2026-09-30'], structured_report: {schema_version: 3,
           topics: {headline: 'Eski konu gözlemi', text: 'Bu eski raporda fonksiyonlar incelendi.'},
@@ -75,7 +83,7 @@ for (const width of [360, 1280]) test(`çalışma analizi gerçek ölçütleri v
   if (width === 360) await page.getByRole('button', {name: 'Menüyü aç', exact: true}).click();
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
   await expect(page.getByRole('heading', {name: 'Ajan Evi', exact: true})).toBeVisible();
-  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
+  await openPreviousReports(page);
   const current = page.getByTestId('analysis-coaching').first();
   await expect(current).toContainText('Canlı durum');
   await expect(current.getByRole('heading', {name: 'Öncelikli görevler'})).toBeVisible();
@@ -95,6 +103,7 @@ for (const width of [360, 1280]) test(`çalışma analizi gerçek ölçütleri v
   await expect(current).toContainText('Parabol konusu tekrar görevlerine eklendi.');
   await expect(current).toContainText('30 Eylül 2026 analizinde');
   await expect(current).toContainText('Solunum Sistemi için mevcut tekrar görevleri Görevlerim’de.');
+  await expect(current).toContainText('Kimya · Gazlar için bekleyen tekrarlar, günlük planda yer açıldığında eklenecek.');
   await expect(current).not.toContainText('Solunum Sistemi konusu tekrar görevlerine eklendi.');
   await expect(current.getByRole('button', {name: 'Görevlerim’de gör'}).first()).toBeVisible();
   for (const kind of diaryKinds) {
@@ -149,7 +158,7 @@ test('güncel ölçütler ile son kaydedilmiş koçluk yönlendirmesi ayrı tari
   }}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
-  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
+  await openPreviousReports(page);
   const current = page.getByTestId('analysis-coaching').first();
   await expect(current).toContainText('Canlı durum');
   await expect(current).toContainText('Veri kesimi: 1 Ekim 2026');
@@ -172,7 +181,7 @@ test('çok sayıdaki gerçek tekrar kaydı özette görünür, uzun liste kapal�
     current_coaching: metrics(), current_repetition_results: receipts, current_repetition_cutoff: now, reports: []}}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
-  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
+  await openPreviousReports(page);
   const current = page.getByTestId('analysis-coaching');
   await expect(current).toContainText('100 konu · 485 görev');
   await expect(current.getByText('Konu 99 konusu tekrar görevlerine eklendi.')).toBeHidden();
@@ -198,7 +207,7 @@ test('haftalık net grafiği iki denemenin kayıtlı alt ders ortalamasını gö
     current_coaching: current, current_repetition_results: [], reports: []}}));
   await page.goto('/');
   await page.getByRole('navigation', {name: 'Ana gezinme'}).getByRole('button', {name: 'Analiz'}).click();
-  await page.getByRole('button', {name: 'Çalışma ölçütleri ve önceki analizler'}).click();
+  await openPreviousReports(page);
   const chart = page.getByTestId('weekly-exam-tyt');
   await expect(chart).toContainText('Haftalık ortalama');
   await expect(chart).toContainText('2 deneme · 2 toplam net kaydı');

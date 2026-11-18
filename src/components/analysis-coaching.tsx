@@ -93,14 +93,16 @@ function RepetitionRow({item, onOpenTasks}: {item: unknown; onOpenTasks?: () => 
   const name = subject ? `${subject} · ${topic}` : topic;
   const message = string(value.message) ?? string(value.display_text);
   const retry = status === 'retry_pending' || status === 'failed' || status === 'error' || stages.some(stage => stage.status === 'retry_pending');
+  const waitingForCapacity = status === 'deferred_capacity';
   const skipped = status === 'skipped_past' || status === 'skipped' || (taskIds.length === 0 && !retry && stages.length > 0 && stages.every(stage => stage.status === 'skipped_past'));
   const newlyAdded = !retry && !skipped && status === 'created' && taskIds.length > 0;
-  const copy = retry ? 'Eklenemedi, yeniden deneniyor.' : skipped ? 'Tekrar tarihleri geçti; yeni görev eklenmedi.'
+  const copy = waitingForCapacity ? 'için bekleyen tekrarlar, günlük planda yer açıldığında eklenecek.'
+    : retry ? 'Eklenemedi, yeniden deneniyor.' : skipped ? 'Tekrar tarihleri geçti; yeni görev eklenmedi.'
     : newlyAdded ? 'konusu tekrar görevlerine eklendi.'
       : taskIds.length > 0 ? 'için mevcut tekrar görevleri Görevlerim’de.' : message ?? 'Tekrar işlemi doğrulanıyor.';
-  const showName = retry || skipped || taskIds.length > 0;
+  const showName = waitingForCapacity || retry || skipped || taskIds.length > 0;
   return <div className={styles.repetitionRow}>
-    {retry ? <TriangleAlert size={18} aria-hidden="true"/> : taskIds.length > 0 ? <CheckCircle2 size={18} aria-hidden="true"/> : <Clock3 size={18} aria-hidden="true"/>}
+    {retry ? <TriangleAlert size={18} aria-hidden="true"/> : taskIds.length > 0 && !waitingForCapacity ? <CheckCircle2 size={18} aria-hidden="true"/> : <Clock3 size={18} aria-hidden="true"/>}
     <span>{showName && <><strong>{name}</strong> </>}{copy}</span>
     {taskIds.length > 0 && onOpenTasks && <button type="button" onClick={onOpenTasks}>Görevlerim’de gör <ArrowRight size={14} aria-hidden="true"/></button>}
   </div>;

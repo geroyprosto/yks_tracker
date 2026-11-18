@@ -16,7 +16,7 @@ async function createDatabase(beforeReviewMigration = false) {
     insert into auth.users values('${owner}');`);
   const migrations = new URL('../migrations/', import.meta.url);
   for (const name of (await readdir(migrations)).filter(name => name.endsWith('.sql') &&
-    !name.includes('topic_review_series_reconcile') && (!beforeReviewMigration ||
+    name < '20261001195253_topic_review_series_reconcile.sql' && (!beforeReviewMigration ||
     !['topic_spaced_repetition', 'remove_historical_topic_review_backfill',
       'purge_removed_review_plan_snapshots', 'restore_topic_review_schedule_identity'].some(part => name.includes(part)))).sort()) {
     await db.exec(await readFile(new URL(name, migrations), 'utf8'));

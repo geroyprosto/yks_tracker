@@ -6,7 +6,7 @@ AI ve MCP ayrı, isteğe bağlı entegrasyonlardır. Temel çalışma kaydı bun
 
 AI yalnız kullanıcının isteğiyle çalışır. [analysis-provider.ts](../../src/lib/server/analysis-provider.ts) içindeki `schedulerReady()` her zaman `false` döner; [analysis.ts](../../src/lib/server/analysis.ts) zamanlamayı açmayı ve `generateScheduledAnalysis` çağrısını `AUTOMATIC_AI_DISABLED` ile reddeder. `AI_SCHEDULER_ENABLED=true` ayarı bu davranışı açmaz.
 
-[vercel.json](../../vercel.json) içindeki `/api/cron/analysis` günlük işi, [route.ts](../../src/app/api/cron/analysis/route.ts) üzerinden yalnız `topic_review_retry_pending` çağırır. `CRON_SECRET` ile korunur; başarısız tekrar görevi yazmalarını ücretli model çağrısı yapmadan yeniden dener. Eski “14 günde otomatik AI raporu” kurulum notları güncel talimat değildir.
+[vercel.json](../../vercel.json) içindeki `/api/cron/analysis` günlük işi, [route.ts](../../src/app/api/cron/analysis/route.ts) üzerinden yalnız `topic_review_retry_pending` çağırır. `CRON_SECRET` ile korunur; başarısız veya yer bekleyen tekrarları yeniden dener ve sonradan dolan günlerdeki otomatik tekrarları yeniden dağıtır. Bu işlem model çağrısı yapmaz. Her tekrar 20 dakikadır. Planlayıcı önce güne özel süre hedefini, ardından haftanın o günü için kayıtlı hedefi kullanır. Bir günde en çok iki tekrar planlar. Diğer görevler en az altı saat tutuyorsa sınır bir tekrardır. Eski “14 günde otomatik AI raporu” kurulum notları güncel talimat değildir.
 
 Sunucu ortamında aşağıdakiler gerekir:
 

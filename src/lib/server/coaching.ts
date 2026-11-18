@@ -5,6 +5,8 @@ import {buildWeeklyHomeworkCandidates,type CoachingPlan} from '../coaching-plan'
 import {ApiError} from './http';
 import {localDate} from '../ui';
 
+export const topicReviewSchedule = "Anlatımı tamamlanan her konu için beş düşük öncelikli pekiştirme planlanır. İlk tekrar için en erken tarih o haftanın pazarıdır. Sonrakiler önceki tekrarın planlanan tarihinden en az 14 gün, ardından sırasıyla 1, 2 ve 3 ay sonrasına yerleşir. Servis her 20 dakikalık tekrarı günlük hedefte yer olan bir güne yazar. Gerçek tarihler için Görevlerim kayıtlarını kullan.";
+
 export type TaskReceipt={key?:string;title:string;topic_id:string;exam?:string;subject?:string;
   status:string;task_ids:string[];reason?:string;plan_date?:string};
 export type CoachingContext={plan:CoachingPlan|null;previous_cutoff:string|null;previous_report_id:string|null;

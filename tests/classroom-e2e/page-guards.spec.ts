@@ -61,8 +61,14 @@ test('approved student stays on the student page', async ({ page, context }) => 
   expect(firstHtml).toContain('Çalışma alanı yükleniyor');
   expect(firstHtml).not.toContain('Ana gezinme');
 
+  let stateReads = 0;
+  await page.route('**/api/realtime?*', route => route.fulfill({json: {enabled: false}}));
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/api/state') stateReads++;
+  });
   await page.goto('/');
   await expect(page).toHaveURL(origin + '/');
   await expect(page.getByRole('navigation', { name: 'Ana gezinme' })).toBeVisible();
   await expect(page.getByRole('heading', { name: /Merhaba,/ })).toBeVisible();
+  expect(stateReads).toBe(0);
 });

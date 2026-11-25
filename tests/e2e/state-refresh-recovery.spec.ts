@@ -544,6 +544,44 @@ test(`a transport outage preserves the running workspace and recovers on ${activ
 });
 }
 
+test('a slow initial read offers a retry before timing out and recovers without reloading', async ({page}) => {
+  const state: AppState = {...emptyState(true), authenticated: true};
+  let reads = 0;
+  let documentLoads = 0;
+  let release!: () => void;
+  const held = new Promise<void>(resolve => {release = resolve;});
+  page.on('request', request => {if (request.resourceType() === 'document') documentLoads++;});
+  await page.clock.install();
+  await page.route('**/api/state', async route => {
+    if (++reads === 1) {
+      await held;
+      await route.abort().catch(() => {});
+      return;
+    }
+    await route.fulfill({json: state});
+  });
+  await page.route('**/api/realtime?*', route => route.fulfill({json: {enabled: false}}));
+  try {
+    await page.goto('/');
+    await expect.poll(() => reads).toBe(1);
+    await expect(page.getByRole('status')).toContainText('Çalışma alanı yükleniyor');
+    await page.clock.runFor(3000);
+    await expect(page.getByRole('status')).toContainText(/bağlantı/i);
+    const retry = page.getByRole('button', {name: 'Tekrar dene', exact: true});
+    await expect(retry).toBeEnabled();
+    expect(reads).toBe(1);
+    await Promise.all([
+      page.waitForEvent('requestfailed', request => new URL(request.url()).pathname === '/api/state'),
+      retry.click(),
+    ]);
+    await expect(page.getByRole('navigation', {name: 'Ana gezinme'})).toBeVisible();
+    await expect(page.locator('.sync-status')).toContainText('Hesabın güncel');
+    await expect(retry).toHaveCount(0);
+    expect(reads).toBe(2);
+    expect(documentLoads).toBe(1);
+  } finally {release();}
+});
+
 test('an initial transport outage offers a connection retry and then loads the workspace', async ({page}) => {
   const state: AppState = {...emptyState(true), authenticated: true, tasks: [task()]};
   let failReads = true;
